@@ -1,0 +1,786 @@
+﻿/*
+ * DynamORM - Dynamic Object-Relational Mapping library.
+ * Copyright (c) 2012, Grzegorz Russek (grzegorz.russek@gmail.com)
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+using System;
+using System.Collections.Generic;
+using System.Dynamic;
+using System.Linq;
+using DynamORM.Builders;
+using DynamORM.Helpers;
+using DynamORM.Mapper;
+
+namespace DynamORM
+{
+    /// <summary>Dynamic table is a simple ORM using dynamic objects.</summary>
+    /// <example>
+    /// <para>Assume that we have a table representing Users class.</para>
+    /// <para>
+    /// <para>Let's take a look at <c>Query</c> posibilities. Assume we want
+    /// to get enumerator for all records in database, mapped to our class
+    /// instead of dynamic type we can use following syntax.</para>
+    /// <para>Approach first. Use dynamic <c>Query</c> method and just set type
+    /// then just cast it to user class. Remember that you must cast result
+    /// of <c>Query</c>to <c>IEnumerable&lt;object&gt;</c>. because from
+    /// point of view of runtime you are operating on <c>object</c> type.</para>
+    /// <code>(db.Table&lt;User&gt;().Query(type: typeof(User)) as IEnumerable&lt;object&gt;).Cast&lt;User&gt;();</code>
+    /// <para>Second approach is similar. We ask database using dynamic
+    /// <c>Query</c> method. The difference is that we use extension method of
+    /// <c>IEnumerable&lt;object&gt;</c> (to which we must cast to) to map
+    /// object.</para>
+    /// <code>(db.Table&lt;User&gt;().Query(columns: "*") as IEnumerable&lt;object&gt;).MapEnumerable&lt;User&gt;();</code>
+    /// You can also use generic approach. But be careful this method is currently avaliable thanks to framework hack.
+    /// <code>(db.Table&lt;User&gt;().Query&lt;User&gt;() as IEnumerable&lt;object&gt;).Cast&lt;User&gt;()</code>
+    /// <para>Another approach uses existing methods, but still requires a
+    /// cast, because <c>Query</c> also returns dynamic object enumerator.</para>
+    /// <code>(db.Table&lt;User&gt;().Query().Execute() as IEnumerable&lt;object&gt;).MapEnumerable&lt;User&gt;();</code>
+    /// </para>
+    /// </example>
+    public class DynamicTable : DynamicObject, IDisposable, ICloneable
+    {
+        private static HashSet<string> _allowedCommands = new HashSet<string>
+        {
+            "Insert", "Update", "Delete",
+            "Query", "Single", "Where",
+            "First", "Last", "Get",
+            "Count", "Sum", "Avg",
+            "Min", "Max", "Scalar"
+        };
+
+        /// <summary>Gets dynamic database.</summary>
+        internal DynamicDatabase Database { get; private set; }
+
+        /// <summary>Gets type of table (for coning and schema building).</summary>
+        internal Type TableType { get; private set; }
+
+        /// <summary>Gets name of table.</summary>
+        public virtual string TableName { get; private set; }
+
+        /// <summary>Gets table schema.</summary>
+        /// <remarks>If database doesn't support schema, only key columns are listed here.</remarks>
+        public virtual Dictionary<string, DynamicSchemaColumn> Schema { get; private set; }
+
+        private DynamicTable() { }
+
+        /// <summary>Initializes a new instance of the <see cref="DynamicTable" /> class.</summary>
+        /// <param name="database">Database and connection management.</param>
+        /// <param name="table">Table name.</param>
+        /// <param name="keys">Override keys in schema.</param>
+        public DynamicTable(DynamicDatabase database, string table = "", string[] keys = null)
+        {
+            Database = database;
+            TableName = table;
+            TableType = null;
+
+            BuildAndCacheSchema(keys);
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="DynamicTable" /> class.</summary>
+        /// <param name="database">Database and connection management.</param>
+        /// <param name="type">Type describing table.</param>
+        /// <param name="keys">Override keys in schema.</param>
+        public DynamicTable(DynamicDatabase database, Type type, string[] keys = null)
+        {
+            if (type == null)
+                throw new ArgumentNullException("type", "Type can't be null.");
+
+            Database = database;
+
+            TableType = type;
+
+            var mapper = DynamicMapperCache.GetMapper(type);
+
+            if (mapper != null)
+                TableName = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
+                    type.Name : mapper.Table.Name;
+
+            BuildAndCacheSchema(keys);
+        }
+
+        #region Schema
+
+        private void BuildAndCacheSchema(string[] keys)
+        {
+            Dictionary<string, DynamicSchemaColumn> schema = null;
+
+            schema = Database.GetSchema(TableType) ??
+                Database.GetSchema(TableName);
+
+            #region Fill currrent table schema
+
+            if (keys == null && TableType != null)
+            {
+                var mapper = DynamicMapperCache.GetMapper(TableType);
+
+                if (mapper != null)
+                {
+                    var k = mapper.ColumnsMap.Where(p => p.Value.Column != null && p.Value.Column.IsKey).Select(p => p.Key);
+                    if (k.Count() > 0)
+                        keys = k.ToArray();
+                }
+            }
+
+            if (schema != null)
+            {
+                if (keys == null)
+                    Schema = new Dictionary<string, DynamicSchemaColumn>(schema);
+                else
+                {
+                    // TODO: Make this.... nicer
+                    List<string> ks = keys.Select(k => k.ToLower()).ToList();
+
+                    Schema = schema.ToDictionary(k => k.Key, (v) =>
+                    {
+                        DynamicSchemaColumn dsc = v.Value;
+                        dsc.IsKey = ks.Contains(v.Key);
+                        return dsc;
+                    });
+                }
+            }
+
+            #endregion Fill currrent table schema
+
+            #region Build ad-hock schema
+
+            if (keys != null && Schema == null)
+            {
+                Schema = keys.Select(k => k.ToLower()).ToList()
+                    .ToDictionary(k => k, k => new DynamicSchemaColumn { Name = k, IsKey = true });
+            }
+
+            #endregion Build ad-hock schema
+        }
+
+        #endregion Schema
+
+        #region Basic Queries
+
+        /// <summary>Enumerate the reader and yield the result.</summary>
+        /// <param name="sql">Sql query containing numered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName"/> methods. Also names should be formated with
+        /// <see cref="DecorateName.GetParameterName"/> method.</param>
+        /// <param name="args">Arguments (parameters).</param>
+        /// <returns>Enumerator of objects expanded from query.</returns>
+        public virtual IEnumerable<dynamic> Query(string sql, params object[] args)
+        {
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                using (var rdr = cmd
+                    .SetCommand(sql)
+                    .AddParameters(Database, args)
+                    .ExecuteReader())
+                    while (rdr.Read())
+                        yield return rdr.RowToDynamic();
+            }
+        }
+
+        /// <summary>Enumerate the reader and yield the result.</summary>
+        /// <param name="builder">Command builder.</param>
+        /// <returns>Enumerator of objects expanded from query.</returns>
+        public virtual IEnumerable<dynamic> Query(IDynamicQueryBuilder builder)
+        {
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                using (var rdr = cmd
+                    .SetCommand(builder)
+                    .ExecuteReader())
+                    while (rdr.Read())
+                        yield return rdr.RowToDynamic();
+            }
+        }
+
+        /// <summary>Create new <see cref="DynamicSelectQueryBuilder"/>.</summary>
+        /// <returns>New <see cref="DynamicSelectQueryBuilder"/> instance.</returns>
+        public virtual DynamicSelectQueryBuilder Query()
+        {
+            return new DynamicSelectQueryBuilder(this);
+        }
+
+        /// <summary>Returns a single result.</summary>
+        /// <param name="sql">Sql query containing numered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName"/> methods. Also names should be formated with
+        /// <see cref="DecorateName.GetParameterName"/> method.</param>
+        /// <param name="args">Arguments (parameters).</param>
+        /// <returns>Result of a query.</returns>
+        public virtual object Scalar(string sql, params object[] args)
+        {
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(sql).AddParameters(Database, args)
+                    .ExecuteScalar();
+            }
+        }
+
+        /// <summary>Returns a single result.</summary>
+        /// <param name="builder">Command builder.</param>
+        /// <returns>Result of a query.</returns>
+        public virtual object Scalar(IDynamicQueryBuilder builder)
+        {
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(builder)
+                    .ExecuteScalar();
+            }
+        }
+
+        /// <summary>Execute non query.</summary>
+        /// <param name="sql">Sql query containing numered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName"/> methods. Also names should be formated with
+        /// <see cref="DecorateName.GetParameterName"/> method.</param>
+        /// <param name="args">Arguments (parameters).</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Execute(string sql, params object[] args)
+        {
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(sql).AddParameters(Database, args)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute non query.</summary>
+        /// <param name="builder">Command builder.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Execute(IDynamicQueryBuilder builder)
+        {
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(builder)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute non query.</summary>
+        /// <param name="builers">Command builders.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Execute(IDynamicQueryBuilder[] builers)
+        {
+            int ret = 0;
+
+            using (var con = Database.Open())
+            {
+                using (var trans = con.BeginTransaction())
+                {
+                    foreach (var builder in builers)
+                    {
+                        using (var cmd = con.CreateCommand())
+                        {
+                            ret += cmd
+                               .SetCommand(builder)
+                               .ExecuteNonQuery();
+                        }
+                    }
+
+                    trans.Commit();
+                }
+            }
+
+            return ret;
+        }
+
+        #endregion Basic Queries
+
+        #region Insert
+
+        /// <summary>Create new <see cref="DynamicInsertQueryBuilder"/>.</summary>
+        /// <returns>New <see cref="DynamicInsertQueryBuilder"/> instance.</returns>
+        public DynamicInsertQueryBuilder Insert()
+        {
+            return new DynamicInsertQueryBuilder(this);
+        }
+
+        /// <summary>Adds a record to the database. You can pass in an Anonymous object, an ExpandoObject,
+        /// A regular old POCO, or a NameValueColletion from a Request.Form or Request.QueryString.</summary>
+        /// <param name="o">Anonymous object, an ExpandoObject, a regular old POCO, or a NameValueCollection
+        /// from a Request.Form or Request.QueryString, containing fields to update.</param>
+        /// <returns>Number of updated rows.</returns>
+        public virtual int Insert(object o)
+        {
+            return Insert()
+                .Insert(o)
+                .Execute();
+        }
+
+        #endregion Insert
+
+        #region Update
+
+        /// <summary>Create new <see cref="DynamicUpdateQueryBuilder"/>.</summary>
+        /// <returns>New <see cref="DynamicUpdateQueryBuilder"/> instance.</returns>
+        public DynamicUpdateQueryBuilder Update()
+        {
+            return new DynamicUpdateQueryBuilder(this);
+        }
+
+        /// <summary>Updates a record in the database. You can pass in an Anonymous object, an ExpandoObject,
+        /// a regular old POCO, or a NameValueCollection from a Request.Form or Request.QueryString.</summary>
+        /// <param name="o">Anonymous object, an ExpandoObject, a regular old POCO, or a NameValueCollection
+        /// from a Request.Form or Request.QueryString, containing fields to update.</param>
+        /// <param name="key">Anonymous object, an ExpandoObject, a regular old POCO, or a NameValueCollection
+        /// from a Request.Form or Request.QueryString, containing fields with conditions.</param>
+        /// <returns>Number of updated rows.</returns>
+        public virtual int Update(object o, object key)
+        {
+            return Update()
+                .Values(o)
+                .Where(key)
+                .Execute();
+        }
+
+        /// <summary>Updates a record in the database using schema. You can pass in an Anonymous object, an ExpandoObject,
+        /// a regular old POCO, or a NameValueCollection from a Request.Form or Request.QueryString.</summary>
+        /// <param name="o">Anonymous object, an ExpandoObject, a regular old POCO, or a NameValueCollection
+        /// from a Request.Form or Request.QueryString, containing fields to update and conditions.</param>
+        /// <returns>Number of updated rows.</returns>
+        public virtual int Update(object o)
+        {
+            return Update()
+                .Update(o)
+                .Execute();
+        }
+
+        #endregion Update
+
+        #region Delete
+
+        /// <summary>Create new <see cref="DynamicDeleteQueryBuilder"/>.</summary>
+        /// <returns>New <see cref="DynamicDeleteQueryBuilder"/> instance.</returns>
+        public DynamicDeleteQueryBuilder Delete()
+        {
+            return new DynamicDeleteQueryBuilder(this);
+        }
+
+        /// <summary>Removes a record from the database. You can pass in an Anonymous object, an ExpandoObject,
+        /// A regular old POCO, or a NameValueColletion from a Request.Form or Request.QueryString.</summary>
+        /// <param name="o">Anonymous object, an ExpandoObject, a regular old POCO, or a NameValueCollection
+        /// from a Request.Form or Request.QueryString, containing fields with where conditions.</param>
+        /// <param name="schema">If <c>true</c> use schema to determine key columns and ignore those which
+        /// aren't keys.</param>
+        /// <returns>Number of updated rows.</returns>
+        public virtual int Delete(object o, bool schema = true)
+        {
+            return Delete()
+                .Where(o, schema)
+                .Execute();
+        }
+
+        #endregion Delete
+
+        #region Universal Dynamic Invoker
+
+        /// <summary>This is where the magic begins.</summary>
+        /// <param name="binder">Binder to invoke.</param>
+        /// <param name="args">Binder arguments.</param>
+        /// <param name="result">Binder invoke result.</param>
+        /// <returns>Returns <c>true</c> if invoke was performed.</returns>
+        public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
+        {
+            // parse the method
+            var info = binder.CallInfo;
+
+            // Get generic types
+            var types = binder.GetGenericTypeArguments();
+
+            // accepting named args only... SKEET!
+            if (info.ArgumentNames.Count != args.Length)
+                throw new InvalidOperationException("Please use named arguments for this type of query - the column name, orderby, columns, etc");
+
+            var op = binder.Name;
+
+            // Avoid strange things
+            if (!_allowedCommands.Contains(op))
+                throw new InvalidOperationException(string.Format("Dynamic method '{0}' is not supported.", op));
+
+            switch (op)
+            {
+                case "Insert":
+                    result = DynamicInsert(args, info, types);
+                    break;
+                case "Update":
+                    result = DynamicUpdate(args, info, types);
+                    break;
+                case "Delete":
+                    result = DynamicDelete(args, info, types);
+                    break;
+                default:
+                    result = DynamicQuery(args, info, op, types);
+                    break;
+            }
+
+            return true;
+        }
+
+        private object DynamicInsert(object[] args, CallInfo info, IList<Type> types)
+        {
+            var builder = new DynamicInsertQueryBuilder(this);
+
+            if (types != null && types.Count == 1)
+                HandleTypeArgument<DynamicInsertQueryBuilder>(null, info, ref types, builder, 0);
+
+            // loop the named args - see if we have order, columns and constraints
+            if (info.ArgumentNames.Count > 0)
+            {
+                for (int i = 0; i < args.Length; i++)
+                {
+                    var name = info.ArgumentNames[i].ToLower();
+
+                    switch (name)
+                    {
+                        case "table":
+                            if (args[i] is string)
+                                builder.Table(args[i].ToString());
+                            else goto default;
+                            break;
+                        case "values":
+                            builder.Insert(args[i]);
+                            break;
+                        case "type":
+                            if (types == null || types.Count == 0)
+                                HandleTypeArgument<DynamicInsertQueryBuilder>(args, info, ref types, builder, i);
+                            else goto default;
+                            break;
+                        default:
+                            builder.Insert(name, args[i]);
+                            break;
+                    }
+                }
+            }
+
+            // Execute
+            return Execute(builder);
+        }
+
+        private object DynamicUpdate(object[] args, CallInfo info, IList<Type> types)
+        {
+            var builder = new DynamicUpdateQueryBuilder(this);
+
+            if (types != null && types.Count == 1)
+                HandleTypeArgument<DynamicUpdateQueryBuilder>(null, info, ref types, builder, 0);
+
+            // loop the named args - see if we have order, columns and constraints
+            if (info.ArgumentNames.Count > 0)
+            {
+                for (int i = 0; i < args.Length; i++)
+                {
+                    var name = info.ArgumentNames[i].ToLower();
+
+                    switch (name)
+                    {
+                        case "table":
+                            if (args[i] is string)
+                                builder.Table(args[i].ToString());
+                            else goto default;
+                            break;
+                        case "update":
+                            builder.Update(args[i]);
+                            break;
+                        case "values":
+                            builder.Values(args[i]);
+                            break;
+                        case "where":
+                            builder.Where(args[i]);
+                            break;
+                        case "type":
+                            if (types == null || types.Count == 0)
+                                HandleTypeArgument(args, info, ref types, builder, i);
+                            else goto default;
+                            break;
+                        default:
+                            builder.Update(name, args[i]);
+                            break;
+                    }
+                }
+            }
+
+            // Execute
+            return Execute(builder);
+        }
+
+        private object DynamicDelete(object[] args, CallInfo info, IList<Type> types)
+        {
+            var builder = new DynamicDeleteQueryBuilder(this);
+
+            if (types != null && types.Count == 1)
+                HandleTypeArgument<DynamicDeleteQueryBuilder>(null, info, ref types, builder, 0);
+
+            // loop the named args - see if we have order, columns and constraints
+            if (info.ArgumentNames.Count > 0)
+            {
+                for (int i = 0; i < args.Length; i++)
+                {
+                    var name = info.ArgumentNames[i].ToLower();
+
+                    switch (name)
+                    {
+                        case "table":
+                            if (args[i] is string)
+                                builder.Table(args[i].ToString());
+                            else goto default;
+                            break;
+                        case "where":
+                            builder.Where(args[i], false);
+                            break;
+                        case "delete":
+                            builder.Where(args[i], true);
+                            break;
+                        case "type":
+                            if (types == null || types.Count == 0)
+                                HandleTypeArgument<DynamicDeleteQueryBuilder>(args, info, ref types, builder, i);
+                            else goto default;
+                            break;
+                        default:
+                            builder.Where(name, args[i]);
+                            break;
+                    }
+                }
+            }
+
+            // Execute
+            return Execute(builder);
+        }
+
+        private object DynamicQuery(object[] args, CallInfo info, string op, IList<Type> types)
+        {
+            object result;
+            var builder = new DynamicSelectQueryBuilder(this);
+
+            if (types != null && types.Count == 1)
+                HandleTypeArgument<DynamicSelectQueryBuilder>(null, info, ref types, builder, 0);
+
+            // loop the named args - see if we have order, columns and constraints
+            if (info.ArgumentNames.Count > 0)
+            {
+                for (int i = 0; i < args.Length; i++)
+                {
+                    var name = info.ArgumentNames[i].ToLower();
+
+                    // TODO: Make this nicer
+                    switch (name)
+                    {
+                        case "order":
+                            if (args[i] is string)
+                                builder.OrderBy(((string)args[i]).Split(','));
+                            else if (args[i] is string[])
+                                builder.OrderBy(args[i] as string);
+                            else if (args[i] is DynamicColumn[])
+                                builder.OrderBy((DynamicColumn[])args[i]);
+                            else if (args[i] is DynamicColumn)
+                                builder.OrderBy((DynamicColumn)args[i]);
+                            else goto default;
+                            break;
+                        case "group":
+                            if (args[i] is string)
+                                builder.GroupBy(((string)args[i]).Split(','));
+                            else if (args[i] is string[])
+                                builder.GroupBy(args[i] as string);
+                            else if (args[i] is DynamicColumn[])
+                                builder.GroupBy((DynamicColumn[])args[i]);
+                            else if (args[i] is DynamicColumn)
+                                builder.GroupBy((DynamicColumn)args[i]);
+                            else goto default;
+                            break;
+                        case "columns":
+                            if (args[i] is string)
+                                builder.Select(((string)args[i]).Split(','));
+                            else if (args[i] is string[])
+                                builder.Select(args[i] as string);
+                            else if (args[i] is DynamicColumn[])
+                                builder.Select((DynamicColumn[])args[i]);
+                            else if (args[i] is DynamicColumn)
+                                builder.Select((DynamicColumn)args[i]);
+                            else goto default;
+                            break;
+                        case "where":
+                            builder.Where(args[i]);
+                            break;
+                        case "table":
+                            if (args[i] is string)
+                                builder.Table(args[i].ToString());
+                            else goto default;
+                            break;
+                        case "type":
+                            if (types == null || types.Count == 0)
+                                HandleTypeArgument<DynamicSelectQueryBuilder>(args, info, ref types, builder, i);
+                            else goto default;
+                            break;
+                        default:
+                            builder.Where(name, args[i]);
+                            break;
+                    }
+                }
+            }
+
+            if (op == "Count" && builder.Columns.Count == 0)
+            {
+                result = Scalar(builder.Select(new DynamicColumn
+                {
+                    ColumnName = "*",
+                    Aggregate = op.ToUpper(),
+                    Alias = "Count"
+                }));
+
+                if (result is long)
+                    result = (int)(long)result;
+            }
+            else if (op == "Sum" || op == "Max" ||
+                op == "Min" || op == "Avg" || op == "Count")
+            {
+                if (builder.Columns.Count == 0)
+                    throw new InvalidOperationException("You must select at least one column to agregate.");
+
+                foreach (var o in builder.Columns)
+                    o.Aggregate = op.ToUpper();
+
+                if (builder.Columns.Count == 1)
+                {
+                    result = Scalar(builder);
+
+                    if (op == "Count" && result is long)
+                        result = (int)(long)result;
+                }
+                else
+                {
+                    result = Query(builder).FirstOrDefault(); // return lots
+                }
+            }
+            else
+            {
+                // build the SQL
+                var justOne = op == "First" || op == "Last" || op == "Get" || op == "Single";
+
+                // Be sure to sort by DESC on selected columns
+                if (op == "Last")
+                {
+                    if (builder.Order.Count > 0)
+                        foreach (var o in builder.Order)
+                            o.Order = o.Order == DynamicColumn.SortOrder.Desc ?
+                                DynamicColumn.SortOrder.Asc : DynamicColumn.SortOrder.Desc;
+                }
+
+                if (justOne && !(op == "Last" && builder.Order.Count == 0))
+                {
+                    if ((Database.Options & DynamicDatabaseOptions.SupportLimitOffset) == DynamicDatabaseOptions.SupportLimitOffset)
+                        builder.Limit(1);
+                    else if ((Database.Options & DynamicDatabaseOptions.SupportTop) == DynamicDatabaseOptions.SupportTop)
+                        builder.Top(1);
+                }
+
+                if (op == "Scalar")
+                {
+                    if (builder.Columns.Count != 1)
+                        throw new InvalidOperationException("You must select one column in scalar steatement.");
+
+                    result = Scalar(builder);
+                }
+                else
+                {
+                    if (justOne)
+                    {
+                        if (op == "Last" && builder.Order.Count == 0)
+                            result = Query(builder).LastOrDefault(); // Last record fallback
+                        else
+                            result = Query(builder).FirstOrDefault(); // return a single record
+                    }
+                    else
+                        result = Query(builder); // return lots
+
+                    // MapEnumerable to specified result (still needs to be casted after that)
+                    if (types != null)
+                    {
+                        if (types.Count == 1)
+                            result = justOne ?
+                                result.Map(types[0]) :
+                                ((IEnumerable<object>)result).MapEnumerable(types[0]);
+
+                        // TODO: Dictionaries
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private void HandleTypeArgument<T>(object[] args, CallInfo info, ref IList<Type> types, DynamicQueryBuilder<T> builder, int i) where T : class
+        {
+            if (args != null)
+            {
+                if (args[i] is Type[])
+                    types = new List<Type>((Type[])args[i]);
+                else if (args[i] is Type)
+                    types = new List<Type>(new Type[] { (Type)args[i] });
+            }
+
+            if (types != null && types.Count == 1 && !info.ArgumentNames.Any(a => a.ToLower() == "table"))
+                builder.Table(types[0]);
+        }
+
+        #endregion Universal Dynamic Invoker
+
+        #region IDisposable Members
+
+        /// <summary>Performs application-defined tasks associated with
+        /// freeing, releasing, or resetting unmanaged resources.</summary>
+        public void Dispose()
+        {
+            Database.RemoveFromCache(this);
+
+            // Lose reference but don't kill it.
+            if (Database != null)
+                Database = null;
+        }
+
+        #endregion IDisposable Members
+
+        #region ICloneable Members
+
+        /// <summary>Creates a new object that is a copy of the current
+        /// instance.</summary>
+        /// <returns>A new object that is a copy of this instance.</returns>
+        public object Clone()
+        {
+            return new DynamicTable()
+            {
+                Database = this.Database,
+                Schema = this.Schema,
+                TableName = this.TableName,
+                TableType = this.TableType
+            };
+        }
+
+        #endregion ICloneable Members
+    }
+}

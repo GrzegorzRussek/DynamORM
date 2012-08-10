@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{63963ED7-9C78-4672-A4D4-339B6E825503}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>DynamORM</RootNamespace>
+    <AssemblyName>DynamORM</AssemblyName>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+    <DebugSymbols>true</DebugSymbols>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Builders\DynamicDeleteQueryBuilder.cs" />
+    <Compile Include="Builders\DynamicInsertQueryBuilder.cs" />
+    <Compile Include="Builders\DynamicQueryBuilder.cs" />
+    <Compile Include="Builders\DynamicSelectQueryBuilder.cs" />
+    <Compile Include="Builders\DynamicUpdateQueryBuilder.cs" />
+    <Compile Include="Builders\IDynamicQueryBuilder.cs" />
+    <Compile Include="DynamicColumn.cs" />
+    <Compile Include="DynamicCommand.cs" />
+    <Compile Include="DynamicConnection.cs" />
+    <Compile Include="DynamicDatabase.cs" />
+    <Compile Include="DynamicDatabaseOptions.cs" />
+    <Compile Include="DynamicExtensions.cs" />
+    <Compile Include="DynamicSchemaColumn.cs" />
+    <Compile Include="DynamicTable.cs" />
+    <Compile Include="DynamicTransaction.cs" />
+    <Compile Include="Helpers\CollectionComparer.cs" />
+    <Compile Include="Helpers\FrameworkTools.cs" />
+    <Compile Include="Mapper\ColumnAttribute.cs" />
+    <Compile Include="Mapper\DynamicMapperCache.cs" />
+    <Compile Include="Mapper\DynamicPropertyInvoker.cs" />
+    <Compile Include="Mapper\DynamicTypeMap.cs" />
+    <Compile Include="Mapper\IgnoreAttribute.cs" />
+    <Compile Include="Mapper\TableAttribute.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

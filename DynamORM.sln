@@ -1,0 +1,27 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+# SharpDevelop 4.2.0.8774-RC
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamORM", "DynamORM\DynamORM.csproj", "{63963ED7-9C78-4672-A4D4-339B6E825503}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamORM.Tests", "DynamORM.Tests\DynamORM.Tests.csproj", "{D5013B4E-8A1B-4DBB-8FB5-E09935F4F764}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{63963ED7-9C78-4672-A4D4-339B6E825503}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63963ED7-9C78-4672-A4D4-339B6E825503}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63963ED7-9C78-4672-A4D4-339B6E825503}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63963ED7-9C78-4672-A4D4-339B6E825503}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5013B4E-8A1B-4DBB-8FB5-E09935F4F764}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5013B4E-8A1B-4DBB-8FB5-E09935F4F764}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5013B4E-8A1B-4DBB-8FB5-E09935F4F764}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5013B4E-8A1B-4DBB-8FB5-E09935F4F764}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
