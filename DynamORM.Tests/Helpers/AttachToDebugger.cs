@@ -26,6 +26,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+using System.Collections.Generic;
 using System.Diagnostics;
 using NUnit.Framework;
 
@@ -52,6 +53,21 @@ namespace DynamORM.Tests.Helpers
             var b = new { x = 3, y = 4 };
 
             Assert.AreEqual(a.GetType(), b.GetType());
+        }
+
+        /// <summary>Test anonymous type value.</summary>
+        [Test]
+        public void TestAnonTypeValue()
+        {
+        	var a = new { x = 1, y = "bla bla" };
+            var b = new { x = 1, y = "bla bla" };
+
+            Assert.AreEqual(a, b);
+            Assert.IsTrue(a.Equals(b));
+            
+            Dictionary<object, int> dict = new Dictionary<object, int>() { { a, 999 } };
+            
+            Assert.IsTrue(dict.ContainsKey(b));
         }
     }
 }

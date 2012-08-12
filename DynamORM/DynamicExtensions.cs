@@ -35,6 +35,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using DynamORM.Builders;
 using DynamORM.Mapper;
 
@@ -647,6 +648,16 @@ namespace DynamORM
 
         /// <summary>Dump command into text writer.</summary>
         /// <param name="command">Command to dump.</param>
+        /// <param name="buider">Builder to which write output.</param>
+        /// <returns>Returns dumped <see cref="System.Data.IDbCommand"/> instance.</returns>
+        public static IDbCommand Dump(this IDbCommand command, StringBuilder buider)
+        {
+            using (StringWriter sw = new StringWriter(buider))
+                return command.Dump(sw);
+        }
+
+        /// <summary>Dump command into text writer.</summary>
+        /// <param name="command">Command to dump.</param>
         /// <param name="writer">Writer to which write output.</param>
         /// <returns>Returns dumped <see cref="System.Data.IDbCommand"/> instance.</returns>
         public static IDbCommand Dump(this IDbCommand command, TextWriter writer)
@@ -684,6 +695,20 @@ namespace DynamORM
 
             while (r.Read())
                 result.Add(r.RowToDynamic());
+
+            return result;
+        }
+
+        /// <summary>Turns the dictionary into an ExpandoObject.</summary>
+        /// <param name="d">Dictionary to convert.</param>
+        /// <returns>Converted dictionary.</returns>
+        public static dynamic ToDynamic(this IDictionary<string, object> d)
+        {
+            var result = new ExpandoObject();
+            var dict = result as IDictionary<string, object>;
+
+            foreach (var prop in d)
+                dict.Add(prop.Key, prop.Value);
 
             return result;
         }

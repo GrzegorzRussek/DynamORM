@@ -196,7 +196,7 @@ namespace DynamORM
             Dictionary<string, DynamicSchemaColumn> schema = null;
 
             lock (SyncLock)
-                schema = Schema.TryGetValue(table.GetType().FullName) ??
+                schema = Schema.TryGetValue(table.ToLower()) ??
                     BuildAndCacheSchema(table, null);
 
             return schema;
@@ -417,6 +417,7 @@ namespace DynamORM
         {
             IDbConnection conn = null;
             DynamicConnection ret = null;
+            bool opened = false;
 
             lock (SyncLock)
             {
@@ -427,6 +428,7 @@ namespace DynamORM
                         conn = _provider.CreateConnection();
                         conn.ConnectionString = _connectionString;
                         conn.Open();
+                        opened = true;
 
                         TransactionPool.Add(conn, new Stack<IDbTransaction>());
                         CommandsPool.Add(conn, new List<IDbCommand>());
@@ -436,7 +438,10 @@ namespace DynamORM
                         conn = TransactionPool.Keys.First();
 
                         if (conn.State != ConnectionState.Open)
+                        {
                             conn.Open();
+                            opened = true;
+                        }
                     }
 
                     ret = new DynamicConnection(this, conn, _singleTransaction);
@@ -444,6 +449,9 @@ namespace DynamORM
                 else
                     ret = _tempConn;
             }
+
+            if (opened)
+                ExecuteInitCommands(ret);
 
             return ret;
         }
@@ -489,6 +497,19 @@ namespace DynamORM
                     connection.Dispose();
                 }
             }
+        }
+
+        /// <summary>Gets or sets contains commands executed when connection is opened.</summary>
+        public List<string> InitCommands { get; set; }
+
+        private void ExecuteInitCommands(IDbConnection conn)
+        {
+            if (InitCommands != null)
+                using (IDbCommand command = conn.CreateCommand())
+                    foreach (string commandText in InitCommands)
+                        command
+                            .SetCommand(commandText)
+                            .ExecuteNonQuery();
         }
 
         #endregion Connection

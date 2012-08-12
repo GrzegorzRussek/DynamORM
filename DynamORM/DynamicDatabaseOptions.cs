@@ -43,16 +43,16 @@ namespace DynamORM
         /// <summary>Only one transaction.</summary>
         SingleTransaction,
 
-        /// <summary>Database supports top syntax.</summary>
+        /// <summary>Database supports top syntax (SELECT TOP x ... FROM ...).</summary>
         SupportTop,
 
-        /// <summary>Database supports limit offset syntax.</summary>
+        /// <summary>Database supports limit offset syntax (SELECT ... FROM ... LIMIT x OFFSET y).</summary>
         SupportLimitOffset,
 
         /// <summary>Database support standard schema.</summary>
         SupportSchema,
 
-        /// <summary>Database support stored procedures.</summary>
+        /// <summary>Database support stored procedures (EXEC proc ...).</summary>
         SupportStoredProcedures
     }
 }

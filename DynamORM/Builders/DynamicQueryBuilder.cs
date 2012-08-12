@@ -51,6 +51,9 @@ namespace DynamORM.Builders
         /// <summary>Gets a value indicating whether database supports standard schema.</summary>
         public bool SupportSchema { get; private set; }
 
+        /// <summary>Gets or sets a value indicating whether set parameters for null values.</summary>
+        public bool VirtualMode { get; set; }
+
         /// <summary>Gets table name.</summary>
         public string TableName { get; private set; }
 
@@ -60,6 +63,7 @@ namespace DynamORM.Builders
         {
             DynamicTable = table;
             TableName = table.TableName;
+            VirtualMode = false;
 
             WhereConditions = new List<DynamicColumn>();
 
@@ -245,7 +249,7 @@ namespace DynamORM.Builders
 
             foreach (var v in WhereConditions)
             {
-                var col = Schema.TryGetNullable(v.ColumnName);
+                var col = Schema.TryGetNullable(v.ColumnName.ToLower());
 
                 string column = col.HasValue ? col.Value.Name : v.ColumnName;
 
@@ -253,14 +257,17 @@ namespace DynamORM.Builders
                     (column.IndexOf('(') == -1 || column.IndexOf(')') == -1))
                     column = db.DecorateName(column);
 
-                if (v.Value == null)
+                if ((v.Value == null || v.Value == DBNull.Value) && !VirtualMode && !v.VirtualColumn)
                 {
                     #region Null operators
 
                     if (v.Operator == DynamicColumn.CompareOperator.Not || v.Operator == DynamicColumn.CompareOperator.Eq)
-                        sb.AppendFormat(" {0} {1} IS{2} NULL",
-                            first ? "WHERE" : "AND", column,
-                            v.Operator == DynamicColumn.CompareOperator.Not ? " NOT" : string.Empty);
+                        sb.AppendFormat(" {0} {1}{2} IS{3} NULL{4}",
+                            first ? "WHERE" : v.Or ? "OR" : "AND",
+                            v.BeginBlock ? "(" : string.Empty,
+                            column,
+                            v.Operator == DynamicColumn.CompareOperator.Not ? " NOT" : string.Empty,
+                            v.EndBlock ? ")" : string.Empty);
                     else
                         throw new InvalidOperationException("NULL can only be compared by IS or IS NOT operator.");
 
@@ -273,11 +280,16 @@ namespace DynamORM.Builders
 
                     int pos = command.Parameters.Count;
 
-                    sb.AppendFormat(" {0} {1} {2} ",
-                        first ? "WHERE" : "AND", column,
+                    sb.AppendFormat(" {0} {1}{2} {3} ",
+                        first ? "WHERE" : v.Or ? "OR" : "AND",
+                        v.BeginBlock ? "(" : string.Empty,
+                        column,
                         ToOperator(v.Operator));
 
                     db.GetParameterName(sb, pos);
+
+                    if (v.EndBlock)
+                        sb.Append(")");
 
                     command.AddParameter(this, v);
 
@@ -298,8 +310,10 @@ namespace DynamORM.Builders
 
                         if (vals.Count == 2)
                         {
-                            sb.AppendFormat(" {0} {1} BETWEEN ",
-                                first ? "WHERE" : "AND", column);
+                            sb.AppendFormat(" {0} {1}{2} BETWEEN ",
+                                first ? "WHERE" : v.Or ? "OR" : "AND",
+                                v.BeginBlock ? "(" : string.Empty,
+                                column);
 
                             // From parameter
                             db.GetParameterName(sb, command.Parameters.Count);
@@ -313,6 +327,9 @@ namespace DynamORM.Builders
                             v.Value = vals[1];
                             command.AddParameter(this, v);
 
+                            if (v.EndBlock)
+                                sb.Append(")");
+
                             // Reset value
                             v.Value = vals;
                         }
@@ -325,8 +342,10 @@ namespace DynamORM.Builders
                     {
                         #region In operator
 
-                        sb.AppendFormat(" {0} {1} IN(",
-                            first ? "WHERE" : "AND", column);
+                        sb.AppendFormat(" {0} {1}{2} IN(",
+                            first ? "WHERE" : v.Or ? "OR" : "AND",
+                            v.BeginBlock ? "(" : string.Empty,
+                            column);
 
                         bool firstParam = true;
 
@@ -353,6 +372,9 @@ namespace DynamORM.Builders
                         v.Value = vals;
 
                         sb.Append(")");
+
+                        if (v.EndBlock)
+                            sb.Append(")");
 
                         #endregion
                     }

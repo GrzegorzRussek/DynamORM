@@ -92,6 +92,7 @@ namespace DynamORM
         /// <remarks>Constructor provided for easier object creation in qeries.</remarks>
         /// <param name="columnName">Name of column to set.</param>
         public DynamicColumn(string columnName)
+            : this()
         {
             ColumnName = columnName;
         }
@@ -131,6 +132,18 @@ namespace DynamORM
 
         /// <summary>Gets or sets condition operator.</summary>
         public CompareOperator Operator { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether this condition will be treated as or condition.</summary>
+        public bool Or { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether start new block in where steatement.</summary>
+        public bool BeginBlock { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether end existing block in where steatement.</summary>
+        public bool EndBlock { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether set parameters for null values.</summary>
+        public bool VirtualColumn { get; set; }
 
         #endregion Properties
 
@@ -382,7 +395,7 @@ namespace DynamORM
             string column = ColumnName == "*" ? "*" : ColumnName;
 
             if (column != "*" &&
-                (column.IndexOf(db.LeftDecorator) == -1 || column.IndexOf(db.LeftDecorator) == -1) &&
+                (column.IndexOf(db.LeftDecorator) == -1 || column.IndexOf(db.RightDecorator) == -1) &&
                 (column.IndexOf('(') == -1 || column.IndexOf(')') == -1))
                 column = db.DecorateName(column);
 
