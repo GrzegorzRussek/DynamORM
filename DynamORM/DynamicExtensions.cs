@@ -255,32 +255,33 @@ namespace DynamORM
             var p = cmd.CreateParameter();
             p.ParameterName = builder.DynamicTable.Database.GetParameterName(cmd.Parameters.Count);
 
-            if (item.Value == null)
-                p.Value = DBNull.Value;
-            else
+            var col = builder.Schema.TryGetNullable(item.ColumnName.ToLower());
+
+            if (col.HasValue)
             {
-                var col = builder.Schema.TryGetNullable(item.ColumnName.ToLower());
+                p.DbType = col.Value.Type;
 
-                if (col.HasValue)
+                if (builder.SupportSchema)
                 {
-                    p.DbType = col.Value.Type;
+                    p.Size = col.Value.Size;
+                    p.Precision = col.Value.Precision;
+                    p.Scale = col.Value.Scale;
 
-                    if (builder.SupportSchema)
-                    {
-                        p.Size = col.Value.Size;
-                        p.Precision = col.Value.Precision;
-                        p.Scale = col.Value.Scale;
-                    }
-                }
-                else
-                {
-                    p.DbType = TypeMap.TryGetNullable(item.Value.GetType()) ?? DbType.String;
-
-                    if (p.DbType == DbType.String)
-                        p.Size = item.Value.ToString().Length > 4000 ? -1 : 4000;
+                    // Quick fix - review that
+                    if (p.Scale > p.Precision)
+                        p.Scale = 4;
                 }
 
                 p.Value = item.Value;
+            }
+            else if (item.Value == null || item.Value == DBNull.Value)
+                p.Value = DBNull.Value;
+            else
+            {
+                p.DbType = TypeMap.TryGetNullable(item.Value.GetType()) ?? DbType.String;
+
+                if (p.DbType == DbType.String)
+                    p.Size = item.Value.ToString().Length > 4000 ? -1 : 4000;
             }
 
             cmd.Parameters.Add(p);
@@ -666,12 +667,16 @@ namespace DynamORM
 
             if (command.Parameters.Count > 0)
             {
-                writer.Write("Parameters:");
+                writer.WriteLine("Parameters:");
 
                 foreach (IDbDataParameter param in command.Parameters)
                 {
-                    writer.Write(" '{0}'({1}) = '{2}'({3});",
-                        param.ParameterName, param.DbType,
+                    writer.WriteLine(" '{0}' ({1} (s:{2} p:{3} s:{4})) = '{5}' ({6});",
+                        param.ParameterName,
+                        param.DbType,
+                        param.Scale,
+                        param.Precision,
+                        param.Scale,
                         param.Value ?? "NULL",
                         param.Value != null ? param.Value.GetType().Name : "DBNull");
                 }

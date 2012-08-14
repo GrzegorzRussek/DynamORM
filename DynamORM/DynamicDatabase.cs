@@ -59,7 +59,24 @@ namespace DynamORM
         /// <summary>Gets or sets timestamp of last transaction pool or configuration change.</summary>
         /// <remarks>This property is used to allow commands to determine if
         /// they need to update transaction object or not.</remarks>
-        internal long PoolStamp { get { return _poolStamp; } set { lock (SyncLock) _poolStamp = value; } }
+        internal long PoolStamp
+        {
+            get
+            {
+                long r = 0;
+
+                lock (SyncLock)
+                    r = _poolStamp;
+
+                return r;
+            }
+
+            set
+            {
+                lock (SyncLock)
+                    _poolStamp = value;
+            }
+        }
 
         /// <summary>Gets pool of connections and transactions.</summary>
         internal Dictionary<IDbConnection, Stack<IDbTransaction>> TransactionPool { get; private set; }
@@ -82,6 +99,9 @@ namespace DynamORM
 
         /// <summary>Gets or sets command timeout.</summary>
         public int? CommandTimeout { get { return _commandTimeout; } set { _commandTimeout = value; _poolStamp = DateTime.Now.Ticks; } }
+
+        /// <summary>Gets the database provider.</summary>
+        public DbProviderFactory Provider { get { return _provider; } }
 
         /// <summary>Gets or sets a value indicating whether
         /// dump commands to console or not.</summary>

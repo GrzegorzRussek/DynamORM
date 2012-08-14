@@ -179,7 +179,7 @@ namespace DynamORM.Builders
                 first = false;
             }
 
-            return command.SetCommand("INSERT INTO {0} ({1}) VALUES ({2})", TableName, builderColumns, builderValues);
+            return command.SetCommand("INSERT INTO {0} ({1}) VALUES ({2})", db.DecorateName(TableName), builderColumns, builderValues);
         }
 
         /// <summary>Execute this builder.</summary>

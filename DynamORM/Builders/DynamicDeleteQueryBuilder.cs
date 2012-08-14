@@ -48,7 +48,8 @@ namespace DynamORM.Builders
         {
             StringBuilder sb = new StringBuilder();
 
-            sb.AppendFormat("DELETE FROM {0}", TableName);
+            sb.Append("DELETE FROM ");
+            DynamicTable.Database.DecorateName(sb, TableName);
 
             FillWhere(command, sb);
 

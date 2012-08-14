@@ -51,7 +51,7 @@ namespace DynamORM
             lock (_db.SyncLock)
             {
                 if (!_db.CommandsPool.ContainsKey(_con.Connection))
-                    throw new InvalidOperationException("Can't create transaction using disposed connection.");
+                    throw new InvalidOperationException("Can't create command using disposed connection.");
                 else
                 {
                     _command = _con.Connection.CreateCommand();
@@ -60,16 +60,28 @@ namespace DynamORM
             }
         }
 
+        /// <summary>Initializes a new instance of the <see cref="DynamicCommand"/> class.</summary>
+        /// <param name="db">The databas manager.</param>
+        /// <remarks>Used intenaly to create command without context.</remarks>
+        internal DynamicCommand(DynamicDatabase db)
+        {
+            _db = db;
+            _command = db.Provider.CreateCommand();
+        }
+
         /// <summary>Prepare command for execution.</summary>
         /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
-        private IDbCommand PrepareForExecution()
+        internal IDbCommand PrepareForExecution()
         {
-            if (_poolStamp < _db.PoolStamp)
+            // TODO: Fix that
+            // if (_poolStamp < _db.PoolStamp)
             {
                 _command.CommandTimeout = _commandTimeout ?? _db.CommandTimeout ?? _command.CommandTimeout;
 
                 if (_db.TransactionPool[_command.Connection].Count > 0)
                     _command.Transaction = _db.TransactionPool[_command.Connection].Peek();
+                else
+                    _command.Transaction = null;
 
                 _poolStamp = _db.PoolStamp;
             }
@@ -106,7 +118,26 @@ namespace DynamORM
         /// <summary>Gets or sets the <see cref="T:System.Data.IDbConnection"/>
         /// used by this instance of the <see cref="T:System.Data.IDbCommand"/>.</summary>
         /// <returns>The connection to the data source.</returns>
-        public IDbConnection Connection { get { return _con; } set { _con = (DynamicConnection)value; } }
+        public IDbConnection Connection
+        {
+            get { return _con; }
+
+            set
+            {
+                _con = value as DynamicConnection;
+
+                if (_con != null)
+                {
+                    _poolStamp = 0;
+                    _command.Connection = _con.Connection;
+                }
+                else
+                {
+                    _command.Transaction = null;
+                    _command.Connection = null;
+                }
+            }
+        }
 
         /// <summary>Creates a new instance of an
         /// <see cref="T:System.Data.IDbDataParameter"/> object.</summary>
@@ -191,10 +222,13 @@ namespace DynamORM
         {
             lock (_db.SyncLock)
             {
-                var pool = _db.CommandsPool.TryGetValue(_con.Connection);
+                if (_con != null)
+                {
+                    var pool = _db.CommandsPool.TryGetValue(_con.Connection);
 
-                if (pool != null)
-                    pool.Remove(_command);
+                    if (pool != null && pool.Contains(_command))
+                        pool.Remove(_command);
+                }
 
                 _command.Dispose();
             }
