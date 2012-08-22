@@ -1007,6 +1007,23 @@ namespace DynamORM
             return mapper.Create(item);
         }
 
+        /// <summary>Converts the elements of an <see cref="System.Collections.IEnumerable"/>
+        /// to the specified type.</summary>
+        /// <typeparam name="T">The type to convert the elements of source to.</typeparam>
+        /// <param name="enumerator">The <see cref="System.Collections.IEnumerable"/> that
+        /// contains the elements to be converted.</param>
+        /// <returns>An enumerator that contains each element of
+        /// the source sequence converted to the specified type.</returns>
+        /// <exception cref="System.ArgumentNullException">Thrown when
+        /// <c>source</c> is null.</exception>
+        /// <exception cref="System.InvalidCastException">An element in the
+        /// sequence cannot be cast to type <c>T</c> or <c>enumerator</c>
+        /// is not <see cref="System.Collections.IEnumerable"/>.</exception>
+        public static IEnumerable<T> CastEnumerable<T>(this object enumerator)
+        {
+            return (enumerator as System.Collections.IEnumerable).Cast<T>();
+        }
+
         #endregion Mapper extensions
 
         #region TryParse extensions

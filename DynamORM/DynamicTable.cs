@@ -59,6 +59,136 @@ namespace DynamORM
     /// cast, because <c>Query</c> also returns dynamic object enumerator.</para>
     /// <code>(db.Table&lt;User&gt;().Query().Execute() as IEnumerable&lt;object&gt;).MapEnumerable&lt;User&gt;();</code>
     /// </para>
+    /// <para>Below you can find various invocations of dynamic and non dynemic
+    /// methods of this class. <c>x</c> variable is a class instance.
+    /// First various selects:</para>
+    /// <code>x.Count(columns: "id");</code>
+    /// <code>x.Count(last: new DynamicColumn
+    /// {
+    ///     Operator = DynamicColumn.CompareOperator.In,
+    ///     Value = new object[] { "Hendricks", "Goodwin", "Freeman" }.Take(3)
+    /// });</code>
+    /// <code>x.Count(last: new DynamicColumn
+    /// {
+    ///     Operator = DynamicColumn.CompareOperator.In,
+    ///     Value = new object[] { "Hendricks", "Goodwin", "Freeman" }
+    /// });</code>
+    /// <code>x.First(columns: "id").id;</code>
+    /// <code>x.Last(columns: "id").id;</code>
+    /// <code>x.Count(first: "Ori");</code>
+    /// <code>x.Min(columns: "id");</code>
+    /// <code>x.Max(columns: "id");</code>
+    /// <code>x.Avg(columns: "id");</code>
+    /// <code>x.Sum(columns: "id");</code>
+    /// <code>x.Scalar(columns: "first", id: 19);</code>
+    /// <code>x.Scalar(columns: "first:first:group_concat", id: new DynamicColumn { Operator = DynamicColumn.CompareOperator.Lt, Value = 20 });</code>
+    /// <code>x.Scalar(columns: "group_concat(first):first", id: new DynamicColumn { Operator = DynamicColumn.CompareOperator.Lt, Value = 20 });</code>
+    /// <code>var v = (x.Query(columns: "first,first:occurs:count", group: "first", order: ":desc:2") as IEnumerable&lt;dynamic&gt;).ToList();</code>
+    /// <code>x.Scalar(columns: @"length(""login""):len:avg");</code>
+    /// <code>x.Avg(columns: @"length(""email""):len");</code>
+    /// <code>x.Count(condition1:
+    ///     new DynamicColumn()
+    ///     {
+    ///         ColumnName = "email",
+    ///         Aggregate = "length",
+    ///         Operator = DynamicColumn.CompareOperator.Gt,
+    ///         Value = 27
+    ///     });</code>
+    /// <code>var o = x.Single(columns: "id,first,last", id: 19);</code>
+    /// <code>x.Single(where: new DynamicColumn("id").Eq(100)).login;</code>
+    /// <code>x.Count(where: new DynamicColumn("id").Not(100));</code>
+    /// <code>x.Single(where: new DynamicColumn("login").Like("Hoyt.%")).id;</code>
+    /// <code>x.Count(where: new DynamicColumn("login").NotLike("Hoyt.%"));</code>
+    /// <code>x.Count(where: new DynamicColumn("id").Greater(100));</code>
+    /// <code>x.Count(where: new DynamicColumn("id").GreaterOrEqual(100));</code>
+    /// <code>x.Count(where: new DynamicColumn("id").Less(100));</code>
+    /// <code>x.Count(where: new DynamicColumn("id").LessOrEqual(100));</code>
+    /// <code>x.Count(where: new DynamicColumn("id").Between(75, 100));</code>
+    /// <code>x.Count(where: new DynamicColumn("id").In(75, 99, 100));</code>
+    /// <code>x.Count(where: new DynamicColumn("id").In(new[] { 75, 99, 100 }));</code>
+    /// Inserts:
+    /// <code>x.Insert(code: 201, first: "Juri", last: "Gagarin", email: "juri.gagarin@megacorp.com", quote: "bla, bla, bla");</code>
+    /// <code>x.Insert(values: new { code = 202, first = "Juri", last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" });</code>
+    /// <code>x.Insert(values: new Users
+    /// {
+    ///     Id = u.Max(columns: "id") + 1,
+    ///     Code = "203",
+    ///     First = "Juri",
+    ///     Last = "Gagarin",
+    ///     Email = "juri.gagarin@megacorp.com",
+    ///     Quote = "bla, bla, bla"
+    /// });</code>
+    /// <code>x.Insert(values: new users
+    /// {
+    ///     id = u.Max(columns: "id") + 1,
+    ///     code = "204",
+    ///     first = "Juri",
+    ///     last = "Gagarin",
+    ///     email = "juri.gagarin@megacorp.com",
+    ///     quote = "bla, bla, bla"
+    /// });</code>
+    /// <code>x.Update(id: 1, code: 201, first: "Juri", last: "Gagarin", email: "juri.gagarin@megacorp.com", quote: "bla, bla, bla");</code>
+    /// <code>x.Update(update: new { id = 2, code = 202, first = "Juri", last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" });</code>
+    /// Updates:
+    /// <code>x.Update(update: new Users
+    /// {
+    ///     Id = 3,
+    ///     Code = "203",
+    ///     First = "Juri",
+    ///     Last = "Gagarin",
+    ///     Email = "juri.gagarin@megacorp.com",
+    ///     Quote = "bla, bla, bla"
+    /// });</code>
+    /// <code>x.Update(update: new users
+    /// {
+    ///     id = 4,
+    ///     code = "204",
+    ///     first = "Juri",
+    ///     last = "Gagarin",
+    ///     email = "juri.gagarin@megacorp.com",
+    ///     quote = "bla, bla, bla"
+    /// });</code>
+    /// <code>x.Update(values: new { code = 205, first = "Juri", last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }, where: new { id = 5 });</code>
+    /// <code>x.Update(values: new Users
+    /// {
+    ///     Id = 6,
+    ///     Code = "206",
+    ///     First = "Juri",
+    ///     Last = "Gagarin",
+    ///     Email = "juri.gagarin@megacorp.com",
+    ///     Quote = "bla, bla, bla"
+    /// }, id: 6);</code>
+    /// <code>x.Update(values: new users
+    /// {
+    ///     id = 7,
+    ///     code = "207",
+    ///     first = "Juri",
+    ///     last = "Gagarin",
+    ///     email = "juri.gagarin@megacorp.com",
+    ///     quote = "bla, bla, bla"
+    /// }, id: 7);</code>
+    /// Delete:
+    /// <code>x.Delete(code: 10);</code>
+    /// <code>x.Delete(delete: new { id = 11, code = 11, first = "Juri", last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" });</code>
+    /// <code>x.Delete(delete: new Users
+    /// {
+    ///     Id = 12,
+    ///     Code = "12",
+    ///     First = "Juri",
+    ///     Last = "Gagarin",
+    ///     Email = "juri.gagarin@megacorp.com",
+    ///     Quote = "bla, bla, bla"
+    /// });</code>
+    /// <code>x.Delete(delete: new users
+    /// {
+    ///     id = 13,
+    ///     code = "13",
+    ///     first = "Juri",
+    ///     last = "Gagarin",
+    ///     email = "juri.gagarin@megacorp.com",
+    ///     quote = "bla, bla, bla"
+    /// });</code>
+    /// <code>x.Delete(where: new { id = 14, code = 14 });</code>
     /// </example>
     public class DynamicTable : DynamicObject, IDisposable, ICloneable
     {

@@ -38,7 +38,7 @@ namespace DynamORM
         private int? _commandTimeout = null;
         private DynamicConnection _con;
         private DynamicDatabase _db;
-        private long _poolStamp = 0;
+        ////private long _poolStamp = 0;
 
         /// <summary>Initializes a new instance of the <see cref="DynamicCommand"/> class.</summary>
         /// <param name="con">The connection.</param>
@@ -74,7 +74,7 @@ namespace DynamORM
         internal IDbCommand PrepareForExecution()
         {
             // TODO: Fix that
-            // if (_poolStamp < _db.PoolStamp)
+            ////if (_poolStamp < _db.PoolStamp)
             {
                 _command.CommandTimeout = _commandTimeout ?? _db.CommandTimeout ?? _command.CommandTimeout;
 
@@ -83,7 +83,7 @@ namespace DynamORM
                 else
                     _command.Transaction = null;
 
-                _poolStamp = _db.PoolStamp;
+                ////_poolStamp = _db.PoolStamp;
             }
 
             return _db.DumpCommands ? _command.Dump(Console.Out) : _command;
@@ -128,7 +128,7 @@ namespace DynamORM
 
                 if (_con != null)
                 {
-                    _poolStamp = 0;
+                    ////_poolStamp = 0;
                     _command.Connection = _con.Connection;
                 }
                 else
