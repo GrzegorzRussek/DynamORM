@@ -48,7 +48,7 @@ namespace DynamORM.Mapper
         /// <summary>Gets map of columns to properties.</summary>
         public Dictionary<string, DynamicPropertyInvoker> ColumnsMap { get; private set; }
 
-        /// <summary>Gets  map of properties to column.</summary>
+        /// <summary>Gets map of properties to column.</summary>
         public Dictionary<string, string> PropertyMap { get; private set; }
 
         /// <summary>Gets list of ignored properties.</summary>

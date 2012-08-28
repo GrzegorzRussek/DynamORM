@@ -158,6 +158,26 @@ namespace DynamORM
         #region Table
 
         /// <summary>Gets dynamic table which is a simple ORM using dynamic objects.</summary>
+        /// <param name="action">The action with nstance of <see cref="DynamicTable"/> as parameter.</param>
+        /// <param name="table">Table name.</param>
+        /// <param name="keys">Override keys in schema.</param>
+        public void Table(Action<dynamic> action, string table = "", string[] keys = null)
+        {
+            using (dynamic t = Table(table, keys))
+                action(t);
+        }
+
+        /// <summary>Gets dynamic table which is a simple ORM using dynamic objects.</summary>
+        /// <typeparam name="T">Type used to determine table name.</typeparam>
+        /// <param name="action">The action with nstance of <see cref="DynamicTable"/> as parameter.</param>
+        /// <param name="keys">Override keys in schema.</param>
+        public void Table<T>(Action<dynamic> action, string[] keys = null)
+        {
+            using (dynamic t = Table<T>(keys))
+                action(t);
+        }
+
+        /// <summary>Gets dynamic table which is a simple ORM using dynamic objects.</summary>
         /// <param name="table">Table name.</param>
         /// <param name="keys">Override keys in schema.</param>
         /// <returns>Instance of <see cref="DynamicTable"/>.</returns>
