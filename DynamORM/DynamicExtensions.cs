@@ -213,6 +213,20 @@ namespace DynamORM
             return cmd;
         }
 
+        /// <summary>Extension method for adding in a bunch of parameters.</summary>
+        /// <param name="cmd">Command to handle.</param>
+        /// <param name="database">Database object required to get proper formatting.</param>
+        /// <param name="args">Items to add in an expando object.</param>
+        /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
+        public static IDbCommand AddParameters(this IDbCommand cmd, DynamicDatabase database, ExpandoObject args)
+        {
+            if (args != null && args.Count() > 0)
+                foreach (var item in args.ToDictionary())
+                    cmd.AddParameter(database, item.Key, item.Value);
+
+            return cmd;
+        }
+
         /// <summary>Extension for adding single parameter determining only type of object.</summary>
         /// <param name="cmd">Command to handle.</param>
         /// <param name="database">Database object required to get proper formatting.</param>
@@ -220,8 +234,19 @@ namespace DynamORM
         /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
         public static IDbCommand AddParameter(this IDbCommand cmd, DynamicDatabase database, object item)
         {
+            return cmd.AddParameter(database, database.GetParameterName(cmd.Parameters.Count), item);
+        }
+
+        /// <summary>Extension for adding single parameter determining only type of object.</summary>
+        /// <param name="cmd">Command to handle.</param>
+        /// <param name="database">Database object required to get proper formatting.</param>
+        /// <param name="name">Name of parameter.</param>
+        /// <param name="item">Items to add.</param>
+        /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
+        public static IDbCommand AddParameter(this IDbCommand cmd, DynamicDatabase database, string name, object item)
+        {
             var p = cmd.CreateParameter();
-            p.ParameterName = database.GetParameterName(cmd.Parameters.Count);
+            p.ParameterName = name;
 
             if (item == null)
                 p.Value = DBNull.Value;
@@ -255,7 +280,7 @@ namespace DynamORM
             var p = cmd.CreateParameter();
             p.ParameterName = builder.DynamicTable.Database.GetParameterName(cmd.Parameters.Count);
 
-            var col = builder.Schema.TryGetNullable(item.ColumnName.ToLower());
+            var col = item.Schema ?? builder.Schema.TryGetNullable(item.ColumnName.ToLower());
 
             if (col.HasValue)
             {
@@ -268,6 +293,7 @@ namespace DynamORM
                     p.Scale = col.Value.Scale;
 
                     // Quick fix - review that
+                    // Quick fix 2 - use item.Schema in that case
                     if (p.Scale > p.Precision)
                         p.Scale = 4;
                 }

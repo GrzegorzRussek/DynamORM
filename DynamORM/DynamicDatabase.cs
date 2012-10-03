@@ -287,7 +287,7 @@ namespace DynamORM
             {
                 using (var rdr = cmd
                     .SetCommand(string.Format("SELECT * FROM {0} WHERE 1 = 0", DecorateName(table)))
-                    .ExecuteReader(CommandBehavior.SchemaOnly))
+                    .ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
                     foreach (DataRow col in rdr.GetSchemaTable().Rows)
                     {
                         var c = col.RowToDynamicUpper();

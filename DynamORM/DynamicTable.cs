@@ -28,6 +28,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Dynamic;
 using System.Linq;
 using DynamORM.Builders;
@@ -311,8 +312,8 @@ namespace DynamORM
 
         /// <summary>Enumerate the reader and yield the result.</summary>
         /// <param name="sql">Sql query containing numered parameters in format provided by
-        /// <see cref="DynamicDatabase.GetParameterName"/> methods. Also names should be formated with
-        /// <see cref="DecorateName.GetParameterName"/> method.</param>
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formated with
+        /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
         /// <param name="args">Arguments (parameters).</param>
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Query(string sql, params object[] args)
@@ -354,8 +355,8 @@ namespace DynamORM
 
         /// <summary>Returns a single result.</summary>
         /// <param name="sql">Sql query containing numered parameters in format provided by
-        /// <see cref="DynamicDatabase.GetParameterName"/> methods. Also names should be formated with
-        /// <see cref="DecorateName.GetParameterName"/> method.</param>
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formated with
+        /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
         /// <param name="args">Arguments (parameters).</param>
         /// <returns>Result of a query.</returns>
         public virtual object Scalar(string sql, params object[] args)
@@ -383,10 +384,28 @@ namespace DynamORM
             }
         }
 
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <param name="args">Arguments (parameters) in form of expando object.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName, ExpandoObject args = null)
+        {
+            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(CommandType.StoredProcedure, procName).AddParameters(Database, args)
+                    .ExecuteNonQuery();
+            }
+        }
+
         /// <summary>Execute non query.</summary>
         /// <param name="sql">Sql query containing numered parameters in format provided by
-        /// <see cref="DynamicDatabase.GetParameterName"/> methods. Also names should be formated with
-        /// <see cref="DecorateName.GetParameterName"/> method.</param>
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formated with
+        /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
         /// <param name="args">Arguments (parameters).</param>
         /// <returns>Number of affected rows.</returns>
         public virtual int Execute(string sql, params object[] args)

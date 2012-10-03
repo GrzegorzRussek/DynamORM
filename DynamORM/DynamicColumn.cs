@@ -145,6 +145,12 @@ namespace DynamORM
         /// <summary>Gets or sets a value indicating whether set parameters for null values.</summary>
         public bool VirtualColumn { get; set; }
 
+        /// <summary>Gets or sets schema representation of a column.</summary>
+        /// <remarks>Woraround to providers issues which sometimes pass wrong
+        /// data o schema. For example decimal has precission of 255 in sql
+        /// server.</remarks>
+        public DynamicSchemaColumn? Schema { get; set; }
+
         #endregion Properties
 
         #region Query creation helpers
@@ -297,6 +303,8 @@ namespace DynamORM
 
         #endregion Order
 
+        #region Other
+
         /// <summary>Helper method setting
         /// <see cref="DynamicColumn.ColumnName"/>
         /// to provided <c>name</c>.</summary>
@@ -329,6 +337,44 @@ namespace DynamORM
             Aggregate = aggregate;
             return this;
         }
+
+        /// <summary>Sets the begin block flag.</summary>
+        /// <param name="begin">If set to <c>true</c> [begin].</param>
+        /// <returns>Returns self.</returns>
+        public DynamicColumn SetBeginBlock(bool begin)
+        {
+            BeginBlock = begin;
+            return this;
+        }
+
+        /// <summary>Sets the end block flag.</summary>
+        /// <param name="end">If set to <c>true</c> [end].</param>
+        /// <returns>Returns self.</returns>
+        public DynamicColumn SetEndBlock(bool end)
+        {
+            EndBlock = end;
+            return this;
+        }
+
+        /// <summary>Sets the or flag.</summary>
+        /// <param name="or">If set to <c>true</c> [or].</param>
+        /// <returns>Returns self.</returns>
+        public DynamicColumn SetOr(bool or)
+        {
+            Or = or;
+            return this;
+        }
+
+        /// <summary>Sets the virtual column.</summary>
+        /// <param name="virt">If set to <c>true</c> [virt].</param>
+        /// <returns>Returns self.</returns>
+        public DynamicColumn SetVirtualColumn(bool virt)
+        {
+            VirtualColumn = virt;
+            return this;
+        }
+
+        #endregion Other
 
         #endregion Query creation helpers
 
