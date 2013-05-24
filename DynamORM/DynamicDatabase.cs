@@ -108,7 +108,7 @@ namespace DynamORM
         public bool DumpCommands { get; set; }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicDatabase" /> class.</summary>
-        /// <param name="provider">Database proider by name.</param>
+        /// <param name="provider">Database provider by name.</param>
         /// <param name="connectionString">Connection string to provided database.</param>
         /// <param name="options">Connection options.</param>
         public DynamicDatabase(string provider, string connectionString, DynamicDatabaseOptions options)
@@ -117,7 +117,7 @@ namespace DynamORM
         }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicDatabase" /> class.</summary>
-        /// <param name="provider">Database proider.</param>
+        /// <param name="provider">Database provider.</param>
         /// <param name="connectionString">Connection string to provided database.</param>
         /// <param name="options">Connection options.</param>
         public DynamicDatabase(DbProviderFactory provider, string connectionString, DynamicDatabaseOptions options)
@@ -146,6 +146,7 @@ namespace DynamORM
 
             _singleConnection = (options & DynamicDatabaseOptions.SingleConnection) == DynamicDatabaseOptions.SingleConnection;
             _singleTransaction = (options & DynamicDatabaseOptions.SingleTransaction) == DynamicDatabaseOptions.SingleTransaction;
+            DumpCommands = (options & DynamicDatabaseOptions.DumpCommands) == DynamicDatabaseOptions.DumpCommands;
 
             TransactionPool = new Dictionary<IDbConnection, Stack<IDbTransaction>>();
             CommandsPool = new Dictionary<IDbConnection, List<IDbCommand>>();
@@ -158,7 +159,7 @@ namespace DynamORM
         #region Table
 
         /// <summary>Gets dynamic table which is a simple ORM using dynamic objects.</summary>
-        /// <param name="action">The action with nstance of <see cref="DynamicTable"/> as parameter.</param>
+        /// <param name="action">The action with instance of <see cref="DynamicTable"/> as parameter.</param>
         /// <param name="table">Table name.</param>
         /// <param name="keys">Override keys in schema.</param>
         public void Table(Action<dynamic> action, string table = "", string[] keys = null)
@@ -169,7 +170,7 @@ namespace DynamORM
 
         /// <summary>Gets dynamic table which is a simple ORM using dynamic objects.</summary>
         /// <typeparam name="T">Type used to determine table name.</typeparam>
-        /// <param name="action">The action with nstance of <see cref="DynamicTable"/> as parameter.</param>
+        /// <param name="action">The action with instance of <see cref="DynamicTable"/> as parameter.</param>
         /// <param name="keys">Override keys in schema.</param>
         public void Table<T>(Action<dynamic> action, string[] keys = null)
         {
@@ -228,9 +229,9 @@ namespace DynamORM
 
         #region Schema
 
-        /// <summary>Builds table cache if nessesary and returns it.</summary>
+        /// <summary>Builds table cache if necessary and returns it.</summary>
         /// <param name="table">Name of table for which build schema.</param>
-        /// <returns>Table chema.</returns>
+        /// <returns>Table schema.</returns>
         public Dictionary<string, DynamicSchemaColumn> GetSchema(string table)
         {
             Dictionary<string, DynamicSchemaColumn> schema = null;
@@ -242,7 +243,7 @@ namespace DynamORM
             return schema;
         }
 
-        /// <summary>Builds table cache if nessesary and returns it.</summary>
+        /// <summary>Builds table cache if necessary and returns it.</summary>
         /// <typeparam name="T">Type of table for which build schema.</typeparam>
         /// <returns>Table schema or null if type was anonymous.</returns>
         public Dictionary<string, DynamicSchemaColumn> GetSchema<T>()
@@ -259,7 +260,7 @@ namespace DynamORM
             return schema;
         }
 
-        /// <summary>Builds table cache if nessesary and returns it.</summary>
+        /// <summary>Builds table cache if necessary and returns it.</summary>
         /// <param name="table">Type of table for which build schema.</param>
         /// <returns>Table schema or null if type was anonymous.</returns>
         public Dictionary<string, DynamicSchemaColumn> GetSchema(Type table)
@@ -558,7 +559,7 @@ namespace DynamORM
 
         /// <summary>Begins a global database transaction.</summary>
         /// <remarks>Using this method connection is set to single open
-        /// connection untill all transactions are finished.</remarks>
+        /// connection until all transactions are finished.</remarks>
         /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
         public IDbTransaction BeginTransaction()
         {

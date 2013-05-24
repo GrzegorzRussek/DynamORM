@@ -32,27 +32,31 @@ namespace DynamORM
 {
     /// <summary>Represents database connection options.</summary>
     [Flags]
+    [System.Reflection.ObfuscationAttribute(Feature = "renaming", ApplyToMembers = true)]
     public enum DynamicDatabaseOptions
     {
         /// <summary>No specific options.</summary>
-        None,
+        None = 0x00000000,
 
-        /// <summary>Only single presistent database connection.</summary>
-        SingleConnection,
+        /// <summary>Only single persistent database connection.</summary>
+        SingleConnection = 0x00000001,
 
         /// <summary>Only one transaction.</summary>
-        SingleTransaction,
+        SingleTransaction = 0x00000002,
 
         /// <summary>Database supports top syntax (SELECT TOP x ... FROM ...).</summary>
-        SupportTop,
+        SupportTop = 0x00000080,
 
         /// <summary>Database supports limit offset syntax (SELECT ... FROM ... LIMIT x OFFSET y).</summary>
-        SupportLimitOffset,
+        SupportLimitOffset = 0x00000040,
 
         /// <summary>Database support standard schema.</summary>
-        SupportSchema,
+        SupportSchema = 0x00000010,
 
-        /// <summary>Database support stored procedures (EXEC proc ...).</summary>
-        SupportStoredProcedures
+        /// <summary>Database support stored procedures (EXEC procedure ...).</summary>
+        SupportStoredProcedures = 0x00000020,
+
+        /// <summary>Debug option allowing to enable command dumps by default.</summary>
+        DumpCommands = 0x01000000,
     }
 }

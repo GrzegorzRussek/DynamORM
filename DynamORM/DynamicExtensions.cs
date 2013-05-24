@@ -46,7 +46,7 @@ namespace DynamORM
     {
         #region Type column map
 
-        /// <summary>MapEnumerable of .NET types to DbType's.</summary>
+        /// <summary>MapEnumerable of .NET types to <see cref="DbType"/>.</summary>
         public static readonly Dictionary<Type, DbType> TypeMap = new Dictionary<Type, DbType>()
         {
             { typeof(byte), DbType.Byte },
@@ -115,7 +115,7 @@ namespace DynamORM
 
         /// <summary>Set <see cref="System.Data.IDbCommand"/> properties on the fly.</summary>
         /// <param name="command"><see cref="System.Data.IDbCommand"/> in which changes will be made.</param>
-        /// <param name="commandType">Indicates or specifies how the System.Data.IDbCommand.CommandText property is interpreted.</param>
+        /// <param name="commandType">Indicates or specifies how the <see cref="System.Data.IDbCommand.CommandText"/> property is interpreted.</param>
         /// <param name="commandTimeout">The wait time before terminating the attempt to execute a command and generating an error.</param>
         /// <param name="commandText">The text command to run against the data source.</param>
         /// <param name="args">Arguments used to format command.</param>
@@ -153,7 +153,7 @@ namespace DynamORM
 
         /// <summary>Set <see cref="System.Data.IDbCommand"/> properties on the fly.</summary>
         /// <param name="command"><see cref="System.Data.IDbCommand"/> in which changes will be made.</param>
-        /// <param name="commandType">Indicates or specifies how the System.Data.IDbCommand.CommandText property is interpreted.</param>
+        /// <param name="commandType">Indicates or specifies how the <see cref="System.Data.IDbCommand.CommandText"/> property is interpreted.</param>
         /// <param name="commandText">The text command to run against the data source.</param>
         /// <param name="args">Arguments used to format command.</param>
         /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
@@ -248,7 +248,7 @@ namespace DynamORM
             var p = cmd.CreateParameter();
             p.ParameterName = name;
 
-            if (item == null)
+            if (item == null || item == DBNull.Value)
                 p.Value = DBNull.Value;
             else
             {
@@ -298,7 +298,7 @@ namespace DynamORM
                         p.Scale = 4;
                 }
 
-                p.Value = item.Value;
+                p.Value = item.Value == null ? DBNull.Value : item.Value;
             }
             else if (item.Value == null || item.Value == DBNull.Value)
                 p.Value = DBNull.Value;
@@ -308,6 +308,8 @@ namespace DynamORM
 
                 if (p.DbType == DbType.String)
                     p.Size = item.Value.ToString().Length > 4000 ? -1 : 4000;
+
+                p.Value = item.Value;
             }
 
             cmd.Parameters.Add(p);
@@ -703,7 +705,7 @@ namespace DynamORM
                         param.Scale,
                         param.Precision,
                         param.Scale,
-                        param.Value ?? "NULL",
+                        param.Value is byte[] ? ConvertByteArrayToHexString((byte[])param.Value) : param.Value ?? "NULL",
                         param.Value != null ? param.Value.GetType().Name : "DBNull");
                 }
 
@@ -711,6 +713,32 @@ namespace DynamORM
             }
 
             return command;
+        }
+
+        /// <summary>Convert byte array to hex formatted string without separators.</summary>
+        /// <param name="data">Byte Array Data.</param>
+        /// <returns>Hex string representation of byte array.</returns>
+        private static string ConvertByteArrayToHexString(byte[] data)
+        {
+            return ConvertByteArrayToHexString(data, 0);
+        }
+
+        /// <summary>Convert byte array to hex formatted string.</summary>
+        /// <param name="data">Byte Array Data.</param>
+        /// <param name="separatorEach">Put '-' each <c>separatorEach</c> characters.</param>
+        /// <returns>Hex string representation of byte array.</returns>
+        private static string ConvertByteArrayToHexString(byte[] data, int separatorEach)
+        {
+            int len = data.Length * 2;
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            for (int i = 0; i < len; i++)
+            {
+                sb.AppendFormat("{0:X}", data[(i / 2)] >> (((i % 2) == 0) ? 4 : 0) & 0x0F);
+                if ((separatorEach > 0) && ((i + 1) % separatorEach == 0))
+                    sb.AppendFormat("-");
+            }
+
+            return sb.ToString();
         }
 
         #endregion Command extensions
@@ -751,10 +779,16 @@ namespace DynamORM
         {
             var result = new ExpandoObject();
             var dict = result as IDictionary<string, object>;
+            var ot = o.GetType();
 
-            if (o.GetType() == typeof(ExpandoObject))
+            if (ot == typeof(ExpandoObject))
                 return o;
-            if (o.GetType() == typeof(NameValueCollection) || o.GetType().IsSubclassOf(typeof(NameValueCollection)))
+
+            if (o is IDictionary<string, object>)
+                ((IDictionary<string, object>)o)
+                    .ToList()
+                    .ForEach(kvp => dict.Add(kvp.Key, kvp.Value));
+            else if (ot == typeof(NameValueCollection) || ot.IsSubclassOf(typeof(NameValueCollection)))
             {
                 var nameValue = (NameValueCollection)o;
                 nameValue.Cast<string>()
@@ -764,7 +798,7 @@ namespace DynamORM
             }
             else
             {
-                var mapper = DynamicMapperCache.GetMapper(o.GetType());
+                var mapper = DynamicMapperCache.GetMapper(ot);
 
                 if (mapper != null)
                 {
@@ -774,7 +808,7 @@ namespace DynamORM
                 }
                 else
                 {
-                    var props = o.GetType().GetProperties();
+                    var props = ot.GetProperties();
 
                     foreach (var item in props)
                         if (item.CanRead)
@@ -804,7 +838,7 @@ namespace DynamORM
         /// <summary>Convert data row row into dynamic object (upper case key).</summary>
         /// <param name="r">DataRow from which read.</param>
         /// <returns>Generated dynamic object.</returns>
-        internal static dynamic RowToDynamicUpper(this DataRow r)
+        public static dynamic RowToDynamicUpper(this DataRow r)
         {
             dynamic e = new ExpandoObject();
             var d = e as IDictionary<string, object>;
@@ -845,7 +879,9 @@ namespace DynamORM
         /// <returns>Resulting dictionary.</returns>
         public static IDictionary<string, object> ToDictionary(this object o)
         {
-            return (IDictionary<string, object>)o.ToDynamic();
+            return o is IDictionary<string, object> ?
+                (IDictionary<string, object>)o :
+                (IDictionary<string, object>)o.ToDynamic();
         }
 
         #endregion Dynamic extensions
@@ -987,7 +1023,7 @@ namespace DynamORM
             return (T)mapper.Create(item);
         }
 
-        /// <summary>Fill object of speciied type with data from source object.</summary>
+        /// <summary>Fill object of specified type with data from source object.</summary>
         /// <typeparam name="T">Type to which columnMap results.</typeparam>
         /// <param name="item">Item to which columnMap data.</param>
         /// <param name="source">Item from which extract data.</param>

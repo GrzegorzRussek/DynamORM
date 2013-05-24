@@ -37,7 +37,7 @@ namespace DynamORM.Builders
     /// <summary>Select query builder.</summary>
     public class DynamicSelectQueryBuilder : DynamicQueryBuilder<DynamicSelectQueryBuilder>
     {
-        /// <summary>Gets dictionary of columns that will be seected.</summary>
+        /// <summary>Gets dictionary of columns that will be selected.</summary>
         public List<DynamicColumn> Columns { get; private set; }
 
         /// <summary>Gets dictionary of columns that will be used to group query.</summary>

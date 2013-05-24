@@ -71,10 +71,10 @@ namespace DynamORM
             /// <summary>Less or equal operator.</summary>
             Lte,
 
-            /// <summary>Greather than operator.</summary>
+            /// <summary>Greater than operator.</summary>
             Gt,
 
-            /// <summary>Greather or equal operator.</summary>
+            /// <summary>Greater or equal operator.</summary>
             Gte,
 
             /// <summary>Between two values.</summary>
@@ -89,7 +89,7 @@ namespace DynamORM
         public DynamicColumn() { }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicColumn" /> class.</summary>
-        /// <remarks>Constructor provided for easier object creation in qeries.</remarks>
+        /// <remarks>Constructor provided for easier object creation in queries.</remarks>
         /// <param name="columnName">Name of column to set.</param>
         public DynamicColumn(string columnName)
             : this()
@@ -98,7 +98,7 @@ namespace DynamORM
         }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicColumn" /> class.</summary>
-        /// <remarks>Constructor provided for easier object creation in qeries.</remarks>
+        /// <remarks>Constructor provided for easier object creation in queries.</remarks>
         /// <param name="columnName">Name of column to set.</param>
         /// <param name="oper">Compare column to value(s) operator.</param>
         /// <param name="value">Parameter value(s).</param>
@@ -136,18 +136,18 @@ namespace DynamORM
         /// <summary>Gets or sets a value indicating whether this condition will be treated as or condition.</summary>
         public bool Or { get; set; }
 
-        /// <summary>Gets or sets a value indicating whether start new block in where steatement.</summary>
+        /// <summary>Gets or sets a value indicating whether start new block in where statement.</summary>
         public bool BeginBlock { get; set; }
 
-        /// <summary>Gets or sets a value indicating whether end existing block in where steatement.</summary>
+        /// <summary>Gets or sets a value indicating whether end existing block in where statement.</summary>
         public bool EndBlock { get; set; }
 
         /// <summary>Gets or sets a value indicating whether set parameters for null values.</summary>
         public bool VirtualColumn { get; set; }
 
         /// <summary>Gets or sets schema representation of a column.</summary>
-        /// <remarks>Woraround to providers issues which sometimes pass wrong
-        /// data o schema. For example decimal has precission of 255 in sql
+        /// <remarks>Workaround to providers issues which sometimes pass wrong
+        /// data o schema. For example decimal has precision of 255 in SQL
         /// server.</remarks>
         public DynamicSchemaColumn? Schema { get; set; }
 
@@ -366,7 +366,7 @@ namespace DynamORM
         }
 
         /// <summary>Sets the virtual column.</summary>
-        /// <param name="virt">If set to <c>true</c> [virt].</param>
+        /// <param name="virt">Set virtual column value.</param>
         /// <returns>Returns self.</returns>
         public DynamicColumn SetVirtualColumn(bool virt)
         {

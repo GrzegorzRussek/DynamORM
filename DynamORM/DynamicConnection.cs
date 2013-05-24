@@ -32,14 +32,14 @@ using System.Data;
 namespace DynamORM
 {
     /// <summary>Connection wrapper.</summary>
-    /// <remarks>This class is only connection holder conection is managed by
+    /// <remarks>This class is only connection holder, connection is managed by
     /// <see cref="DynamicDatabase"/> instance.</remarks>
     public class DynamicConnection : IDbConnection, IDisposable
     {
         private DynamicDatabase _db;
         private bool _singleTransaction;
 
-        /// <summary>Gets underlaying connection.</summary>
+        /// <summary>Gets underlying connection.</summary>
         internal IDbConnection Connection { get; private set; }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicConnection" /> class.</summary>
@@ -89,7 +89,7 @@ namespace DynamORM
 
         /// <summary>Changes the current database for an open Connection object.</summary>
         /// <param name="databaseName">The name of the database to use in place of the current database.</param>
-        /// <remarks>This operation is not supported in DynamORM. and will throw <see cref="NotSupportedException"/>.</remarks>
+        /// <remarks>This operation is not supported in <c>DynamORM</c>. and will throw <see cref="NotSupportedException"/>.</remarks>
         /// <exception cref="NotSupportedException">Thrown always.</exception>
         public void ChangeDatabase(string databaseName)
         {
@@ -107,12 +107,12 @@ namespace DynamORM
         /// <remarks>Does nothing. <see cref="DynamicDatabase"/> handles
         /// closing connections. Only way to close it is to dispose connection.
         /// It will close if this is multi connection configuration, otherwise
-        /// it will stay open untill <see cref="DynamicDatabase"/> is not
+        /// it will stay open until <see cref="DynamicDatabase"/> is not
         /// disposed.</remarks>
         public void Close() { }
 
         /// <summary>Gets or sets the string used to open a database.</summary>
-        /// <remarks>Changing connection string operation is not supported in DynamORM.
+        /// <remarks>Changing connection string operation is not supported in <c>DynamORM</c>.
         /// and will throw <see cref="NotSupportedException"/>.</remarks>
         /// <exception cref="NotSupportedException">Thrown always when set is attempted.</exception>
         public string ConnectionString

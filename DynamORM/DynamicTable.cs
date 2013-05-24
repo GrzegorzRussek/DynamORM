@@ -41,7 +41,7 @@ namespace DynamORM
     /// <example>
     /// <para>Assume that we have a table representing Users class.</para>
     /// <para>
-    /// <para>Let's take a look at <c>Query</c> posibilities. Assume we want
+    /// <para>Let's take a look at <c>Query</c> possibilities. Assume we want
     /// to get enumerator for all records in database, mapped to our class
     /// instead of dynamic type we can use following syntax.</para>
     /// <para>Approach first. Use dynamic <c>Query</c> method and just set type
@@ -54,13 +54,13 @@ namespace DynamORM
     /// <c>IEnumerable&lt;object&gt;</c> (to which we must cast to) to map
     /// object.</para>
     /// <code>(db.Table&lt;User&gt;().Query(columns: "*") as IEnumerable&lt;object&gt;).MapEnumerable&lt;User&gt;();</code>
-    /// You can also use generic approach. But be careful this method is currently avaliable thanks to framework hack.
+    /// You can also use generic approach. But be careful this method is currently available thanks to framework hack.
     /// <code>(db.Table&lt;User&gt;().Query&lt;User&gt;() as IEnumerable&lt;object&gt;).Cast&lt;User&gt;()</code>
     /// <para>Another approach uses existing methods, but still requires a
     /// cast, because <c>Query</c> also returns dynamic object enumerator.</para>
     /// <code>(db.Table&lt;User&gt;().Query().Execute() as IEnumerable&lt;object&gt;).MapEnumerable&lt;User&gt;();</code>
     /// </para>
-    /// <para>Below you can find various invocations of dynamic and non dynemic
+    /// <para>Below you can find various invocations of dynamic and non dynamic
     /// methods of this class. <c>x</c> variable is a class instance.
     /// First various selects:</para>
     /// <code>x.Count(columns: "id");</code>
@@ -215,7 +215,9 @@ namespace DynamORM
         /// <remarks>If database doesn't support schema, only key columns are listed here.</remarks>
         public virtual Dictionary<string, DynamicSchemaColumn> Schema { get; private set; }
 
-        private DynamicTable() { }
+        private DynamicTable()
+        {
+        }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicTable" /> class.</summary>
         /// <param name="database">Database and connection management.</param>
@@ -311,8 +313,8 @@ namespace DynamORM
         #region Basic Queries
 
         /// <summary>Enumerate the reader and yield the result.</summary>
-        /// <param name="sql">Sql query containing numered parameters in format provided by
-        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formated with
+        /// <param name="sql">SQL query containing numbered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formatted with
         /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
         /// <param name="args">Arguments (parameters).</param>
         /// <returns>Enumerator of objects expanded from query.</returns>
@@ -354,8 +356,8 @@ namespace DynamORM
         }
 
         /// <summary>Returns a single result.</summary>
-        /// <param name="sql">Sql query containing numered parameters in format provided by
-        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formated with
+        /// <param name="sql">SQL query containing numbered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formatted with
         /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
         /// <param name="args">Arguments (parameters).</param>
         /// <returns>Result of a query.</returns>
@@ -403,8 +405,8 @@ namespace DynamORM
         }
 
         /// <summary>Execute non query.</summary>
-        /// <param name="sql">Sql query containing numered parameters in format provided by
-        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formated with
+        /// <param name="sql">SQL query containing numbered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formatted with
         /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
         /// <param name="args">Arguments (parameters).</param>
         /// <returns>Number of affected rows.</returns>
@@ -472,9 +474,9 @@ namespace DynamORM
             return new DynamicInsertQueryBuilder(this);
         }
 
-        /// <summary>Adds a record to the database. You can pass in an Anonymous object, an ExpandoObject,
-        /// A regular old POCO, or a NameValueColletion from a Request.Form or Request.QueryString.</summary>
-        /// <param name="o">Anonymous object, an ExpandoObject, a regular old POCO, or a NameValueCollection
+        /// <summary>Adds a record to the database. You can pass in an Anonymous object, an <see cref="ExpandoObject"/>,
+        /// A regular old POCO, or a NameValueCollection from a Request.Form or Request.QueryString.</summary>
+        /// <param name="o">Anonymous object, an <see cref="ExpandoObject"/>, a regular old POCO, or a NameValueCollection
         /// from a Request.Form or Request.QueryString, containing fields to update.</param>
         /// <returns>Number of updated rows.</returns>
         public virtual int Insert(object o)
@@ -499,7 +501,7 @@ namespace DynamORM
         /// a regular old POCO, or a NameValueCollection from a Request.Form or Request.QueryString.</summary>
         /// <param name="o">Anonymous object, an ExpandoObject, a regular old POCO, or a NameValueCollection
         /// from a Request.Form or Request.QueryString, containing fields to update.</param>
-        /// <param name="key">Anonymous object, an ExpandoObject, a regular old POCO, or a NameValueCollection
+        /// <param name="key">Anonymous object, an <see cref="ExpandoObject"/>, a regular old POCO, or a NameValueCollection
         /// from a Request.Form or Request.QueryString, containing fields with conditions.</param>
         /// <returns>Number of updated rows.</returns>
         public virtual int Update(object o, object key)
@@ -512,7 +514,7 @@ namespace DynamORM
 
         /// <summary>Updates a record in the database using schema. You can pass in an Anonymous object, an ExpandoObject,
         /// a regular old POCO, or a NameValueCollection from a Request.Form or Request.QueryString.</summary>
-        /// <param name="o">Anonymous object, an ExpandoObject, a regular old POCO, or a NameValueCollection
+        /// <param name="o">Anonymous object, an <see cref="ExpandoObject"/>, a regular old POCO, or a NameValueCollection
         /// from a Request.Form or Request.QueryString, containing fields to update and conditions.</param>
         /// <returns>Number of updated rows.</returns>
         public virtual int Update(object o)
@@ -533,9 +535,9 @@ namespace DynamORM
             return new DynamicDeleteQueryBuilder(this);
         }
 
-        /// <summary>Removes a record from the database. You can pass in an Anonymous object, an ExpandoObject,
-        /// A regular old POCO, or a NameValueColletion from a Request.Form or Request.QueryString.</summary>
-        /// <param name="o">Anonymous object, an ExpandoObject, a regular old POCO, or a NameValueCollection
+        /// <summary>Removes a record from the database. You can pass in an Anonymous object, an <see cref="ExpandoObject"/>,
+        /// A regular old POCO, or a NameValueCollection from a Request.Form or Request.QueryString.</summary>
+        /// <param name="o">Anonymous object, an <see cref="ExpandoObject"/>, a regular old POCO, or a NameValueCollection
         /// from a Request.Form or Request.QueryString, containing fields with where conditions.</param>
         /// <param name="schema">If <c>true</c> use schema to determine key columns and ignore those which
         /// aren't keys.</param>
@@ -579,12 +581,15 @@ namespace DynamORM
                 case "Insert":
                     result = DynamicInsert(args, info, types);
                     break;
+
                 case "Update":
                     result = DynamicUpdate(args, info, types);
                     break;
+
                 case "Delete":
                     result = DynamicDelete(args, info, types);
                     break;
+
                 default:
                     result = DynamicQuery(args, info, op, types);
                     break;
@@ -614,14 +619,17 @@ namespace DynamORM
                                 builder.Table(args[i].ToString());
                             else goto default;
                             break;
+
                         case "values":
                             builder.Insert(args[i]);
                             break;
+
                         case "type":
                             if (types == null || types.Count == 0)
                                 HandleTypeArgument<DynamicInsertQueryBuilder>(args, info, ref types, builder, i);
                             else goto default;
                             break;
+
                         default:
                             builder.Insert(name, args[i]);
                             break;
@@ -654,20 +662,25 @@ namespace DynamORM
                                 builder.Table(args[i].ToString());
                             else goto default;
                             break;
+
                         case "update":
                             builder.Update(args[i]);
                             break;
+
                         case "values":
                             builder.Values(args[i]);
                             break;
+
                         case "where":
                             builder.Where(args[i]);
                             break;
+
                         case "type":
                             if (types == null || types.Count == 0)
                                 HandleTypeArgument(args, info, ref types, builder, i);
                             else goto default;
                             break;
+
                         default:
                             builder.Update(name, args[i]);
                             break;
@@ -700,17 +713,21 @@ namespace DynamORM
                                 builder.Table(args[i].ToString());
                             else goto default;
                             break;
+
                         case "where":
                             builder.Where(args[i], false);
                             break;
+
                         case "delete":
                             builder.Where(args[i], true);
                             break;
+
                         case "type":
                             if (types == null || types.Count == 0)
                                 HandleTypeArgument<DynamicDeleteQueryBuilder>(args, info, ref types, builder, i);
                             else goto default;
                             break;
+
                         default:
                             builder.Where(name, args[i]);
                             break;
@@ -751,6 +768,7 @@ namespace DynamORM
                                 builder.OrderBy((DynamicColumn)args[i]);
                             else goto default;
                             break;
+
                         case "group":
                             if (args[i] is string)
                                 builder.GroupBy(((string)args[i]).Split(','));
@@ -762,6 +780,7 @@ namespace DynamORM
                                 builder.GroupBy((DynamicColumn)args[i]);
                             else goto default;
                             break;
+
                         case "columns":
                             if (args[i] is string)
                                 builder.Select(((string)args[i]).Split(','));
@@ -773,19 +792,23 @@ namespace DynamORM
                                 builder.Select((DynamicColumn)args[i]);
                             else goto default;
                             break;
+
                         case "where":
                             builder.Where(args[i]);
                             break;
+
                         case "table":
                             if (args[i] is string)
                                 builder.Table(args[i].ToString());
                             else goto default;
                             break;
+
                         case "type":
                             if (types == null || types.Count == 0)
                                 HandleTypeArgument<DynamicSelectQueryBuilder>(args, info, ref types, builder, i);
                             else goto default;
                             break;
+
                         default:
                             builder.Where(name, args[i]);
                             break;
@@ -820,6 +843,8 @@ namespace DynamORM
 
                     if (op == "Count" && result is long)
                         result = (int)(long)result;
+                    else if (result == DBNull.Value)
+                        result = null;
                 }
                 else
                 {
@@ -851,7 +876,7 @@ namespace DynamORM
                 if (op == "Scalar")
                 {
                     if (builder.Columns.Count != 1)
-                        throw new InvalidOperationException("You must select one column in scalar steatement.");
+                        throw new InvalidOperationException("You must select one column in scalar statement.");
 
                     result = Scalar(builder);
                 }
@@ -905,11 +930,12 @@ namespace DynamORM
         /// freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
         {
-            Database.RemoveFromCache(this);
-
             // Lose reference but don't kill it.
             if (Database != null)
+            {
+                Database.RemoveFromCache(this);
                 Database = null;
+            }
         }
 
         #endregion IDisposable Members

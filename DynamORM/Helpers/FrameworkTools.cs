@@ -39,7 +39,7 @@ namespace DynamORM.Helpers
     {
         #region Mono or .NET Framework detection
 
-        /// <summary>This is preaty simple trick.</summary>
+        /// <summary>This is pretty simple trick.</summary>
         private static bool _isMono = Type.GetType("Mono.Runtime") != null;
 
         /// <summary>Gets a value indicating whether application is running under mono runtime.</summary>
@@ -98,7 +98,7 @@ namespace DynamORM.Helpers
             return null;
         }
 
-        /// <summary>Extension method allowing to easyly extract generic type
+        /// <summary>Extension method allowing to easily extract generic type
         /// arguments from <see cref="InvokeMemberBinder"/> assuming that it
         /// inherits from
         /// <c>Microsoft.CSharp.RuntimeBinder.ICSharpInvokeOrInvokeMemberBinder</c>

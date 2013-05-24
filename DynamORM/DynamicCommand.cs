@@ -42,7 +42,7 @@ namespace DynamORM
 
         /// <summary>Initializes a new instance of the <see cref="DynamicCommand"/> class.</summary>
         /// <param name="con">The connection.</param>
-        /// <param name="db">The databas manager.</param>
+        /// <param name="db">The database manager.</param>
         internal DynamicCommand(DynamicConnection con, DynamicDatabase db)
         {
             _con = con;
@@ -61,8 +61,8 @@ namespace DynamORM
         }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicCommand"/> class.</summary>
-        /// <param name="db">The databas manager.</param>
-        /// <remarks>Used intenaly to create command without context.</remarks>
+        /// <param name="db">The database manager.</param>
+        /// <remarks>Used internally to create command without context.</remarks>
         internal DynamicCommand(DynamicDatabase db)
         {
             _db = db;
@@ -177,9 +177,9 @@ namespace DynamORM
         }
 
         /// <summary>Executes the query, and returns the first column of the
-        /// first row in the resultset returned by the query. Extra columns or
+        /// first row in the result set returned by the query. Extra columns or
         /// rows are ignored.</summary>
-        /// <returns>The first column of the first row in the resultset.</returns>
+        /// <returns>The first column of the first row in the result set.</returns>
         public object ExecuteScalar()
         {
             return PrepareForExecution().ExecuteScalar();

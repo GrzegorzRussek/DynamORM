@@ -37,7 +37,7 @@ namespace DynamORM.Builders
     /// <summary>Insert query builder.</summary>
     public class DynamicInsertQueryBuilder : DynamicQueryBuilder<DynamicInsertQueryBuilder>
     {
-        /// <summary>Gets list of columns that will be seected.</summary>
+        /// <summary>Gets list of columns that will be selected.</summary>
         public IDictionary<string, DynamicColumn> ValueColumns { get; private set; }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicInsertQueryBuilder"/> class.</summary>

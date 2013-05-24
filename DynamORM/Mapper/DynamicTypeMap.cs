@@ -106,7 +106,7 @@ namespace DynamORM.Mapper
         }
 
         /// <summary>Create object of <see cref="DynamicTypeMap.Type"/> type and fill values from <c>source</c>.</summary>
-        /// <param name="source">Object containing values that will be mapped to newy created object.</param>
+        /// <param name="source">Object containing values that will be mapped to newly created object.</param>
         /// <returns>New object of <see cref="DynamicTypeMap.Type"/> type with matching values from <c>source</c>.</returns>
         public object Create(object source)
         {
@@ -114,7 +114,7 @@ namespace DynamORM.Mapper
         }
 
         /// <summary>Fill values from <c>source</c> to <see cref="DynamicTypeMap.Type"/> object in <c>destination</c>.</summary>
-        /// <param name="source">Object containing values that will be mapped to newy created object.</param>
+        /// <param name="source">Object containing values that will be mapped to newly created object.</param>
         /// <param name="destination">Object of <see cref="DynamicTypeMap.Type"/> type to which copy values from <c>source</c>.</param>
         /// <returns>Object of <see cref="DynamicTypeMap.Type"/> type with matching values from <c>source</c>.</returns>
         public object Map(object source, object destination)

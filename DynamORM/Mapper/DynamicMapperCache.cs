@@ -31,7 +31,7 @@ using System.Collections.Generic;
 
 namespace DynamORM.Mapper
 {
-    /// <summary>Class with maper cache.</summary>
+    /// <summary>Class with mapper cache.</summary>
     public static class DynamicMapperCache
     {
         private static readonly object SyncLock = new object();

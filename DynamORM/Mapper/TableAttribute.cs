@@ -37,9 +37,9 @@ namespace DynamORM.Mapper
         /// <summary>Gets or sets name.</summary>
         public string Name { get; set; }
 
-        /// <summary>Gets or sets a value indicating whether overide database
+        /// <summary>Gets or sets a value indicating whether override database
         /// schema values.</summary>
-        /// <remarks>If database doeesn't support schema, you still have to
+        /// <remarks>If database doesn't support schema, you still have to
         /// set this to true to get schema from type.</remarks>
         public bool Override { get; set; }
     }
