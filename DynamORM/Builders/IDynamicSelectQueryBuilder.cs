@@ -5,11 +5,16 @@ namespace DynamORM.Builders
 {
     /// <summary>Dynamic select query builder interface.</summary>
     /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
-    public interface IDynamicSelectQueryBuilder : IDynamicQueryBuilder, IEnumerable<object>
+    public interface IDynamicSelectQueryBuilder : IDynamicQueryBuilder ////, IEnumerable<object>
     {
         /// <summary>Execute this builder.</summary>
         /// <returns>Enumerator of objects expanded from query.</returns>
         IEnumerable<dynamic> Execute();
+
+        /// <summary>Execute this builder and map to given type.</summary>
+        /// <typeparam name="T">Type of object to map on.</typeparam>
+        /// <returns>Enumerator of objects expanded from query.</returns>
+        IEnumerable<T> Execute<T>() where T : class;
 
         /// <summary>Returns a single result.</summary>
         /// <returns>Result of a query.</returns>

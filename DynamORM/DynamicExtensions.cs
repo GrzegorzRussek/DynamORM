@@ -913,7 +913,15 @@ namespace DynamORM
 
             int c = r.FieldCount;
             for (int i = 0; i < c; i++)
-                d.Add(r.GetName(i), r.IsDBNull(i) ? null : r[i]);
+                try
+                {
+                    d.Add(r.GetName(i), r.IsDBNull(i) ? null : r[i]);
+                }
+                catch (ArgumentException argex)
+                {
+                    throw new ArgumentException(
+                        string.Format("Field '{0}' is defined more than once in a query.", r.GetName(i)), "Column name or alias", argex);
+                }
 
             return e;
         }

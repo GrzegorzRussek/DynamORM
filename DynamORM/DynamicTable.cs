@@ -31,6 +31,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Dynamic;
 using System.Linq;
+using System.Text;
 using DynamORM.Builders;
 using DynamORM.Builders.Extensions;
 using DynamORM.Builders.Implementation;
@@ -340,14 +341,30 @@ namespace DynamORM
         {
             using (var con = Database.Open())
             using (var cmd = con.CreateCommand())
-            {
-                using (var rdr = cmd
-                    .SetCommand(sql)
-                    .AddParameters(Database, args)
-                    .ExecuteReader())
-                    while (rdr.Read())
-                        yield return rdr.RowToDynamic();
-            }
+            using (var rdr = cmd
+                .SetCommand(sql, args)
+                .ExecuteReader())
+                while (rdr.Read())
+                {
+                    dynamic val = null;
+
+                    // Work around to avoid yield being in try...catch block:
+                    // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
+                    try
+                    {
+                        val = rdr.RowToDynamic();
+                    }
+                    catch (ArgumentException argex)
+                    {
+                        var sb = new StringBuilder();
+                        cmd.Dump(sb);
+
+                        throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
+                            argex.InnerException.NullOr(a => a, argex));
+                    }
+
+                    yield return val;
+                }
         }
 
         /// <summary>Enumerate the reader and yield the result.</summary>
@@ -357,13 +374,30 @@ namespace DynamORM
         {
             using (var con = Database.Open())
             using (var cmd = con.CreateCommand())
-            {
-                using (var rdr = cmd
-                    .SetCommand(builder)
-                    .ExecuteReader())
-                    while (rdr.Read())
-                        yield return rdr.RowToDynamic();
-            }
+            using (var rdr = cmd
+                .SetCommand(builder)
+                .ExecuteReader())
+                while (rdr.Read())
+                {
+                    dynamic val = null;
+
+                    // Work around to avoid yield being in try...catch block:
+                    // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
+                    try
+                    {
+                        val = rdr.RowToDynamic();
+                    }
+                    catch (ArgumentException argex)
+                    {
+                        var sb = new StringBuilder();
+                        cmd.Dump(sb);
+
+                        throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
+                            argex.InnerException.NullOr(a => a, argex));
+                    }
+
+                    yield return val;
+                }
         }
 
         /// <summary>Create new <see cref="DynamicSelectQueryBuilder"/>.</summary>

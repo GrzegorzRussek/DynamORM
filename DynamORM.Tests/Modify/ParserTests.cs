@@ -68,5 +68,58 @@ namespace DynamORM.Tests.Modify
             Assert.AreEqual(string.Format(@"INSERT INTO ""Users"" (""Code"", ""Name"", ""IsAdmin"") VALUES ({0})",
                 string.Join(", ", cmd.Parameters.Keys.Select(p => string.Format("[${0}]", p)))), cmd.CommandText());
         }
+
+        /// <summary>
+        /// Tests the insert with sub query.
+        /// </summary>
+        [Test]
+        public void TestInsertSubQuery()
+        {
+            var cmd = new DynamicInsertQueryBuilder(Database, "Users");
+
+            cmd.Insert(x => x.Code = "001", x => x.Name = "Admin", x => x.IsAdmin = x(cmd
+                .SubQuery(a => a.AccessRights.As(a.a))
+                .Select(a => a.IsAdmin)
+                .Where(a => a.User_Id == "001")));
+
+            Assert.AreEqual(string.Format(@"INSERT INTO ""Users"" (""Code"", ""Name"", ""IsAdmin"") VALUES ({0}, (SELECT a.""IsAdmin"" FROM ""AccessRights"" AS a WHERE (a.""User_Id"" = [${1}])))",
+                string.Join(", ", cmd.Parameters.Keys.Take(2).Select(p => string.Format("[${0}]", p))), cmd.Parameters.Keys.Last()), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests the basic insert using object.
+        /// </summary>
+        [Test]
+        public void TestBasicInsertObject()
+        {
+            var cmd = new DynamicInsertQueryBuilder(Database, "Users");
+
+            cmd.Insert(x => new { Code = "001", Name = "Admin", IsAdmin = 1 });
+
+            Assert.AreEqual(string.Format(@"INSERT INTO ""Users"" (""Code"", ""Name"", ""IsAdmin"") VALUES ({0})",
+                string.Join(", ", cmd.Parameters.Keys.Select(p => string.Format("[${0}]", p)))), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests the insert using object with sub query.
+        /// </summary>
+        [Test]
+        public void TestInsertSubQueryObject()
+        {
+            var cmd = new DynamicInsertQueryBuilder(Database, "Users");
+
+            cmd.Insert(x => new
+            {
+                Code = "001",
+                Name = "Admin",
+                IsAdmin = x(cmd
+                    .SubQuery(a => a.AccessRights.As(a.a))
+                    .Select(a => a.IsAdmin)
+                    .Where(a => a.User_Id == "001"))
+            });
+
+            Assert.AreEqual(string.Format(@"INSERT INTO ""Users"" (""Code"", ""Name"", ""IsAdmin"") VALUES ({0}, (SELECT a.""IsAdmin"" FROM ""AccessRights"" AS a WHERE (a.""User_Id"" = [${1}])))",
+                string.Join(", ", cmd.Parameters.Keys.Take(2).Select(p => string.Format("[${0}]", p))), cmd.Parameters.Keys.Last()), cmd.CommandText());
+        }
     }
 }

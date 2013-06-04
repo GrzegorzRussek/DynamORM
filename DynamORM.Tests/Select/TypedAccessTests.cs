@@ -38,7 +38,7 @@ namespace DynamORM.Tests.Select
     /// <summary>Test typed ORM.</summary>
     /// <typeparam name="T">Type to test.</typeparam>
     [TestFixture(typeof(users))]
-    public class TypedAccessTests<T> : TestsBase
+    public class TypedAccessTests<T> : TestsBase where T : class
     {
         /// <summary>Setup test parameters.</summary>
         [TestFixtureSetUp]
@@ -92,6 +92,18 @@ namespace DynamORM.Tests.Select
                 .From(x => x(typeof(T)).As(x.t))
                 .Execute()
                 .MapEnumerable<T>()
+                .ToList();
+
+            Assert.AreEqual(200, list.Count);
+        }
+
+        /// <summary>Test load all rows into mapped list alternate way.</summary>
+        [Test]
+        public virtual void TestTypedGetAll3()
+        {
+            var list = GetTestBuilder()
+                .From(x => x(typeof(T)).As(x.t))
+                .Execute<T>()
                 .ToList();
 
             Assert.AreEqual(200, list.Count);

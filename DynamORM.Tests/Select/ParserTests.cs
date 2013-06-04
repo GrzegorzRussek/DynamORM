@@ -483,6 +483,20 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>
+        /// Tests select field with alias.
+        /// </summary>
+        [Test]
+        public void TestSelectFieldAlias3()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.u))
+                .Select(u => u.UserName.As(u.Name));
+
+            Assert.AreEqual("SELECT u.\"UserName\" AS \"Name\" FROM \"dbo\".\"Users\" AS u", cmd.CommandText());
+        }
+
+        /// <summary>
         /// Tests select aggregate field with alias (Sum).
         /// </summary>
         [Test]
