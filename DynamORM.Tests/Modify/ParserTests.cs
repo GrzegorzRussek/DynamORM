@@ -26,41 +26,47 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-using System.Data;
-using System.Text;
+using System.Linq;
+using DynamORM.Builders.Implementation;
+using NUnit.Framework;
 
-namespace DynamORM.Builders
+namespace DynamORM.Tests.Modify
 {
-    /// <summary>Delete query builder.</summary>
-    public class DynamicDeleteQueryBuilder : DynamicQueryBuilder<DynamicDeleteQueryBuilder>
+    /// <summary>New parser tests.</summary>
+    [TestFixture]
+    public class ParserTests : TestsBase
     {
-        /// <summary>Initializes a new instance of the <see cref="DynamicDeleteQueryBuilder"/> class.</summary>
-        /// <param name="table">Parent dynamic table.</param>
-        public DynamicDeleteQueryBuilder(DynamicTable table)
-            : base(table)
+        /// <summary>Setup test parameters.</summary>
+        [TestFixtureSetUp]
+        public virtual void SetUp()
         {
+            CreateTestDatabase();
+            CreateDynamicDatabase(
+                DynamicDatabaseOptions.SingleConnection |
+                DynamicDatabaseOptions.SingleTransaction |
+                DynamicDatabaseOptions.SupportLimitOffset);
         }
 
-        /// <summary>Fill command with query.</summary>
-        /// <param name="command">Command to fill.</param>
-        /// <returns>Filled instance of <see cref="IDbCommand"/>.</returns>
-        public override IDbCommand FillCommand(IDbCommand command)
+        /// <summary>Tear down test objects.</summary>
+        [TestFixtureTearDown]
+        public virtual void TearDown()
         {
-            StringBuilder sb = new StringBuilder();
-
-            sb.Append("DELETE FROM ");
-            DynamicTable.Database.DecorateName(sb, TableName);
-
-            FillWhere(command, sb);
-
-            return command.SetCommand(sb.ToString());
+            DestroyDynamicDatabase();
+            DestroyTestDatabase();
         }
 
-        /// <summary>Execute this builder.</summary>
-        /// <returns>Number of affected rows.</returns>
-        public override dynamic Execute()
+        /// <summary>
+        /// Tests the basic insert.
+        /// </summary>
+        [Test]
+        public void TestBasicInsert()
         {
-            return DynamicTable.Execute(this);
+            var cmd = new DynamicInsertQueryBuilder(Database, "Users");
+
+            cmd.Insert(x => x.Users.Code = "001", x => x.Users.Name = "Admin", x => x.Users.IsAdmin = 1);
+
+            Assert.AreEqual(string.Format(@"INSERT INTO ""Users"" (""Code"", ""Name"", ""IsAdmin"") VALUES ({0})",
+                string.Join(", ", cmd.Parameters.Keys.Select(p => string.Format("[${0}]", p)))), cmd.CommandText());
         }
     }
 }

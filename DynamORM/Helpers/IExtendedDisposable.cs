@@ -28,22 +28,17 @@
 
 using System;
 
-namespace DynamORM.Mapper
+namespace DynamORM.Helpers
 {
-    /// <summary>Allows to add table name to class.</summary>
-    [AttributeUsage(AttributeTargets.Class)]
-    public class TableAttribute : Attribute
+    /// <summary>Extends <see cref="IDisposable"/> interface.</summary>
+    public interface IExtendedDisposable : IDisposable
     {
-        /// <summary>Gets or sets table owner name.</summary>
-        public string Owner { get; set; }
-
-        /// <summary>Gets or sets name.</summary>
-        public string Name { get; set; }
-
-        /// <summary>Gets or sets a value indicating whether override database
-        /// schema values.</summary>
-        /// <remarks>If database doesn't support schema, you still have to
-        /// set this to true to get schema from type.</remarks>
-        public bool Override { get; set; }
+        /// <summary>
+        /// Gets a value indicating whether this instance is disposed.
+        /// </summary>
+        /// <value>
+        /// <c>true</c> if this instance is disposed; otherwise, <c>false</c>.
+        /// </value>
+        bool IsDisposed { get; }
     }
 }

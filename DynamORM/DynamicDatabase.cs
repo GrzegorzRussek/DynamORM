@@ -32,6 +32,9 @@ using System.Data;
 using System.Data.Common;
 using System.Linq;
 using System.Text;
+using DynamORM.Builders;
+using DynamORM.Builders.Implementation;
+using DynamORM.Helpers;
 using DynamORM.Mapper;
 
 namespace DynamORM
@@ -47,6 +50,8 @@ namespace DynamORM
         private bool _singleTransaction;
         private string _leftDecorator = "\"";
         private string _rightDecorator = "\"";
+        private bool _leftDecoratorIsInInvalidMembersChars = true;
+        private bool _rightDecoratorIsInInvalidMembersChars = true;
         private string _parameterFormat = "@{0}";
         private int? _commandTimeout = null;
         private long _poolStamp = 0;
@@ -162,9 +167,10 @@ namespace DynamORM
         /// <param name="action">The action with instance of <see cref="DynamicTable"/> as parameter.</param>
         /// <param name="table">Table name.</param>
         /// <param name="keys">Override keys in schema.</param>
-        public void Table(Action<dynamic> action, string table = "", string[] keys = null)
+        /// <param name="owner">Owner of the table.</param>
+        public void Table(Action<dynamic> action, string table = "", string[] keys = null, string owner = "")
         {
-            using (dynamic t = Table(table, keys))
+            using (dynamic t = Table(table, keys, owner))
                 action(t);
         }
 
@@ -181,8 +187,9 @@ namespace DynamORM
         /// <summary>Gets dynamic table which is a simple ORM using dynamic objects.</summary>
         /// <param name="table">Table name.</param>
         /// <param name="keys">Override keys in schema.</param>
+        /// <param name="owner">Owner of the table.</param>
         /// <returns>Instance of <see cref="DynamicTable"/>.</returns>
-        public dynamic Table(string table = "", string[] keys = null)
+        public dynamic Table(string table = "", string[] keys = null, string owner = "")
         {
             string key = string.Concat(
                 table == null ? string.Empty : table,
@@ -192,7 +199,7 @@ namespace DynamORM
             lock (SyncLock)
                 dt = TablesCache.TryGetValue(key) ??
                     TablesCache.AddAndPassValue(key,
-                        new DynamicTable(this, table, keys));
+                        new DynamicTable(this, table, owner, keys));
 
             return dt;
         }
@@ -227,18 +234,38 @@ namespace DynamORM
 
         #endregion Table
 
+        #region From
+
+        /// <summary>
+        /// Adds to the 'From' clause the contents obtained by parsing the dynamic lambda expressions given. The supported
+        /// formats are:
+        /// <para>- Resolve to a string: 'x => "Table AS Alias', where the alias part is optional.</para>
+        /// <para>- Resolve to an expression: 'x => x.Table.As( x.Alias )', where the alias part is optional.</para>
+        /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this
+        /// case the alias is not annotated.</para>
+        /// </summary>
+        /// <param name="func">The specification.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicSelectQueryBuilder From(params Func<dynamic, object>[] func)
+        {
+            return new DynamicSelectQueryBuilder(this).From(func);
+        }
+
+        #endregion From
+
         #region Schema
 
         /// <summary>Builds table cache if necessary and returns it.</summary>
         /// <param name="table">Name of table for which build schema.</param>
+        /// <param name="owner">Owner of table for which build schema.</param>
         /// <returns>Table schema.</returns>
-        public Dictionary<string, DynamicSchemaColumn> GetSchema(string table)
+        public Dictionary<string, DynamicSchemaColumn> GetSchema(string table, string owner = null)
         {
             Dictionary<string, DynamicSchemaColumn> schema = null;
 
             lock (SyncLock)
                 schema = Schema.TryGetValue(table.ToLower()) ??
-                    BuildAndCacheSchema(table, null);
+                    BuildAndCacheSchema(table, null, owner);
 
             return schema;
         }
@@ -279,15 +306,18 @@ namespace DynamORM
 
         /// <summary>Get schema describing objects from reader.</summary>
         /// <param name="table">Table from which extract column info.</param>
+        /// <param name="owner">Owner of table from which extract column info.</param>
         /// <returns>List of <see cref="DynamicSchemaColumn"/> objects .
         /// If your database doesn't get those values in upper case (like most of the databases) you should override this method.</returns>
-        protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(string table)
+        protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(string table, string owner)
         {
             using (var con = Open())
             using (var cmd = con.CreateCommand())
             {
                 using (var rdr = cmd
-                    .SetCommand(string.Format("SELECT * FROM {0} WHERE 1 = 0", DecorateName(table)))
+                    .SetCommand(string.Format("SELECT * FROM {0}{1} WHERE 1 = 0",
+                        !string.IsNullOrEmpty(owner) ? string.Format("{0}.", DecorateName(owner)) : string.Empty,
+                        DecorateName(table)))
                     .ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
                     foreach (DataRow col in rdr.GetSchemaTable().Rows)
                     {
@@ -307,7 +337,7 @@ namespace DynamORM
             }
         }
 
-        private Dictionary<string, DynamicSchemaColumn> BuildAndCacheSchema(string tableName, DynamicTypeMap mapper)
+        private Dictionary<string, DynamicSchemaColumn> BuildAndCacheSchema(string tableName, DynamicTypeMap mapper, string owner = null)
         {
             Dictionary<string, DynamicSchemaColumn> schema = null;
 
@@ -323,7 +353,7 @@ namespace DynamORM
 
             if (databaseSchemaSupport && !Schema.ContainsKey(tableName.ToLower()))
             {
-                schema = ReadSchema(tableName)
+                schema = ReadSchema(tableName, owner)
                     .ToDictionary(k => k.Name.ToLower(), k => k);
 
                 Schema[tableName.ToLower()] = schema;
@@ -406,10 +436,28 @@ namespace DynamORM
         #region Decorators
 
         /// <summary>Gets or sets left side decorator for database objects.</summary>
-        public string LeftDecorator { get { return _leftDecorator; } set { _leftDecorator = value; } }
+        public string LeftDecorator
+        {
+            get { return _leftDecorator; }
+            set
+            {
+                _leftDecorator = value;
+                _leftDecoratorIsInInvalidMembersChars =
+                    _leftDecorator.Length == 1 && StringExtensions.InvalidMemberChars.Contains(_leftDecorator[0]);
+            }
+        }
 
         /// <summary>Gets or sets right side decorator for database objects.</summary>
-        public string RightDecorator { get { return _rightDecorator; } set { _rightDecorator = value; } }
+        public string RightDecorator
+        {
+            get { return _rightDecorator; }
+            set
+            {
+                _rightDecorator = value;
+                _rightDecoratorIsInInvalidMembersChars =
+                    _rightDecorator.Length == 1 && StringExtensions.InvalidMemberChars.Contains(_rightDecorator[0]);
+            }
+        }
 
         /// <summary>Gets or sets parameter name format.</summary>
         public string ParameterFormat { get { return _parameterFormat; } set { _parameterFormat = value; } }
@@ -420,6 +468,22 @@ namespace DynamORM
         public string DecorateName(string name)
         {
             return String.Concat(_leftDecorator, name, _rightDecorator);
+        }
+
+        /// <summary>Strip string representing name of database object from decorators.</summary>
+        /// <param name="name">Decorated name of database object.</param>
+        /// <returns>Not decorated name of database object.</returns>
+        public string StripName(string name)
+        {
+            string res = name.Trim(StringExtensions.InvalidMemberChars);
+
+            if (!_leftDecoratorIsInInvalidMembersChars && res.StartsWith(_leftDecorator))
+                res = res.Substring(_leftDecorator.Length);
+
+            if (!_rightDecoratorIsInInvalidMembersChars && res.EndsWith(_rightDecorator))
+                res = res.Substring(0, res.Length - _rightDecorator.Length);
+
+            return res;
         }
 
         /// <summary>Decorate string representing name of database object.</summary>

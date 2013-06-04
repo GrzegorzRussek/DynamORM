@@ -26,24 +26,21 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-using System;
-
-namespace DynamORM.Mapper
+namespace DynamORM.Builders
 {
-    /// <summary>Allows to add table name to class.</summary>
-    [AttributeUsage(AttributeTargets.Class)]
-    public class TableAttribute : Attribute
+    /// <summary>Interface describing parameter info.</summary>
+    public interface IParameter
     {
-        /// <summary>Gets or sets table owner name.</summary>
-        public string Owner { get; set; }
+        /// <summary>Gets the parameter temporary name.</summary>
+        string Name { get; }
 
-        /// <summary>Gets or sets name.</summary>
-        public string Name { get; set; }
+        /// <summary>Gets or sets the parameter value.</summary>
+        object Value { get; set; }
 
-        /// <summary>Gets or sets a value indicating whether override database
-        /// schema values.</summary>
-        /// <remarks>If database doesn't support schema, you still have to
-        /// set this to true to get schema from type.</remarks>
-        public bool Override { get; set; }
+        /// <summary>Gets or sets a value indicating whether this <see cref="Parameter"/> is virtual.</summary>
+        bool Virtual { get; set; }
+
+        /// <summary>Gets the parameter schema information.</summary>
+        DynamicSchemaColumn? Schema { get; }
     }
 }

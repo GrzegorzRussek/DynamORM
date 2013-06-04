@@ -32,6 +32,8 @@ using System.Data;
 using System.Dynamic;
 using System.Linq;
 using DynamORM.Builders;
+using DynamORM.Builders.Extensions;
+using DynamORM.Builders.Implementation;
 using DynamORM.Helpers;
 using DynamORM.Mapper;
 
@@ -211,6 +213,20 @@ namespace DynamORM
         /// <summary>Gets name of table.</summary>
         public virtual string TableName { get; private set; }
 
+        /// <summary>Gets name of owner.</summary>
+        public virtual string OwnerName { get; private set; }
+
+        /// <summary>Gets full name of table containing owner and table name.</summary>
+        public virtual string FullName
+        {
+            get
+            {
+                return string.IsNullOrEmpty(OwnerName) ?
+                    Database.DecorateName(TableName) :
+                    string.Format("{0}.{1}", Database.DecorateName(OwnerName), Database.DecorateName(TableName));
+            }
+        }
+
         /// <summary>Gets table schema.</summary>
         /// <remarks>If database doesn't support schema, only key columns are listed here.</remarks>
         public virtual Dictionary<string, DynamicSchemaColumn> Schema { get; private set; }
@@ -222,11 +238,13 @@ namespace DynamORM
         /// <summary>Initializes a new instance of the <see cref="DynamicTable" /> class.</summary>
         /// <param name="database">Database and connection management.</param>
         /// <param name="table">Table name.</param>
+        /// <param name="owner">Owner of the table.</param>
         /// <param name="keys">Override keys in schema.</param>
-        public DynamicTable(DynamicDatabase database, string table = "", string[] keys = null)
+        public DynamicTable(DynamicDatabase database, string table = "", string owner = "", string[] keys = null)
         {
             Database = database;
-            TableName = table;
+            TableName = Database.StripName(table);
+            OwnerName = Database.StripName(owner);
             TableType = null;
 
             BuildAndCacheSchema(keys);
@@ -350,9 +368,14 @@ namespace DynamORM
 
         /// <summary>Create new <see cref="DynamicSelectQueryBuilder"/>.</summary>
         /// <returns>New <see cref="DynamicSelectQueryBuilder"/> instance.</returns>
-        public virtual DynamicSelectQueryBuilder Query()
+        public virtual IDynamicSelectQueryBuilder Query()
         {
-            return new DynamicSelectQueryBuilder(this);
+            var builder = new DynamicSelectQueryBuilder(this.Database);
+
+            if (!string.IsNullOrEmpty(this.TableName))
+                builder.From(x => this.TableName);
+
+            return builder;
         }
 
         /// <summary>Returns a single result.</summary>
@@ -469,9 +492,9 @@ namespace DynamORM
 
         /// <summary>Create new <see cref="DynamicInsertQueryBuilder"/>.</summary>
         /// <returns>New <see cref="DynamicInsertQueryBuilder"/> instance.</returns>
-        public DynamicInsertQueryBuilder Insert()
+        public IDynamicInsertQueryBuilder Insert()
         {
-            return new DynamicInsertQueryBuilder(this);
+            return new DynamicInsertQueryBuilder(this.Database, this.TableName);
         }
 
         /// <summary>Adds a record to the database. You can pass in an Anonymous object, an <see cref="ExpandoObject"/>,
@@ -492,9 +515,9 @@ namespace DynamORM
 
         /// <summary>Create new <see cref="DynamicUpdateQueryBuilder"/>.</summary>
         /// <returns>New <see cref="DynamicUpdateQueryBuilder"/> instance.</returns>
-        public DynamicUpdateQueryBuilder Update()
+        public IDynamicUpdateQueryBuilder Update()
         {
-            return new DynamicUpdateQueryBuilder(this);
+            return new DynamicUpdateQueryBuilder(this.Database, this.TableName);
         }
 
         /// <summary>Updates a record in the database. You can pass in an Anonymous object, an ExpandoObject,
@@ -530,9 +553,9 @@ namespace DynamORM
 
         /// <summary>Create new <see cref="DynamicDeleteQueryBuilder"/>.</summary>
         /// <returns>New <see cref="DynamicDeleteQueryBuilder"/> instance.</returns>
-        public DynamicDeleteQueryBuilder Delete()
+        public IDynamicDeleteQueryBuilder Delete()
         {
-            return new DynamicDeleteQueryBuilder(this);
+            return new DynamicDeleteQueryBuilder(this.Database, this.TableName);
         }
 
         /// <summary>Removes a record from the database. You can pass in an Anonymous object, an <see cref="ExpandoObject"/>,
@@ -600,10 +623,13 @@ namespace DynamORM
 
         private object DynamicInsert(object[] args, CallInfo info, IList<Type> types)
         {
-            var builder = new DynamicInsertQueryBuilder(this);
+            var builder = new DynamicInsertQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicInsertQueryBuilder>(null, info, ref types, builder, 0);
+
+            if (!string.IsNullOrEmpty(this.TableName) && builder.Tables.Count == 0)
+                builder.Table(this.TableName, this.Schema);
 
             // loop the named args - see if we have order, columns and constraints
             if (info.ArgumentNames.Count > 0)
@@ -643,10 +669,13 @@ namespace DynamORM
 
         private object DynamicUpdate(object[] args, CallInfo info, IList<Type> types)
         {
-            var builder = new DynamicUpdateQueryBuilder(this);
+            var builder = new DynamicUpdateQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicUpdateQueryBuilder>(null, info, ref types, builder, 0);
+
+            if (!string.IsNullOrEmpty(this.TableName) && builder.Tables.Count == 0)
+                builder.Table(this.TableName, this.Schema);
 
             // loop the named args - see if we have order, columns and constraints
             if (info.ArgumentNames.Count > 0)
@@ -694,10 +723,13 @@ namespace DynamORM
 
         private object DynamicDelete(object[] args, CallInfo info, IList<Type> types)
         {
-            var builder = new DynamicDeleteQueryBuilder(this);
+            var builder = new DynamicDeleteQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicDeleteQueryBuilder>(null, info, ref types, builder, 0);
+
+            if (!string.IsNullOrEmpty(this.TableName) && builder.Tables.Count == 0)
+                builder.Table(this.TableName, this.Schema);
 
             // loop the named args - see if we have order, columns and constraints
             if (info.ArgumentNames.Count > 0)
@@ -742,10 +774,13 @@ namespace DynamORM
         private object DynamicQuery(object[] args, CallInfo info, string op, IList<Type> types)
         {
             object result;
-            var builder = new DynamicSelectQueryBuilder(this);
+            var builder = new DynamicSelectQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicSelectQueryBuilder>(null, info, ref types, builder, 0);
+
+            if (!string.IsNullOrEmpty(this.TableName) && builder.Tables.Count == 0)
+                builder.From(x => this.TableName);
 
             // loop the named args - see if we have order, columns and constraints
             if (info.ArgumentNames.Count > 0)
@@ -782,15 +817,32 @@ namespace DynamORM
                             break;
 
                         case "columns":
-                            if (args[i] is string)
-                                builder.Select(((string)args[i]).Split(','));
-                            else if (args[i] is string[])
-                                builder.Select(args[i] as string);
-                            else if (args[i] is DynamicColumn[])
-                                builder.Select((DynamicColumn[])args[i]);
-                            else if (args[i] is DynamicColumn)
-                                builder.Select((DynamicColumn)args[i]);
-                            else goto default;
+                            {
+                                var agregate = (op == "Sum" || op == "Max" || op == "Min" || op == "Avg" || op == "Count") ?
+                                    op.ToUpper() : null;
+
+                                if (args[i] is string || args[i] is string[])
+                                    builder.Select((args[i] as String).NullOr(s => s.Split(','), args[i] as String[])
+                                        .Select(c =>
+                                        {
+                                            var col = DynamicColumn.ParseSelectColumn(c);
+                                            if (string.IsNullOrEmpty(col.Aggregate))
+                                                col.Aggregate = agregate;
+
+                                            return col;
+                                        }).ToArray());
+                                else if (args[i] is DynamicColumn || args[i] is DynamicColumn[])
+                                    builder.Select((args[i] as DynamicColumn).NullOr(c => new DynamicColumn[] { c }, args[i] as DynamicColumn[])
+                                        .Select(c =>
+                                        {
+                                            if (string.IsNullOrEmpty(c.Aggregate))
+                                                c.Aggregate = agregate;
+
+                                            return c;
+                                        }).ToArray());
+                                else goto default;
+                            }
+
                             break;
 
                         case "where":
@@ -799,7 +851,7 @@ namespace DynamORM
 
                         case "table":
                             if (args[i] is string)
-                                builder.Table(args[i].ToString());
+                                builder.From(x => args[i].ToString());
                             else goto default;
                             break;
 
@@ -816,14 +868,9 @@ namespace DynamORM
                 }
             }
 
-            if (op == "Count" && builder.Columns.Count == 0)
+            if (op == "Count" && !builder.HasSelectColumns)
             {
-                result = Scalar(builder.Select(new DynamicColumn
-                {
-                    ColumnName = "*",
-                    Aggregate = op.ToUpper(),
-                    Alias = "Count"
-                }));
+                result = Scalar(builder.Select(x => x.Count()));
 
                 if (result is long)
                     result = (int)(long)result;
@@ -831,25 +878,15 @@ namespace DynamORM
             else if (op == "Sum" || op == "Max" ||
                 op == "Min" || op == "Avg" || op == "Count")
             {
-                if (builder.Columns.Count == 0)
-                    throw new InvalidOperationException("You must select at least one column to agregate.");
+                if (!builder.HasSelectColumns)
+                    throw new InvalidOperationException("You must select one column to agregate.");
 
-                foreach (var o in builder.Columns)
-                    o.Aggregate = op.ToUpper();
+                result = Scalar(builder);
 
-                if (builder.Columns.Count == 1)
-                {
-                    result = Scalar(builder);
-
-                    if (op == "Count" && result is long)
-                        result = (int)(long)result;
-                    else if (result == DBNull.Value)
-                        result = null;
-                }
-                else
-                {
-                    result = Query(builder).FirstOrDefault(); // return lots
-                }
+                if (op == "Count" && result is long)
+                    result = (int)(long)result;
+                else if (result == DBNull.Value)
+                    result = null;
             }
             else
             {
@@ -857,15 +894,15 @@ namespace DynamORM
                 var justOne = op == "First" || op == "Last" || op == "Get" || op == "Single";
 
                 // Be sure to sort by DESC on selected columns
-                if (op == "Last")
+                /*if (op == "Last")
                 {
                     if (builder.Order.Count > 0)
                         foreach (var o in builder.Order)
                             o.Order = o.Order == DynamicColumn.SortOrder.Desc ?
                                 DynamicColumn.SortOrder.Asc : DynamicColumn.SortOrder.Desc;
-                }
+                }*/
 
-                if (justOne && !(op == "Last" && builder.Order.Count == 0))
+                if (justOne && !(op == "Last"))
                 {
                     if ((Database.Options & DynamicDatabaseOptions.SupportLimitOffset) == DynamicDatabaseOptions.SupportLimitOffset)
                         builder.Limit(1);
@@ -875,7 +912,7 @@ namespace DynamORM
 
                 if (op == "Scalar")
                 {
-                    if (builder.Columns.Count != 1)
+                    if (!builder.HasSelectColumns)
                         throw new InvalidOperationException("You must select one column in scalar statement.");
 
                     result = Scalar(builder);
@@ -884,7 +921,7 @@ namespace DynamORM
                 {
                     if (justOne)
                     {
-                        if (op == "Last" && builder.Order.Count == 0)
+                        if (op == "Last")
                             result = Query(builder).LastOrDefault(); // Last record fallback
                         else
                             result = Query(builder).FirstOrDefault(); // return a single record
@@ -908,7 +945,7 @@ namespace DynamORM
             return result;
         }
 
-        private void HandleTypeArgument<T>(object[] args, CallInfo info, ref IList<Type> types, DynamicQueryBuilder<T> builder, int i) where T : class
+        private void HandleTypeArgument<T>(object[] args, CallInfo info, ref IList<Type> types, T builder, int i) where T : DynamicQueryBuilder
         {
             if (args != null)
             {

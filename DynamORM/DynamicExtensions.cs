@@ -37,6 +37,8 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using DynamORM.Builders;
+using DynamORM.Builders.Implementation;
+using DynamORM.Helpers;
 using DynamORM.Mapper;
 
 namespace DynamORM
@@ -273,14 +275,64 @@ namespace DynamORM
         /// <summary>Extension for adding single parameter determining only type of object.</summary>
         /// <param name="cmd">Command to handle.</param>
         /// <param name="builder">Query builder containing schema.</param>
+        /// <param name="col">Column schema to use.</param>
+        /// <param name="value">Parameter value.</param>
+        /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
+        public static IDbCommand AddParameter(this IDbCommand cmd, IDynamicQueryBuilder builder, DynamicSchemaColumn? col, object value)
+        {
+            var p = cmd.CreateParameter();
+            p.ParameterName = builder.Database.GetParameterName(cmd.Parameters.Count);
+
+            if (col.HasValue)
+            {
+                p.DbType = col.Value.Type;
+
+                if ((builder.Database.Options & DynamicDatabaseOptions.SupportSchema) == DynamicDatabaseOptions.SupportSchema)
+                {
+                    p.Size = col.Value.Size;
+                    p.Precision = col.Value.Precision;
+                    p.Scale = col.Value.Scale;
+
+                    // Quick fix - review that
+                    // Quick fix 2 - use item.Schema in that case
+                    if (p.Scale > p.Precision)
+                        p.Scale = 4;
+                }
+
+                p.Value = value == null ? DBNull.Value : value;
+            }
+            else if (value == null || value == DBNull.Value)
+                p.Value = DBNull.Value;
+            else
+            {
+                p.DbType = TypeMap.TryGetNullable(value.GetType()) ?? DbType.String;
+
+                if (p.DbType == DbType.String)
+                    p.Size = value.ToString().Length > 4000 ? -1 : 4000;
+
+                p.Value = value;
+            }
+
+            cmd.Parameters.Add(p);
+
+            return cmd;
+        }
+
+        /// <summary>Extension for adding single parameter determining only type of object.</summary>
+        /// <param name="cmd">Command to handle.</param>
+        /// <param name="builder">Query builder containing schema.</param>
         /// <param name="item">Column item to add.</param>
         /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
         public static IDbCommand AddParameter(this IDbCommand cmd, IDynamicQueryBuilder builder, DynamicColumn item)
         {
             var p = cmd.CreateParameter();
-            p.ParameterName = builder.DynamicTable.Database.GetParameterName(cmd.Parameters.Count);
+            p.ParameterName = builder.Database.GetParameterName(cmd.Parameters.Count);
 
-            var col = item.Schema ?? builder.Schema.TryGetNullable(item.ColumnName.ToLower());
+            var col = item.Schema ?? (builder as DynamicQueryBuilder)
+                .NullOr(b => b.GetColumnFromSchema(item.ColumnName),
+                    builder.Tables.FirstOrDefault()
+                        .NullOr(t => t.Schema
+                            .NullOr(s => s.TryGetNullable(item.ColumnName.ToLower()), null), null));
 
             if (col.HasValue)
             {
@@ -910,6 +962,19 @@ namespace DynamORM
                typeof(IEnumerable<>).IsAssignableFrom(type.GetGenericTypeDefinition());
         }
 
+        /// <summary>Check if type implements IEnumerable&lt;&gt; interface.</summary>
+        /// <param name="type">Type to check.</param>
+        /// <returns>Returns <c>true</c> if it does.</returns>
+        public static bool IsNullableType(this Type type)
+        {
+            Type generic = type.IsGenericType ? type.GetGenericTypeDefinition() : null;
+
+            if (generic != null && generic.Equals(typeof(Nullable<>)) && type.IsClass)
+                return true;
+
+            return false;
+        }
+
         /// <summary>Check if type is collection of any kind.</summary>
         /// <param name="type">Type to check.</param>
         /// <returns>Returns <c>true</c> if it is.</returns>
@@ -1094,7 +1159,7 @@ namespace DynamORM
         /// <typeparam name="T">Type to parse to.</typeparam>
         /// <param name="value">Value to parse.</param>
         /// <param name="handler">Handler of a try parse method.</param>
-        /// <returns>Returns <c>true</c> if conversion was sucessfull.</returns>
+        /// <returns>Returns <c>true</c> if conversion was successful.</returns>
         public static T? TryParse<T>(this string value, TryParseHandler<T> handler) where T : struct
         {
             if (String.IsNullOrEmpty(value))
@@ -1113,7 +1178,7 @@ namespace DynamORM
         /// <param name="value">Value to parse.</param>
         /// <param name="defaultValue">Default value of a result.</param>
         /// <param name="handler">Handler of a try parse method.</param>
-        /// <returns>Returns <c>true</c> if conversion was sucessfull.</returns>
+        /// <returns>Returns <c>true</c> if conversion was successful.</returns>
         public static T TryParseDefault<T>(this string value, T defaultValue, TryParseHandler<T> handler)
         {
             if (String.IsNullOrEmpty(value))
@@ -1131,7 +1196,7 @@ namespace DynamORM
         /// <typeparam name="T">Type which implements this function.</typeparam>
         /// <param name="value">Value to parse.</param>
         /// <param name="result">Resulting value.</param>
-        /// <returns>Returns <c>true</c> if conversion was sucessfull.</returns>
+        /// <returns>Returns <c>true</c> if conversion was successful.</returns>
         public delegate bool TryParseHandler<T>(string value, out T result);
 
         #endregion TryParse extensions

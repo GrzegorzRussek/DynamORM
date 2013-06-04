@@ -26,19 +26,24 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+using System;
 using System.Collections.Generic;
 using System.Data;
 
 namespace DynamORM.Builders
 {
-    /// <summary>Base query builder interface.</summary>
+    /// <summary>Dynamic query builder base interface.</summary>
+    /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
     public interface IDynamicQueryBuilder
     {
-        /// <summary>Gets <see cref="DynamicTable"/> instance.</summary>
-        DynamicTable DynamicTable { get; }
+        /// <summary>Gets <see cref="DynamicDatabase"/> instance.</summary>
+        DynamicDatabase Database { get; }
 
-        /// <summary>Gets table schema.</summary>
-        Dictionary<string, DynamicSchemaColumn> Schema { get; }
+        /// <summary>Gets tables information.</summary>
+        IList<ITableInfo> Tables { get; }
+
+        /// <summary>Gets the tables used in this builder.</summary>
+        IDictionary<string, IParameter> Parameters { get; }
 
         /// <summary>Gets a value indicating whether database supports standard schema.</summary>
         bool SupportSchema { get; }
@@ -48,8 +53,26 @@ namespace DynamORM.Builders
         /// <returns>Filled instance of <see cref="IDbCommand"/>.</returns>
         IDbCommand FillCommand(IDbCommand command);
 
-        /// <summary>Execute this builder.</summary>
-        /// <returns>Result of an execution..</returns>
-        dynamic Execute();
+        /// <summary>
+        /// Generates the text this command will execute against the underlying database.
+        /// </summary>
+        /// <returns>The text to execute against the underlying database.</returns>
+        /// <remarks>This method must be override by derived classes.</remarks>
+        string CommandText();
+
+        /// <summary>Creates sub query.</summary>
+        /// <returns>Sub query builder.</returns>
+        IDynamicSelectQueryBuilder SubQuery();
+
+        /// <summary>Adds to the 'From' clause of sub query the contents obtained by
+        /// parsing the dynamic lambda expressions given. The supported formats are:
+        /// <para>- Resolve to a string: 'x => "Table AS Alias', where the alias part is optional.</para>
+        /// <para>- Resolve to an expression: 'x => x.Table.As( x.Alias )', where the alias part is optional.</para>
+        /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this
+        /// case the alias is not annotated.</para>
+        /// </summary>
+        /// <param name="func">The specification.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        IDynamicSelectQueryBuilder SubQuery(params Func<dynamic, object>[] func);
     }
 }

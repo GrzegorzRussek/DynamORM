@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -45,12 +45,21 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Builders\DynamicDeleteQueryBuilder.cs" />
-    <Compile Include="Builders\DynamicInsertQueryBuilder.cs" />
-    <Compile Include="Builders\DynamicQueryBuilder.cs" />
-    <Compile Include="Builders\DynamicSelectQueryBuilder.cs" />
-    <Compile Include="Builders\DynamicUpdateQueryBuilder.cs" />
+    <Compile Include="Builders\IDynamicInsertQueryBuilder.cs" />
+    <Compile Include="Builders\IDynamicSelectQueryBuilder.cs" />
+    <Compile Include="Builders\IDynamicUpdateQueryBuilder.cs" />
+    <Compile Include="Builders\Implementation\DynamicDeleteQueryBuilder.cs" />
+    <Compile Include="Builders\Implementation\DynamicInsertQueryBuilder.cs" />
+    <Compile Include="Builders\Implementation\DynamicModifyBuilder.cs" />
+    <Compile Include="Builders\Implementation\DynamicQueryBuilder.cs" />
+    <Compile Include="Builders\Extensions\DynamicModifyBuilderExtensions.cs" />
+    <Compile Include="Builders\Extensions\DynamicWhereQueryExtensions.cs" />
+    <Compile Include="Builders\Implementation\DynamicSelectQueryBuilder.cs" />
+    <Compile Include="Builders\Implementation\DynamicUpdateQueryBuilder.cs" />
+    <Compile Include="Builders\IDynamicDeleteQueryBuilder.cs" />
     <Compile Include="Builders\IDynamicQueryBuilder.cs" />
+    <Compile Include="Builders\IParameter.cs" />
+    <Compile Include="Builders\ITableInfo.cs" />
     <Compile Include="DynamicColumn.cs" />
     <Compile Include="DynamicCommand.cs" />
     <Compile Include="DynamicConnection.cs" />
@@ -61,7 +70,11 @@
     <Compile Include="DynamicTable.cs" />
     <Compile Include="DynamicTransaction.cs" />
     <Compile Include="Helpers\CollectionComparer.cs" />
+    <Compile Include="Helpers\Dynamics\DynamicParser.cs" />
+    <Compile Include="Helpers\IExtendedDisposable.cs" />
     <Compile Include="Helpers\FrameworkTools.cs" />
+    <Compile Include="Helpers\StringExtensions.cs" />
+    <Compile Include="Helpers\UnclassifiedExtensions.cs" />
     <Compile Include="Mapper\ColumnAttribute.cs" />
     <Compile Include="Mapper\DynamicMapperCache.cs" />
     <Compile Include="Mapper\DynamicPropertyInvoker.cs" />
