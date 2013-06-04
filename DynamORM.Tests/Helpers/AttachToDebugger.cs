@@ -45,7 +45,7 @@ namespace DynamORM.Tests.Helpers
                 Debugger.Launch();
         }
 
-        /// <summary>Test anonymous type compatybility.</summary>
+        /// <summary>Test anonymous type compatibility.</summary>
         [Test]
         public void TestAnonType()
         {
@@ -59,14 +59,14 @@ namespace DynamORM.Tests.Helpers
         [Test]
         public void TestAnonTypeValue()
         {
-        	var a = new { x = 1, y = "bla bla" };
+            var a = new { x = 1, y = "bla bla" };
             var b = new { x = 1, y = "bla bla" };
 
             Assert.AreEqual(a, b);
             Assert.IsTrue(a.Equals(b));
-            
+
             Dictionary<object, int> dict = new Dictionary<object, int>() { { a, 999 } };
-            
+
             Assert.IsTrue(dict.ContainsKey(b));
         }
     }

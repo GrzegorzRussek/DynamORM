@@ -45,7 +45,7 @@ namespace DynamORM.Tests.Helpers
         /// <summary>Gets or sets login column value.</summary>
         public string login { get; set; }
 
-        /// <summary>Gets or sets first columnvalue.</summary>
+        /// <summary>Gets or sets first column value.</summary>
         public string first { get; set; }
 
         /// <summary>Gets or sets last column value.</summary>

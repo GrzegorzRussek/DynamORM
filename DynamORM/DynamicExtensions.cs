@@ -1094,7 +1094,7 @@ namespace DynamORM
         /// <typeparam name="T">Type to parse to.</typeparam>
         /// <param name="value">Value to parse.</param>
         /// <param name="handler">Handler of a try parse method.</param>
-        /// <returns>Returns <c>true</c> if conversion was sucessfull.</returns>
+        /// <returns>Returns <c>true</c> if conversion was successful.</returns>
         public static T? TryParse<T>(this string value, TryParseHandler<T> handler) where T : struct
         {
             if (String.IsNullOrEmpty(value))
@@ -1113,7 +1113,7 @@ namespace DynamORM
         /// <param name="value">Value to parse.</param>
         /// <param name="defaultValue">Default value of a result.</param>
         /// <param name="handler">Handler of a try parse method.</param>
-        /// <returns>Returns <c>true</c> if conversion was sucessfull.</returns>
+        /// <returns>Returns <c>true</c> if conversion was successful.</returns>
         public static T TryParseDefault<T>(this string value, T defaultValue, TryParseHandler<T> handler)
         {
             if (String.IsNullOrEmpty(value))
@@ -1131,7 +1131,7 @@ namespace DynamORM
         /// <typeparam name="T">Type which implements this function.</typeparam>
         /// <param name="value">Value to parse.</param>
         /// <param name="result">Resulting value.</param>
-        /// <returns>Returns <c>true</c> if conversion was sucessfull.</returns>
+        /// <returns>Returns <c>true</c> if conversion was successful.</returns>
         public delegate bool TryParseHandler<T>(string value, out T result);
 
         #endregion TryParse extensions

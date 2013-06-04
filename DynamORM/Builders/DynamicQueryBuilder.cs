@@ -95,7 +95,7 @@ namespace DynamORM.Builders
         /// <returns>Builder instance.</returns>
         public virtual T Table<Y>()
         {
-            return Table(typeof(T));
+            return Table(typeof(Y));
         }
 
         /// <summary>Set table name.</summary>
@@ -201,11 +201,12 @@ namespace DynamORM.Builders
                 {
                     col = Schema.TryGetNullable(colName.ToLower());
 
-                    if (!col.HasValue)
-                        throw new InvalidOperationException(string.Format("Column '{0}' not found in schema, can't use universal approach.", con.Key));
+                    if (!col.HasValue || !col.Value.IsKey)
+                        continue;
+                    /*throw new InvalidOperationException(string.Format("Column '{0}' not found in schema, can't use universal approach.", condition.Key));
 
                     if (!col.Value.IsKey)
-                        continue;
+                        continue;*/
 
                     colName = col.Value.Name;
                 }
@@ -271,7 +272,7 @@ namespace DynamORM.Builders
                     else
                         throw new InvalidOperationException("NULL can only be compared by IS or IS NOT operator.");
 
-                    #endregion
+                    #endregion Null operators
                 }
                 else if (v.Operator != DynamicColumn.CompareOperator.In &&
                     v.Operator != DynamicColumn.CompareOperator.Between)
@@ -293,7 +294,7 @@ namespace DynamORM.Builders
 
                     command.AddParameter(this, v);
 
-                    #endregion
+                    #endregion Standard operators
                 }
                 else if (((object)v.Value).GetType().IsCollection() || v.Value is IEnumerable<object>)
                 {
@@ -336,7 +337,7 @@ namespace DynamORM.Builders
                         else
                             throw new InvalidOperationException("BETWEEN must have two values.");
 
-                        #endregion
+                        #endregion Between operator
                     }
                     else if (v.Operator == DynamicColumn.CompareOperator.In)
                     {
@@ -376,12 +377,12 @@ namespace DynamORM.Builders
                         if (v.EndBlock)
                             sb.Append(")");
 
-                        #endregion
+                        #endregion In operator
                     }
                     else
                         throw new Exception("BAZINGA. You have reached unreachable code.");
 
-                    #endregion
+                    #endregion In or Between operator
                 }
                 else
                     throw new InvalidOperationException(

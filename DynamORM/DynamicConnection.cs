@@ -101,7 +101,9 @@ namespace DynamORM
         /// Connection object.</summary>
         /// <remarks>Does nothing. <see cref="DynamicDatabase"/> handles
         /// opening connections.</remarks>
-        public void Open() { }
+        public void Open()
+        {
+        }
 
         /// <summary>Closes the connection to the database.</summary>
         /// <remarks>Does nothing. <see cref="DynamicDatabase"/> handles
@@ -109,7 +111,9 @@ namespace DynamORM
         /// It will close if this is multi connection configuration, otherwise
         /// it will stay open until <see cref="DynamicDatabase"/> is not
         /// disposed.</remarks>
-        public void Close() { }
+        public void Close()
+        {
+        }
 
         /// <summary>Gets or sets the string used to open a database.</summary>
         /// <remarks>Changing connection string operation is not supported in <c>DynamORM</c>.

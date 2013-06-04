@@ -65,12 +65,12 @@ namespace DynamORM.Tests.Modify
         [Test]
         public void TestInsertByArguments()
         {
-            Assert.AreEqual(1, GetTestTable().Insert(code: 201, first: null, last: "Gagarin", email: "juri.gagarin@megacorp.com", quote: "bla, bla, bla"));
+            Assert.AreEqual(1, GetTestTable().Insert(code: "201", first: null, last: "Gagarin", email: "juri.gagarin@megacorp.com", quote: "bla, bla, bla"));
 
             // Verify
-            var o = GetTestTable().Single(code: 201);
+            var o = GetTestTable().Single(code: "201");
             Assert.Less(200, o.id);
-            Assert.AreEqual("201", o.code);
+            Assert.AreEqual("201", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -82,12 +82,12 @@ namespace DynamORM.Tests.Modify
         [Test]
         public void TestInsertByDynamicObjects()
         {
-            Assert.AreEqual(1, GetTestTable().Insert(values: new { code = 202, first = DBNull.Value, last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }));
+            Assert.AreEqual(1, GetTestTable().Insert(values: new { code = "202", first = DBNull.Value, last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }));
 
             // Verify
-            var o = GetTestTable().Single(code: 202);
+            var o = GetTestTable().Single(code: "202");
             Assert.Less(200, o.id);
-            Assert.AreEqual("202", o.code);
+            Assert.AreEqual("202", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -112,9 +112,9 @@ namespace DynamORM.Tests.Modify
             }));
 
             // Verify
-            var o = u.Single(code: 203);
+            var o = u.Single(code: "203");
             Assert.Less(200, o.id);
-            Assert.AreEqual("203", o.code);
+            Assert.AreEqual("203", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -139,9 +139,9 @@ namespace DynamORM.Tests.Modify
             }));
 
             // Verify
-            var o = u.Single(code: 204);
+            var o = u.Single(code: "204");
             Assert.Less(200, o.id);
-            Assert.AreEqual("204", o.code);
+            Assert.AreEqual("204", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -157,12 +157,12 @@ namespace DynamORM.Tests.Modify
         [Test]
         public void TestUpdateByArguments()
         {
-            Assert.AreEqual(1, GetTestTable().Update(id: 1, code: 201, first: null, last: "Gagarin", email: "juri.gagarin@megacorp.com", quote: "bla, bla, bla"));
+            Assert.AreEqual(1, GetTestTable().Update(id: 1, code: "201", first: null, last: "Gagarin", email: "juri.gagarin@megacorp.com", quote: "bla, bla, bla"));
 
             // Verify
-            var o = GetTestTable().Single(code: 201);
+            var o = GetTestTable().Single(code: "201");
             Assert.AreEqual(1, o.id);
-            Assert.AreEqual("201", o.code);
+            Assert.AreEqual("201", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -174,12 +174,12 @@ namespace DynamORM.Tests.Modify
         [Test]
         public void TestUpdateByDynamicObject()
         {
-            Assert.AreEqual(1, GetTestTable().Update(update: new { id = 2, code = 202, first = DBNull.Value, last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }));
+            Assert.AreEqual(1, GetTestTable().Update(update: new { id = 2, code = "202", first = DBNull.Value, last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }));
 
             // Verify
-            var o = GetTestTable().Single(code: 202);
+            var o = GetTestTable().Single(code: "202");
             Assert.AreEqual(2, o.id);
-            Assert.AreEqual("202", o.code);
+            Assert.AreEqual("202", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -204,9 +204,9 @@ namespace DynamORM.Tests.Modify
             }));
 
             // Verify
-            var o = u.Single(code: 203);
+            var o = u.Single(code: "203");
             Assert.AreEqual(3, o.id);
-            Assert.AreEqual("203", o.code);
+            Assert.AreEqual("203", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -231,9 +231,9 @@ namespace DynamORM.Tests.Modify
             }));
 
             // Verify
-            var o = u.Single(code: 204);
+            var o = u.Single(code: "204");
             Assert.AreEqual(4, o.id);
-            Assert.AreEqual("204", o.code);
+            Assert.AreEqual("204", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -245,12 +245,12 @@ namespace DynamORM.Tests.Modify
         [Test]
         public void TestUpdateByDynamicObjects()
         {
-            Assert.AreEqual(1, GetTestTable().Update(values: new { code = 205, first = DBNull.Value, last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }, where: new { id = 5 }));
+            Assert.AreEqual(1, GetTestTable().Update(values: new { code = "205", first = DBNull.Value, last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }, where: new { id = 5 }));
 
             // Verify
-            var o = GetTestTable().Single(code: 205);
+            var o = GetTestTable().Single(code: "205");
             Assert.AreEqual(5, o.id);
-            Assert.AreEqual("205", o.code);
+            Assert.AreEqual("205", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -275,9 +275,9 @@ namespace DynamORM.Tests.Modify
             }, id: 6));
 
             // Verify
-            var o = u.Single(code: 206);
+            var o = u.Single(code: "206");
             Assert.AreEqual(6, o.id);
-            Assert.AreEqual("206", o.code);
+            Assert.AreEqual("206", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -302,9 +302,9 @@ namespace DynamORM.Tests.Modify
             }, id: 7));
 
             // Verify
-            var o = u.Single(code: 207);
+            var o = u.Single(code: "207");
             Assert.AreEqual(7, o.id);
-            Assert.AreEqual("207", o.code);
+            Assert.AreEqual("207", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
             Assert.AreEqual("juri.gagarin@megacorp.com", o.email);
@@ -320,10 +320,10 @@ namespace DynamORM.Tests.Modify
         [Test]
         public void TestDeleteByArguments()
         {
-            Assert.AreEqual(1, GetTestTable().Delete(code: 10));
+            Assert.AreEqual(1, GetTestTable().Delete(code: "10"));
 
             // Verify
-            Assert.AreEqual(0, GetTestTable().Count(code: 10));
+            Assert.AreEqual(0, GetTestTable().Count(code: "10"));
         }
 
         /// <summary>Test row deleting by dynamic objects (all except ID should be ignored).</summary>
@@ -380,7 +380,7 @@ namespace DynamORM.Tests.Modify
         [Test]
         public void TestDeleteyDynamicObjectWhere()
         {
-            Assert.AreEqual(1, GetTestTable().Delete(where: new { id = 14, code = 14 }));
+            Assert.AreEqual(1, GetTestTable().Delete(where: new { id = 14, code = "14" }));
 
             // Verify
             Assert.AreEqual(0, GetTestTable().Count(id: 14));

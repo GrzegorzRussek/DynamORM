@@ -86,7 +86,9 @@ namespace DynamORM
         #region Constructors
 
         /// <summary>Initializes a new instance of the <see cref="DynamicColumn" /> class.</summary>
-        public DynamicColumn() { }
+        public DynamicColumn()
+        {
+        }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicColumn" /> class.</summary>
         /// <remarks>Constructor provided for easier object creation in queries.</remarks>
@@ -341,7 +343,7 @@ namespace DynamORM
         /// <summary>Sets the begin block flag.</summary>
         /// <param name="begin">If set to <c>true</c> [begin].</param>
         /// <returns>Returns self.</returns>
-        public DynamicColumn SetBeginBlock(bool begin)
+        public DynamicColumn SetBeginBlock(bool begin = true)
         {
             BeginBlock = begin;
             return this;
@@ -350,7 +352,7 @@ namespace DynamORM
         /// <summary>Sets the end block flag.</summary>
         /// <param name="end">If set to <c>true</c> [end].</param>
         /// <returns>Returns self.</returns>
-        public DynamicColumn SetEndBlock(bool end)
+        public DynamicColumn SetEndBlock(bool end = true)
         {
             EndBlock = end;
             return this;
@@ -359,7 +361,7 @@ namespace DynamORM
         /// <summary>Sets the or flag.</summary>
         /// <param name="or">If set to <c>true</c> [or].</param>
         /// <returns>Returns self.</returns>
-        public DynamicColumn SetOr(bool or)
+        public DynamicColumn SetOr(bool or = true)
         {
             Or = or;
             return this;
@@ -436,6 +438,13 @@ namespace DynamORM
 
         #region ToSQL
 
+        internal string ToSQLSelectColumn(DynamicDatabase db)
+        {
+            StringBuilder sb = new StringBuilder();
+            ToSQLSelectColumn(db, sb);
+            return sb.ToString();
+        }
+
         internal void ToSQLSelectColumn(DynamicDatabase db, StringBuilder sb)
         {
             string column = ColumnName == "*" ? "*" : ColumnName;
@@ -462,9 +471,23 @@ namespace DynamORM
                 sb.AppendFormat(" AS {0}", alias);
         }
 
+        internal string ToSQLGroupByColumn(DynamicDatabase db)
+        {
+            StringBuilder sb = new StringBuilder();
+            ToSQLGroupByColumn(db, sb);
+            return sb.ToString();
+        }
+
         internal void ToSQLGroupByColumn(DynamicDatabase db, StringBuilder sb)
         {
             sb.Append(db.DecorateName(ColumnName));
+        }
+
+        internal string ToSQLOrderByColumn(DynamicDatabase db)
+        {
+            StringBuilder sb = new StringBuilder();
+            ToSQLOrderByColumn(db, sb);
+            return sb.ToString();
         }
 
         internal void ToSQLOrderByColumn(DynamicDatabase db, StringBuilder sb)

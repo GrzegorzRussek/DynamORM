@@ -358,7 +358,7 @@ namespace DynamORM.Tests.Select
             Assert.AreEqual(200, GetTestTable().Count<T>(columns: "id"));
         }
 
-        /// <summary>Test count with in steatement.</summary>
+        /// <summary>Test count with in statement.</summary>
         [Test]
         public virtual void TestGenericSelectInEnumerableCount()
         {
@@ -369,7 +369,7 @@ namespace DynamORM.Tests.Select
             }));
         }
 
-        /// <summary>Test count with in steatement.</summary>
+        /// <summary>Test count with in statement.</summary>
         [Test]
         public virtual void TestGenericSelectInArrayCount()
         {
@@ -585,7 +585,7 @@ namespace DynamORM.Tests.Select
             Assert.AreEqual(26, GetTestTable().Count<T>(where: new DynamicColumn("id").Between(75, 100)));
         }
 
-        /// <summary>Test generic where expression in params.</summary>
+        /// <summary>Test generic where expression in parameters.</summary>
         [Test]
         public virtual void TestGenericWhereIn1()
         {

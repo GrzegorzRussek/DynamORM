@@ -86,7 +86,7 @@ namespace DynamORM.Tests
 
         #region DynamORM Initialization
 
-        /// <summary>Create <see cref="DynamicDatabase"/> with default otions for SQLite.</summary>
+        /// <summary>Create <see cref="DynamicDatabase"/> with default options for SQLite.</summary>
         public void CreateDynamicDatabase()
         {
             CreateDynamicDatabase(
