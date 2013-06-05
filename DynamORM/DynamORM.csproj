@@ -66,6 +66,7 @@
     <Compile Include="DynamicDatabase.cs" />
     <Compile Include="DynamicDatabaseOptions.cs" />
     <Compile Include="DynamicExtensions.cs" />
+    <Compile Include="DynamicQueryException.cs" />
     <Compile Include="DynamicSchemaColumn.cs" />
     <Compile Include="DynamicTable.cs" />
     <Compile Include="DynamicTransaction.cs" />

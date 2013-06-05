@@ -28,13 +28,14 @@
 
 using System;
 using System.Data;
+using DynamORM.Helpers;
 
 namespace DynamORM
 {
     /// <summary>Connection wrapper.</summary>
     /// <remarks>This class is only connection holder, connection is managed by
     /// <see cref="DynamicDatabase"/> instance.</remarks>
-    public class DynamicConnection : IDbConnection, IDisposable
+    public class DynamicConnection : IDbConnection, IExtendedDisposable
     {
         private DynamicDatabase _db;
         private bool _singleTransaction;
@@ -48,6 +49,7 @@ namespace DynamORM
         /// <param name="singleTransaction">Are we using single transaction mode? I so... act correctly.</param>
         internal DynamicConnection(DynamicDatabase db, IDbConnection con, bool singleTransaction)
         {
+            IsDisposed = false;
             _db = db;
             Connection = con;
             _singleTransaction = singleTransaction;
@@ -147,11 +149,19 @@ namespace DynamORM
 
         #endregion IDbConnection Members
 
+        #region IExtendedDisposable Members
+
         /// <summary>Performs application-defined tasks associated with freeing,
         /// releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
         {
             _db.Close(Connection);
+            IsDisposed = true;
         }
+
+        /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+        public bool IsDisposed { get; private set; }
+
+        #endregion IExtendedDisposable Members
     }
 }

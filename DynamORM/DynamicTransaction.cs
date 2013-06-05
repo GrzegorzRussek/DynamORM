@@ -28,11 +28,12 @@
 
 using System;
 using System.Data;
+using DynamORM.Helpers;
 
 namespace DynamORM
 {
     /// <summary>Helper class to easy manage transaction.</summary>
-    public class DynamicTransaction : IDbTransaction, IDisposable
+    public class DynamicTransaction : IDbTransaction, IExtendedDisposable
     {
         private DynamicDatabase _db;
         private DynamicConnection _con;
@@ -48,6 +49,7 @@ namespace DynamORM
         /// <param name="disposed">This action is invoked when transaction is disposed.</param>
         internal DynamicTransaction(DynamicDatabase db, DynamicConnection con, bool singleTransaction, IsolationLevel? il, Action disposed)
         {
+            IsDisposed = false;
             _db = db;
             _con = con;
             _singleTransaction = singleTransaction;
@@ -125,6 +127,8 @@ namespace DynamORM
         /// <summary>Gets <see cref="System.Data.IsolationLevel"/> for this transaction.</summary>
         public IsolationLevel IsolationLevel { get; private set; }
 
+        #region IExtendedDisposable Members
+
         /// <summary>Performs application-defined tasks associated with
         /// freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
@@ -133,6 +137,13 @@ namespace DynamORM
 
             if (_disposed != null)
                 _disposed();
+
+            IsDisposed = true;
         }
+
+        /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+        public bool IsDisposed { get; private set; }
+
+        #endregion IExtendedDisposable Members
     }
 }

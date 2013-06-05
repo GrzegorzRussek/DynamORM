@@ -40,7 +40,7 @@ using DynamORM.Mapper;
 namespace DynamORM
 {
     /// <summary>Dynamic database is a class responsible for managing database.</summary>
-    public class DynamicDatabase : IDisposable
+    public class DynamicDatabase : IExtendedDisposable
     {
         #region Internal fields and properties
 
@@ -127,6 +127,7 @@ namespace DynamORM
         /// <param name="options">Connection options.</param>
         public DynamicDatabase(DbProviderFactory provider, string connectionString, DynamicDatabaseOptions options)
         {
+            IsDisposed = false;
             _provider = provider;
 
             InitCommon(connectionString, options);
@@ -137,6 +138,7 @@ namespace DynamORM
         /// <param name="options">Connection options. <see cref="DynamicDatabaseOptions.SingleConnection"/> required.</param>
         public DynamicDatabase(IDbConnection connection, DynamicDatabaseOptions options)
         {
+            IsDisposed = false;
             InitCommon(connection.ConnectionString, options);
             TransactionPool.Add(connection, new Stack<IDbTransaction>());
 
@@ -643,7 +645,7 @@ namespace DynamORM
 
         #endregion Transaction
 
-        #region IDisposable Members
+        #region IExtendedDisposable Members
 
         /// <summary>Performs application-defined tasks associated with freeing,
         /// releasing, or resetting unmanaged resources.</summary>
@@ -684,9 +686,13 @@ namespace DynamORM
                 // Clear pools
                 TransactionPool.Clear();
                 CommandsPool.Clear();
+                IsDisposed = true;
             }
         }
 
-        #endregion IDisposable Members
+        /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+        public bool IsDisposed { get; private set; }
+
+        #endregion IExtendedDisposable Members
     }
 }

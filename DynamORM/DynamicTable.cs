@@ -194,7 +194,7 @@ namespace DynamORM
     /// });</code>
     /// <code>x.Delete(where: new { id = 14, code = 14 });</code>
     /// </example>
-    public class DynamicTable : DynamicObject, IDisposable, ICloneable
+    public class DynamicTable : DynamicObject, IExtendedDisposable, ICloneable
     {
         private static HashSet<string> _allowedCommands = new HashSet<string>
         {
@@ -243,6 +243,7 @@ namespace DynamORM
         /// <param name="keys">Override keys in schema.</param>
         public DynamicTable(DynamicDatabase database, string table = "", string owner = "", string[] keys = null)
         {
+            IsDisposed = false;
             Database = database;
             TableName = Database.StripName(table);
             OwnerName = Database.StripName(owner);
@@ -260,15 +261,20 @@ namespace DynamORM
             if (type == null)
                 throw new ArgumentNullException("type", "Type can't be null.");
 
-            Database = database;
+            IsDisposed = false;
 
+            Database = database;
             TableType = type;
 
             var mapper = DynamicMapperCache.GetMapper(type);
 
             if (mapper != null)
+            {
                 TableName = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
                     type.Name : mapper.Table.Name;
+                OwnerName = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
+                    type.Name : mapper.Table.Name;
+            }
 
             BuildAndCacheSchema(keys);
         }
@@ -995,7 +1001,7 @@ namespace DynamORM
 
         #endregion Universal Dynamic Invoker
 
-        #region IDisposable Members
+        #region IExtendedDisposable Members
 
         /// <summary>Performs application-defined tasks associated with
         /// freeing, releasing, or resetting unmanaged resources.</summary>
@@ -1007,9 +1013,14 @@ namespace DynamORM
                 Database.RemoveFromCache(this);
                 Database = null;
             }
+
+            IsDisposed = true;
         }
 
-        #endregion IDisposable Members
+        /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+        public bool IsDisposed { get; private set; }
+
+        #endregion IExtendedDisposable Members
 
         #region ICloneable Members
 

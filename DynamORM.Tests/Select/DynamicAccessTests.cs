@@ -436,27 +436,21 @@ namespace DynamORM.Tests.Select
             Assert.AreEqual(exp.last, o.last);
         }
 
-        /// <summary>Test dynamic duplicate column name ocurrance.</summary>
+        /// <summary>Test dynamic duplicate column name occurrence.</summary>
         [Test]
         public void TestDuplicateColumnNameException()
         {
             Assert.Throws<ArgumentException>(() => GetTestBuilder()
                 .Where(x => x.id == 19)
-                .Select(x => new { id = x.id, first = x.first, last = x.last })
+                .Select(x => new
+                {
+                    id = x.id,
+                    first = x.first,
+                    last = x.last,
+                })
                 .Select(x => x.last.As(x.first)) // Make last be first
                 .Execute()
                 .First());
-        }
-
-        [Test]
-        public void TestEmptyColumnName()
-        {
-            var v = GetTestBuilder()
-                .Select(x => x.first, x => x.Count(x.first))
-                .GroupBy(x => x.first)
-                .OrderBy(x => x.Desc(2))
-                .Execute()
-                .ToList();
         }
 
         #endregion Select

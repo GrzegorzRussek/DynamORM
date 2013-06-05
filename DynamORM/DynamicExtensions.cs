@@ -798,9 +798,9 @@ namespace DynamORM
         #region Dynamic extensions
 
         /// <summary>Turns an <see cref="IDataReader"/> to a Dynamic list of things.</summary>
-        /// <param name="r">Reader from which read data..</param>
+        /// <param name="r">Reader from which read data.</param>
         /// <returns>List of things.</returns>
-        public static List<dynamic> ToDynamicList(this IDataReader r)
+        public static List<dynamic> ToList(this IDataReader r)
         {
             var result = new List<dynamic>();
 
@@ -808,6 +808,23 @@ namespace DynamORM
                 result.Add(r.RowToDynamic());
 
             return result;
+        }
+
+        /// <summary>Turns an <see cref="IDynamicSelectQueryBuilder"/> to a Dynamic list of things.</summary>
+        /// <param name="b">Ready to execute builder.</param>
+        /// <returns>List of things.</returns>
+        public static List<dynamic> ToList(this IDynamicSelectQueryBuilder b)
+        {
+            return b.Execute().ToList();
+        }
+
+        /// <summary>Turns an <see cref="IDynamicSelectQueryBuilder"/> to a Dynamic list of things with specified type.</summary>
+        /// <typeparam name="T">Type of object to map on.</typeparam>
+        /// <param name="b">Ready to execute builder.</param>
+        /// <returns>List of things.</returns>
+        public static List<T> ToList<T>(this IDynamicSelectQueryBuilder b) where T : class
+        {
+            return b.Execute<T>().ToList();
         }
 
         /// <summary>Turns the dictionary into an ExpandoObject.</summary>

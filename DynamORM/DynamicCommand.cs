@@ -28,11 +28,12 @@
 
 using System;
 using System.Data;
+using DynamORM.Helpers;
 
 namespace DynamORM
 {
     /// <summary>Helper class to easy manage command.</summary>
-    public class DynamicCommand : IDbCommand
+    public class DynamicCommand : IDbCommand, IExtendedDisposable
     {
         private IDbCommand _command;
         private int? _commandTimeout = null;
@@ -45,6 +46,7 @@ namespace DynamORM
         /// <param name="db">The database manager.</param>
         internal DynamicCommand(DynamicConnection con, DynamicDatabase db)
         {
+            IsDisposed = false;
             _con = con;
             _db = db;
 
@@ -65,6 +67,7 @@ namespace DynamORM
         /// <remarks>Used internally to create command without context.</remarks>
         internal DynamicCommand(DynamicDatabase db)
         {
+            IsDisposed = false;
             _db = db;
             _command = db.Provider.CreateCommand();
         }
@@ -152,7 +155,14 @@ namespace DynamORM
         /// <returns>The number of rows affected.</returns>
         public int ExecuteNonQuery()
         {
-            return PrepareForExecution().ExecuteNonQuery();
+            try
+            {
+                return PrepareForExecution().ExecuteNonQuery();
+            }
+            catch (Exception ex)
+            {
+                throw new DynamicQueryException(ex, this);
+            }
         }
 
         /// <summary>Executes the <see cref="P:System.Data.IDbCommand.CommandText"/>
@@ -164,7 +174,14 @@ namespace DynamORM
         /// <returns>An <see cref="T:System.Data.IDataReader"/> object.</returns>
         public IDataReader ExecuteReader(CommandBehavior behavior)
         {
-            return PrepareForExecution().ExecuteReader(behavior);
+            try
+            {
+                return PrepareForExecution().ExecuteReader(behavior);
+            }
+            catch (Exception ex)
+            {
+                throw new DynamicQueryException(ex, this);
+            }
         }
 
         /// <summary>Executes the <see cref="P:System.Data.IDbCommand.CommandText"/>
@@ -173,7 +190,14 @@ namespace DynamORM
         /// <returns>An <see cref="T:System.Data.IDataReader"/> object.</returns>
         public IDataReader ExecuteReader()
         {
-            return PrepareForExecution().ExecuteReader();
+            try
+            {
+                return PrepareForExecution().ExecuteReader();
+            }
+            catch (Exception ex)
+            {
+                throw new DynamicQueryException(ex, this);
+            }
         }
 
         /// <summary>Executes the query, and returns the first column of the
@@ -182,7 +206,14 @@ namespace DynamORM
         /// <returns>The first column of the first row in the result set.</returns>
         public object ExecuteScalar()
         {
-            return PrepareForExecution().ExecuteScalar();
+            try
+            {
+                return PrepareForExecution().ExecuteScalar();
+            }
+            catch (Exception ex)
+            {
+                throw new DynamicQueryException(ex, this);
+            }
         }
 
         /// <summary>Gets the <see cref="T:System.Data.IDataParameterCollection"/>.</summary>
@@ -194,7 +225,14 @@ namespace DynamORM
         /// <summary>Creates a prepared (or compiled) version of the command on the data source.</summary>
         public void Prepare()
         {
-            _command.Prepare();
+            try
+            {
+                _command.Prepare();
+            }
+            catch (Exception ex)
+            {
+                throw new DynamicQueryException("Error preparing command.", ex, this);
+            }
         }
 
         /// <summary>Gets or sets the transaction within which the Command
@@ -214,7 +252,7 @@ namespace DynamORM
 
         #endregion IDbCommand Members
 
-        #region IDisposable Members
+        #region IExtendedDisposable Members
 
         /// <summary>Performs application-defined tasks associated with
         /// freeing, releasing, or resetting unmanaged resources.</summary>
@@ -231,9 +269,14 @@ namespace DynamORM
                 }
 
                 _command.Dispose();
+
+                IsDisposed = true;
             }
         }
 
-        #endregion IDisposable Members
+        /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+        public bool IsDisposed { get; private set; }
+
+        #endregion IExtendedDisposable Members
     }
 }

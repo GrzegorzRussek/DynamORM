@@ -27,6 +27,7 @@
 */
 
 using System.Linq;
+using DynamORM.Builders;
 using DynamORM.Builders.Implementation;
 using NUnit.Framework;
 
@@ -55,13 +56,15 @@ namespace DynamORM.Tests.Modify
             DestroyTestDatabase();
         }
 
+        #region Insert
+
         /// <summary>
         /// Tests the basic insert.
         /// </summary>
         [Test]
-        public void TestBasicInsert()
+        public void TestInsertBasic()
         {
-            var cmd = new DynamicInsertQueryBuilder(Database, "Users");
+            IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
 
             cmd.Insert(x => x.Users.Code = "001", x => x.Users.Name = "Admin", x => x.Users.IsAdmin = 1);
 
@@ -75,7 +78,7 @@ namespace DynamORM.Tests.Modify
         [Test]
         public void TestInsertSubQuery()
         {
-            var cmd = new DynamicInsertQueryBuilder(Database, "Users");
+            IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
 
             cmd.Insert(x => x.Code = "001", x => x.Name = "Admin", x => x.IsAdmin = x(cmd
                 .SubQuery(a => a.AccessRights.As(a.a))
@@ -90,9 +93,9 @@ namespace DynamORM.Tests.Modify
         /// Tests the basic insert using object.
         /// </summary>
         [Test]
-        public void TestBasicInsertObject()
+        public void TestInsertBasicObject()
         {
-            var cmd = new DynamicInsertQueryBuilder(Database, "Users");
+            IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
 
             cmd.Insert(x => new { Code = "001", Name = "Admin", IsAdmin = 1 });
 
@@ -106,7 +109,7 @@ namespace DynamORM.Tests.Modify
         [Test]
         public void TestInsertSubQueryObject()
         {
-            var cmd = new DynamicInsertQueryBuilder(Database, "Users");
+            IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
 
             cmd.Insert(x => new
             {
@@ -121,5 +124,81 @@ namespace DynamORM.Tests.Modify
             Assert.AreEqual(string.Format(@"INSERT INTO ""Users"" (""Code"", ""Name"", ""IsAdmin"") VALUES ({0}, (SELECT a.""IsAdmin"" FROM ""AccessRights"" AS a WHERE (a.""User_Id"" = [${1}])))",
                 string.Join(", ", cmd.Parameters.Keys.Take(2).Select(p => string.Format("[${0}]", p))), cmd.Parameters.Keys.Last()), cmd.CommandText());
         }
+
+        #endregion Insert
+
+        #region Update
+
+        /// <summary>
+        /// Tests the basic update.
+        /// </summary>
+        [Test]
+        public void TestUpdateBasic()
+        {
+            IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
+
+            cmd.Values(x => x.Users.Code = "001", x => x.Users.Name = "Admin", x => x.Users.IsAdmin = 1)
+                .Where(x => x.Users.Id_User == 1);
+
+            Assert.AreEqual(string.Format(@"UPDATE ""Users"" SET ""Code"" = [${0}], ""Name"" = [${1}], ""IsAdmin"" = [${2}] WHERE (""Users"".""Id_User"" = [${3}])",
+                cmd.Parameters.Keys.ToArray()[0], cmd.Parameters.Keys.ToArray()[1], cmd.Parameters.Keys.ToArray()[2], cmd.Parameters.Keys.ToArray()[3]), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests the insert with sub query.
+        /// </summary>
+        [Test]
+        public void TestUpdateSubQuery()
+        {
+            IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
+
+            cmd.Values(x => x.Users.Code = "001", x => x.Users.Name = "Admin", x => x.Users.IsAdmin = x(cmd
+                    .SubQuery(a => a.AccessRights.As(a.a))
+                    .Select(a => a.IsAdmin)
+                    .Where(a => a.User_Id == a.Users.Id_User)))
+                .Where(x => x.Users.Id_User == 1);
+
+            Assert.AreEqual(string.Format(@"UPDATE ""Users"" SET ""Code"" = [${0}], ""Name"" = [${1}], ""IsAdmin"" = (SELECT a.""IsAdmin"" FROM ""AccessRights"" AS a WHERE (a.""User_Id"" = ""Users"".""Id_User"")) WHERE (""Users"".""Id_User"" = [${2}])",
+                cmd.Parameters.Keys.ToArray()[0], cmd.Parameters.Keys.ToArray()[1], cmd.Parameters.Keys.ToArray()[2]), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests the basic insert using object.
+        /// </summary>
+        [Test]
+        public void TestUpdateBasicObject()
+        {
+            IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
+
+            cmd.Values(x => new { Code = "001", Name = "Admin", IsAdmin = 1 })
+                .Where(x => new { Id_User = 1 });
+
+            Assert.AreEqual(string.Format(@"UPDATE ""Users"" SET ""Code"" = [${0}], ""Name"" = [${1}], ""IsAdmin"" = [${2}] WHERE (""Id_User"" = [${3}])",
+                cmd.Parameters.Keys.ToArray()[0], cmd.Parameters.Keys.ToArray()[1], cmd.Parameters.Keys.ToArray()[2], cmd.Parameters.Keys.ToArray()[3]), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests the basic insert using object.
+        /// </summary>
+        [Test]
+        public void TestUpdateSubQueryObject()
+        {
+            IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
+
+            cmd.Values(x => new
+            {
+                Code = "001",
+                Name = "Admin",
+                IsAdmin = x(cmd
+                    .SubQuery(a => a.AccessRights.As(a.a))
+                    .Select(a => a.IsAdmin)
+                    .Where(a => a.User_Id == a.Users.Id_User))
+            }).Where(x => new { Id_User = 1 });
+
+            Assert.AreEqual(string.Format(@"UPDATE ""Users"" SET ""Code"" = [${0}], ""Name"" = [${1}], ""IsAdmin"" = (SELECT a.""IsAdmin"" FROM ""AccessRights"" AS a WHERE (a.""User_Id"" = ""Users"".""Id_User"")) WHERE (""Id_User"" = [${2}])",
+                cmd.Parameters.Keys.ToArray()[0], cmd.Parameters.Keys.ToArray()[1], cmd.Parameters.Keys.ToArray()[2]), cmd.CommandText());
+        }
+
+        #endregion Update
     }
 }

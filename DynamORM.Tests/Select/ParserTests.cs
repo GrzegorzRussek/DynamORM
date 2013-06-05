@@ -327,6 +327,21 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>
+        /// Tests inner join method with aliases mix.
+        /// </summary>
+        [Test]
+        public void TestInnerJoin2()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.usr))
+                .Join(usr => usr.Inner().dbo.UserClients.AS(usr.uc).On(usr.Id_User == usr.uc.User_Id && usr.uc.Users != null))
+                .Select(usr => usr.All(), uc => uc.Users);
+
+            Assert.AreEqual(string.Format("SELECT usr.*, uc.\"Users\" FROM \"dbo\".\"Users\" AS usr INNER JOIN \"dbo\".\"UserClients\" AS uc ON ((usr.\"Id_User\" = uc.\"User_Id\") AND (uc.\"Users\" IS NOT NULL))"), cmd.CommandText());
+        }
+
+        /// <summary>
         /// Tests left outer join method.
         /// </summary>
         [Test]
@@ -492,6 +507,20 @@ namespace DynamORM.Tests.Select
 
             cmd.From(u => u.dbo.Users.As(u.u))
                 .Select(u => u.UserName.As(u.Name));
+
+            Assert.AreEqual("SELECT u.\"UserName\" AS \"Name\" FROM \"dbo\".\"Users\" AS u", cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests select field with alias.
+        /// </summary>
+        [Test]
+        public void TestSelectFieldAlias4()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.u))
+                .Select(u => u.UserName.As(u.u.Name));
 
             Assert.AreEqual("SELECT u.\"UserName\" AS \"Name\" FROM \"dbo\".\"Users\" AS u", cmd.CommandText());
         }
