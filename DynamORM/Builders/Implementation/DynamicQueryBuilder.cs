@@ -1,0 +1,744 @@
+﻿/*
+ * DynamORM - Dynamic Object-Relational Mapping library.
+ * Copyright (c) 2012, Grzegorz Russek (grzegorz.russek@gmail.com)
+ * All rights reserved.
+ *
+ * Some of methods in this code file is based on Kerosene ORM solution
+ * for parsing dynamic lambda expressions by Moisés Barba Cebeira
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Text;
+using DynamORM.Helpers;
+using DynamORM.Helpers.Dynamics;
+using DynamORM.Mapper;
+
+namespace DynamORM.Builders.Implementation
+{
+    /// <summary>Implementation of dynamic query builder base interface.</summary>
+    internal abstract class DynamicQueryBuilder : IDynamicQueryBuilder
+    {
+        /// <summary>Empty interface to allow where query builder implementation use universal approach.</summary>
+        internal interface IQueryWithWhere { }
+
+        private DynamicQueryBuilder _parent = null;
+
+        /// <summary>Gets or sets a value indicating whether add virtual.</summary>
+        internal bool VirtualMode { get; set; }
+
+        #region TableInfo
+
+        /// <summary>Table information.</summary>
+        internal class TableInfo : ITableInfo
+        {
+            /// <summary>
+            /// Initializes a new instance of the <see cref="TableInfo"/> class.
+            /// </summary>
+            internal TableInfo()
+            {
+            }
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="TableInfo" /> class.
+            /// </summary>
+            /// <param name="db">The database.</param>
+            /// <param name="name">The name of table.</param>
+            /// <param name="alias">The table alias.</param>
+            /// <param name="owner">The table owner.</param>
+            public TableInfo(DynamicDatabase db, string name, string alias = null, string owner = null)
+            {
+                Name = name;
+                Alias = alias;
+                Owner = owner;
+
+                if (!name.ContainsAny(StringExtensions.InvalidMemberChars))
+                    Schema = db.GetSchema(name, owner: owner);
+            }
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="TableInfo" /> class.
+            /// </summary>
+            /// <param name="db">The database.</param>
+            /// <param name="type">The type which can be mapped to database.</param>
+            /// <param name="alias">The table alias.</param>
+            /// <param name="owner">The table owner.</param>
+            public TableInfo(DynamicDatabase db, Type type, string alias = null, string owner = null)
+            {
+                var mapper = DynamicMapperCache.GetMapper(type);
+
+                Name = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
+                    mapper.Type.Name : mapper.Table.Name;
+
+                Owner = (mapper.Table != null) ? mapper.Table.Owner : owner;
+                Alias = alias;
+
+                Schema = db.GetSchema(type);
+            }
+
+            /// <summary>Gets or sets table owner name.</summary>
+            public string Owner { get; internal set; }
+
+            /// <summary>Gets or sets table name.</summary>
+            public string Name { get; internal set; }
+
+            /// <summary>Gets or sets table alias.</summary>
+            public string Alias { get; internal set; }
+
+            /// <summary>Gets or sets table schema.</summary>
+            public Dictionary<string, DynamicSchemaColumn> Schema { get; internal set; }
+        }
+
+        /// <summary>Generic based table information.</summary>
+        /// <typeparam name="T">Type of class that is represented in database.</typeparam>
+        internal class TableInfo<T> : TableInfo
+        {
+            /// <summary>
+            /// Initializes a new instance of the <see cref="TableInfo{T}" /> class.
+            /// </summary>
+            /// <param name="db">The database.</param>
+            /// <param name="alias">The table alias.</param>
+            /// <param name="owner">The table owner.</param>
+            public TableInfo(DynamicDatabase db, string alias = null, string owner = null)
+                : base(db, typeof(T), alias, owner)
+            {
+            }
+        }
+
+        #endregion TableInfo
+
+        #region Parameter
+
+        /// <summary>Interface describing parameter info.</summary>
+        internal class Parameter : IParameter
+        {
+            /// <summary>Gets or sets the parameter temporary name.</summary>
+            public string Name { get; internal set; }
+
+            /// <summary>Gets or sets the parameter value.</summary>
+            public object Value { get; set; }
+
+            /// <summary>Gets or sets a value indicating whether this <see cref="Parameter"/> is virtual.</summary>
+            public bool Virtual { get; set; }
+
+            /// <summary>Gets or sets the parameter schema information.</summary>
+            public DynamicSchemaColumn? Schema { get; internal set; }
+        }
+
+        #endregion Parameter
+
+        internal string WhereCondition { get; set; }
+
+        /// <summary>Gets <see cref="DynamicDatabase"/> instance.</summary>
+        public DynamicDatabase Database { get; private set; }
+
+        /// <summary>Gets the tables used in this builder.</summary>
+        public IList<ITableInfo> Tables { get; private set; }
+
+        /// <summary>Gets the tables used in this builder.</summary>
+        public IDictionary<string, IParameter> Parameters { get; private set; }
+
+        /// <summary>Gets a value indicating whether database supports standard schema.</summary>
+        public bool SupportSchema { get; private set; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DynamicQueryBuilder"/> class.
+        /// </summary>
+        /// <param name="db">The database.</param>
+        public DynamicQueryBuilder(DynamicDatabase db)
+        {
+            VirtualMode = false;
+            Tables = new List<ITableInfo>();
+            Parameters = new Dictionary<string, IParameter>();
+
+            Database = db;
+            SupportSchema = (db.Options & DynamicDatabaseOptions.SupportSchema) == DynamicDatabaseOptions.SupportSchema;
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="DynamicQueryBuilder"/> class.</summary>
+        /// <param name="db">The database.</param>
+        /// <param name="parent">The parent query.</param>
+        internal DynamicQueryBuilder(DynamicDatabase db, DynamicQueryBuilder parent)
+            : this(db)
+        {
+            _parent = parent;
+        }
+
+        internal bool IsTableAlias(string name)
+        {
+            DynamicQueryBuilder builder = this;
+
+            while (builder != null)
+            {
+                if (builder.Tables.Any(t => t.Alias == name))
+                    return true;
+
+                builder = builder._parent;
+            }
+
+            return false;
+        }
+
+        internal bool IsTable(string name, string owner)
+        {
+            DynamicQueryBuilder builder = this;
+
+            while (builder != null)
+            {
+                if ((string.IsNullOrEmpty(owner) && builder.Tables.Any(t => t.Name.ToLower() == name.ToLower())) ||
+                    (!string.IsNullOrEmpty(owner) && builder.Tables.Any(t => t.Name.ToLower() == name.ToLower() &&
+                        !string.IsNullOrEmpty(t.Owner) && t.Owner.ToLower() == owner.ToLower())))
+                    return true;
+
+                builder = builder._parent;
+            }
+
+            return false;
+        }
+
+        /// <summary>Creates sub query.</summary>
+        /// <returns>Sub query builder.</returns>
+        public IDynamicSelectQueryBuilder SubQuery()
+        {
+            return new DynamicSelectQueryBuilder(Database, this);
+        }
+
+        /// <summary>Adds to the 'From' clause of sub query the contents obtained by
+        /// parsing the dynamic lambda expressions given. The supported formats are:
+        /// <para>- Resolve to a string: 'x => "Table AS Alias', where the alias part is optional.</para>
+        /// <para>- Resolve to an expression: 'x => x.Table.As( x.Alias )', where the alias part is optional.</para>
+        /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this
+        /// case the alias is not annotated.</para>
+        /// </summary>
+        /// <param name="func">The specification.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public IDynamicSelectQueryBuilder SubQuery(params Func<dynamic, object>[] func)
+        {
+            return SubQuery().From(func);
+        }
+
+        /// <summary>
+        /// Generates the text this command will execute against the underlying database.
+        /// </summary>
+        /// <returns>The text to execute against the underlying database.</returns>
+        /// <remarks>This method must be override by derived classes.</remarks>
+        public abstract string CommandText();
+
+        /// <summary>Fill command with query.</summary>
+        /// <param name="command">Command to fill.</param>
+        /// <returns>Filled instance of <see cref="IDbCommand"/>.</returns>
+        public virtual IDbCommand FillCommand(IDbCommand command)
+        {
+            return command.SetCommand(CommandText()
+                .FillStringWithVariables(s =>
+                {
+                    return Parameters.TryGetValue(s).NullOr(p =>
+                    {
+                        return ((IDbDataParameter)command
+                            .AddParameter(this, p.Schema, p.Value)
+                            .Parameters[command.Parameters.Count - 1])
+                            .ParameterName;
+                    }, s);
+                }));
+        }
+
+        internal DynamicSchemaColumn? GetColumnFromSchema(string colName, DynamicTypeMap mapper = null, string table = null)
+        {
+            // This is tricky and will not always work unfortunetly.
+            if (colName.ContainsAny(StringExtensions.InvalidMultipartMemberChars))
+                return null;
+
+            // First we need to get real column name and it's owner if exist.
+            var parts = colName.Split('.')
+                .Select(c => Database.StripName(c))
+                .ToArray();
+
+            var columnName = parts.Last();
+
+            // Get table name from mapper
+            string tableName = table;
+
+            if (string.IsNullOrEmpty(tableName))
+            {
+                tableName = (mapper != null && mapper.Table != null) ? mapper.Table.Name : string.Empty;
+
+                if (parts.Length > 1 && string.IsNullOrEmpty(tableName))
+                {
+                    // OK, we have a multi part identifier, that's good, we can get table name
+                    tableName = string.Join(".", parts.Take(parts.Length - 1));
+                }
+            }
+
+            // Try to get table info from cache
+            var tableInfo = !string.IsNullOrEmpty(tableName) ?
+                Tables.FirstOrDefault(x => !string.IsNullOrEmpty(x.Alias) && x.Alias.ToLower() == tableName) ??
+                Tables.FirstOrDefault(x => x.Name.ToLower() == tableName.ToLower()) ?? Tables.FirstOrDefault() :
+                this is DynamicModifyBuilder ? Tables.FirstOrDefault() : null;
+
+            // Try to get column from schema
+            if (tableInfo != null && tableInfo.Schema != null)
+                return tableInfo.Schema.TryGetNullable(columnName.ToLower());
+
+            // Well, we failed to find a column
+            return null;
+        }
+
+        #region Parser
+
+        /// <summary>Parses the arbitrary object given and translates it into a string with the appropriate
+        /// syntax for the database this parser is specific to.</summary>
+        /// <param name="node">The object to parse and translate. It can be any arbitrary object, including null values (if
+        /// permitted) and dynamic lambda expressions.</param>
+        /// <param name="pars">If not null, the parameters' list where to store the parameters extracted by the parsing.</param>
+        /// <param name="rawstr">If true, literal (raw) string are allowed. If false and the node is a literal then, as a
+        /// security measure, an exception is thrown.</param>
+        /// <param name="nulls">True to accept null values and translate them into the appropriate syntax accepted by the
+        /// database. If false and the value is null, then an exception is thrown.</param>
+        /// <param name="decorate">If set to <c>true</c> decorate element.</param>
+        /// <param name="isMultiPart">If set parse argument as alias. This is workaround for AS method.</param>
+        /// <param name="columnSchema">This parameter is used to determine type of parameter used in query.</param>
+        /// <returns>A string containing the result of the parsing, along with the parameters extracted in the
+        /// <see cref="pars" /> instance if such is given.</returns>
+        /// <exception cref="System.ArgumentNullException">Null nodes are not accepted.</exception>
+        internal virtual string Parse(object node, IDictionary<string, IParameter> pars = null, bool rawstr = false, bool nulls = false, bool decorate = true, bool isMultiPart = true, DynamicSchemaColumn? columnSchema = null)
+        {
+            // Null nodes are accepted or not depending upon the "nulls" flag...
+            if (node == null)
+            {
+                if (!nulls)
+                    throw new ArgumentNullException("node", "Null nodes are not accepted.");
+
+                return Dispatch(node, pars, decorate);
+            }
+
+            // Nodes that are strings are parametrized or not depending the "rawstr" flag...
+            if (node is string)
+            {
+                if (rawstr) return (string)node;
+                else return Dispatch(node, pars, decorate);
+            }
+
+            // If node is a delegate, parse it to create the logical tree...
+            if (node is Delegate)
+            {
+                node = DynamicParser.Parse((Delegate)node).Result;
+                return Parse(node, pars, rawstr, decorate: decorate, columnSchema: columnSchema); // Intercept containers as in (x => "string")
+            }
+
+            return Dispatch(node, pars, decorate, isMultiPart, columnSchema);
+        }
+
+        private string Dispatch(object node, IDictionary<string, IParameter> pars = null, bool decorate = true, bool isMultiPart = true, DynamicSchemaColumn? columnSchema = null)
+        {
+            if (node != null)
+            {
+                if (node is DynamicQueryBuilder) return ParseCommand((DynamicQueryBuilder)node, pars);
+                else if (node is DynamicParser.Node.Argument) return ParseArgument((DynamicParser.Node.Argument)node, isMultiPart);
+                else if (node is DynamicParser.Node.GetMember) return ParseGetMember((DynamicParser.Node.GetMember)node, pars, decorate, isMultiPart, columnSchema);
+                else if (node is DynamicParser.Node.SetMember) return ParseSetMember((DynamicParser.Node.SetMember)node, pars, decorate, isMultiPart, columnSchema);
+                else if (node is DynamicParser.Node.Unary) return ParseUnary((DynamicParser.Node.Unary)node, pars);
+                else if (node is DynamicParser.Node.Binary) return ParseBinary((DynamicParser.Node.Binary)node, pars);
+                else if (node is DynamicParser.Node.Method) return ParseMethod((DynamicParser.Node.Method)node, pars);
+                else if (node is DynamicParser.Node.Invoke) return ParseInvoke((DynamicParser.Node.Invoke)node, pars);
+                else if (node is DynamicParser.Node.Convert) return ParseConvert((DynamicParser.Node.Convert)node, pars);
+            }
+
+            // All other cases are considered constant parameters...
+            return ParseConstant(node, pars, columnSchema);
+        }
+
+        protected virtual string ParseCommand(DynamicQueryBuilder node, IDictionary<string, IParameter> pars = null)
+        {
+            // Getting the command's text...
+            string str = node.CommandText(); // Avoiding spurious "OUTPUT XXX" statements
+
+            // If there are parameters to transform, but cannot store them, it is an error
+            if (node.Parameters.Count != 0 && pars == null)
+                throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
+
+            // Copy parameters to new comand
+            foreach (var parameter in node.Parameters)
+                pars.Add(parameter.Key, parameter.Value);
+
+            return string.Format("({0})", str);
+        }
+
+        protected virtual string ParseArgument(DynamicParser.Node.Argument node, bool isMultiPart = true, bool isOwner = false)
+        {
+            if (!string.IsNullOrEmpty(node.Name) && (isOwner || (isMultiPart && IsTableAlias(node.Name))))
+                return node.Name;
+
+            return null;
+        }
+
+        protected virtual string ParseGetMember(DynamicParser.Node.GetMember node, IDictionary<string, IParameter> pars = null, bool decorate = true, bool isMultiPart = true, DynamicSchemaColumn? columnSchema = null)
+        {
+            if (node.Host is DynamicParser.Node.Argument && IsTableAlias(node.Name))
+            {
+                decorate = false;
+                isMultiPart = false;
+            }
+
+            // This hack allows to use argument as alias, but when it is not nesesary use other column.
+            // Let say we hace a table Users with alias usr, and we join to table with alias ua which also has a column Users
+            // This allow use of usr => usr.ua.Users to result in ua."Users" instead of "Users" or usr."ua"."Users", se tests for examples.
+            string parent = null;
+            if (node.Host != null)
+            {
+                if (isMultiPart && node.Host is DynamicParser.Node.GetMember && IsTable(node.Host.Name, null))
+                {
+                    if (node.Host.Host != null && node.Host.Host is DynamicParser.Node.GetMember && IsTable(node.Host.Name, node.Host.Host.Name))
+                        parent = string.Format("{0}.{1}", Parse(node.Host.Host, pars, isMultiPart: false), Parse(node.Host, pars, isMultiPart: false));
+                    else
+                        parent = Parse(node.Host, pars, isMultiPart: false);
+                }
+                else if (isMultiPart)
+                    parent = Parse(node.Host, pars, isMultiPart: isMultiPart);
+            }
+
+            ////string parent = node.Host == null || !isMultiPart ? null : Parse(node.Host, pars, isMultiPart: !IsTable(node.Name, node.Host.Name));
+            string name = parent == null ?
+                decorate ? Database.DecorateName(node.Name) : node.Name :
+                string.Format("{0}.{1}", parent, decorate ? Database.DecorateName(node.Name) : node.Name);
+
+            columnSchema = GetColumnFromSchema(name);
+
+            return name;
+        }
+
+        protected virtual string ParseSetMember(DynamicParser.Node.SetMember node, IDictionary<string, IParameter> pars = null, bool decorate = true, bool isMultiPart = true, DynamicSchemaColumn? columnSchema = null)
+        {
+            if (node.Host is DynamicParser.Node.Argument && IsTableAlias(node.Name))
+            {
+                decorate = false;
+                isMultiPart = false;
+            }
+
+            string parent = null;
+            if (node.Host != null)
+            {
+                if (isMultiPart && node.Host is DynamicParser.Node.GetMember && IsTable(node.Host.Name, null))
+                {
+                    if (node.Host.Host != null && node.Host.Host is DynamicParser.Node.GetMember && IsTable(node.Name, node.Host.Name))
+                        parent = string.Format("{0}.{1}", Parse(node.Host.Host, pars, isMultiPart: false), Parse(node.Host, pars, isMultiPart: false));
+                    else
+                        parent = Parse(node.Host, pars, isMultiPart: false);
+                }
+                else if (isMultiPart)
+                    parent = Parse(node.Host, pars, isMultiPart: isMultiPart);
+            }
+
+            ////string parent = node.Host == null || !isMultiPart ? null : Parse(node.Host, pars, isMultiPart: !IsTable(node.Name, node.Host.Name));
+            string name = parent == null ?
+                decorate ? Database.DecorateName(node.Name) : node.Name :
+                string.Format("{0}.{1}", parent, decorate ? Database.DecorateName(node.Name) : node.Name);
+
+            columnSchema = GetColumnFromSchema(name);
+
+            string value = Parse(node.Value, pars, nulls: true, columnSchema: columnSchema);
+            return string.Format("{0} = ({1})", name, value);
+        }
+
+        protected virtual string ParseUnary(DynamicParser.Node.Unary node, IDictionary<string, IParameter> pars = null)
+        {
+            switch (node.Operation)
+            {
+                // Artifacts from the DynamicParser class that are not usefull here...
+                case ExpressionType.IsFalse:
+                case ExpressionType.IsTrue: return Parse(node.Target, pars);
+
+                // Unary supported operations...
+                case ExpressionType.Not: return string.Format("(NOT {0})", Parse(node.Target, pars));
+                case ExpressionType.Negate: return string.Format("!({0})", Parse(node.Target, pars));
+            }
+
+            throw new ArgumentException("Not supported unary operation: " + node);
+        }
+
+        protected virtual string ParseBinary(DynamicParser.Node.Binary node, IDictionary<string, IParameter> pars = null)
+        {
+            string op = string.Empty;
+
+            switch (node.Operation)
+            {
+                // Arithmetic binary operations...
+                case ExpressionType.Add: op = "+"; break;
+                case ExpressionType.Subtract: op = "-"; break;
+                case ExpressionType.Multiply: op = "*"; break;
+                case ExpressionType.Divide: op = "/"; break;
+                case ExpressionType.Modulo: op = "%"; break;
+                case ExpressionType.Power: op = "^"; break;
+
+                case ExpressionType.And: op = "AND"; break;
+                case ExpressionType.Or: op = "OR"; break;
+
+                // Logical comparisons...
+                case ExpressionType.GreaterThan: op = ">"; break;
+                case ExpressionType.GreaterThanOrEqual: op = ">="; break;
+                case ExpressionType.LessThan: op = "<"; break;
+                case ExpressionType.LessThanOrEqual: op = "<="; break;
+
+                // Comparisons against 'NULL' require the 'IS' or 'IS NOT' operator instead the numeric ones...
+                case ExpressionType.Equal: op = node.Right == null && !VirtualMode ? "IS" : "="; break;
+                case ExpressionType.NotEqual: op = node.Right == null && !VirtualMode ? "IS NOT" : "<>"; break;
+
+                default: throw new ArgumentException("Not supported operator: '" + node.Operation);
+            }
+
+            DynamicSchemaColumn? columnSchema = null;
+            string left = Parse(node.Left, pars, columnSchema: columnSchema); // Not nulls: left is assumed to be an object
+            string right = Parse(node.Right, pars, nulls: true, columnSchema: columnSchema);
+            return string.Format("({0} {1} {2})", left, op, right);
+        }
+
+        protected virtual string ParseMethod(DynamicParser.Node.Method node, IDictionary<string, IParameter> pars = null)
+        {
+            string method = node.Name.ToUpper();
+            string parent = node.Host == null ? null : Parse(node.Host, pars: pars);
+            string item = null;
+
+            // Root-level methods...
+            if (node.Host == null)
+            {
+                switch (method)
+                {
+                    case "NOT":
+                        if (node.Arguments == null || node.Arguments.Length != 1) throw new ArgumentNullException("NOT method expects one argument: " + node.Arguments.Sketch());
+                        item = Parse(node.Arguments[0], pars: pars);
+                        return string.Format("(NOT {0})", item);
+                }
+            }
+
+            // Column-level methods...
+            if (node.Host != null)
+            {
+                switch (method)
+                {
+                    case "BETWEEN":
+                        {
+                            if (node.Arguments == null || node.Arguments.Length == 0)
+                                throw new ArgumentException("BETWEEN method expects at least one argument: " + node.Arguments.Sketch());
+
+                            if (node.Arguments.Length > 2)
+                                throw new ArgumentException("BETWEEN method expects at most two arguments: " + node.Arguments.Sketch());
+
+                            var arguments = node.Arguments;
+
+                            if (arguments.Length == 1 && (arguments[0] is IEnumerable<object> || arguments[0] is Array) && !(arguments[0] is byte[]))
+                            {
+                                var vals = arguments[0] as IEnumerable<object>;
+
+                                if (vals == null && arguments[0] is Array)
+                                    vals = ((Array)arguments[0]).Cast<object>() as IEnumerable<object>;
+
+                                if (vals != null)
+                                    arguments = vals.ToArray();
+                                else
+                                    throw new ArgumentException("BETWEEN method expects single argument to be enumerable of exactly two elements: " + node.Arguments.Sketch());
+                            }
+
+                            return string.Format("{0} BETWEEN {1} AND {2}", parent, Parse(arguments[0], pars: pars), Parse(arguments[1], pars: pars));
+                        }
+
+                    case "IN":
+                        {
+                            if (node.Arguments == null || node.Arguments.Length == 0)
+                                throw new ArgumentException("IN method expects at least one argument: " + node.Arguments.Sketch());
+
+                            bool firstParam = true;
+                            StringBuilder sbin = new StringBuilder();
+                            foreach (var arg in node.Arguments)
+                            {
+                                if (!firstParam)
+                                    sbin.Append(", ");
+
+                                if ((arg is IEnumerable<object> || arg is Array) && !(arg is byte[]))
+                                {
+                                    var vals = arg as IEnumerable<object>;
+
+                                    if (vals == null && arg is Array)
+                                        vals = ((Array)arg).Cast<object>() as IEnumerable<object>;
+
+                                    if (vals != null)
+                                        foreach (var val in vals)
+                                        {
+                                            if (!firstParam)
+                                                sbin.Append(", ");
+                                            else
+                                                firstParam = false;
+
+                                            sbin.Append(Parse(val, pars: pars));
+                                        }
+                                    else
+                                        sbin.Append(Parse(arg, pars: pars));
+                                }
+                                else
+                                    sbin.Append(Parse(arg, pars: pars));
+
+                                firstParam = false;
+                            }
+
+                            return string.Format("{0} IN({1})", parent, sbin.ToString());
+                        }
+
+                    case "LIKE":
+                        if (node.Arguments == null || node.Arguments.Length != 1)
+                            throw new ArgumentException("LIKE method expects one argument: " + node.Arguments.Sketch());
+
+                        return string.Format("{0} LIKE {1}", parent, Parse(node.Arguments[0], pars: pars));
+
+                    case "NOTLIKE":
+                        if (node.Arguments == null || node.Arguments.Length != 1)
+                            throw new ArgumentException("NOT LIKE method expects one argument: " + node.Arguments.Sketch());
+
+                        return string.Format("{0} NOT LIKE {1}", parent, Parse(node.Arguments[0], pars: pars));
+
+                    case "AS":
+                        if (node.Arguments == null || node.Arguments.Length != 1)
+                            throw new ArgumentException("AS method expects one argument: " + node.Arguments.Sketch());
+
+                        item = Parse(node.Arguments[0], pars: null, rawstr: true, isMultiPart: false); // pars=null to avoid to parameterize aliases
+                        item = item.Validated("Alias"); // Intercepting null and empty aliases
+                        return string.Format("{0} AS {1}", parent, item);
+
+                    case "COUNT":
+                        if (node.Arguments != null && node.Arguments.Length > 1)
+                            throw new ArgumentException("COUNT method expects one or none argument: " + node.Arguments.Sketch());
+
+                        if (node.Arguments == null || node.Arguments.Length == 0)
+                            return "COUNT(*)";
+
+                        return string.Format("COUNT({0})", Parse(node.Arguments[0], pars: Parameters, nulls: true));
+                }
+            }
+
+            // Default case: parsing the method's name along with its arguments...
+            method = parent == null ? node.Name : string.Format("{0}.{1}", parent, node.Name);
+            StringBuilder sb = new StringBuilder();
+            sb.AppendFormat("{0}(", method);
+
+            if (node.Arguments != null && node.Arguments.Length != 0)
+            {
+                bool first = true;
+
+                foreach (object argument in node.Arguments)
+                {
+                    if (!first)
+                        sb.Append(", ");
+                    else
+                        first = false;
+
+                    sb.Append(Parse(argument, pars, nulls: true)); // We don't accept raw strings here!!!
+                }
+            }
+
+            sb.Append(")");
+            return sb.ToString();
+        }
+
+        protected virtual string ParseInvoke(DynamicParser.Node.Invoke node, IDictionary<string, IParameter> pars = null)
+        {
+            // This is used as an especial syntax to merely concatenate its arguments. It is used as a way to extend the supported syntax without the need of treating all the possible cases...
+            if (node.Arguments == null || node.Arguments.Length == 0)
+                return string.Empty;
+
+            StringBuilder sb = new StringBuilder();
+            foreach (object arg in node.Arguments)
+            {
+                if (arg is string)
+                    sb.Append((string)arg);
+                else
+                    sb.Append(Parse(arg, pars, rawstr: true, nulls: true));
+            }
+
+            return sb.ToString();
+        }
+
+        protected virtual string ParseConvert(DynamicParser.Node.Convert node, IDictionary<string, IParameter> pars = null)
+        {
+            // The cast mechanism is left for the specific database implementation, that should override this method
+            // as needed...
+            string r = Parse(node.Target, pars);
+            return r;
+        }
+
+        protected virtual string ParseConstant(object node, IDictionary<string, IParameter> pars = null, DynamicSchemaColumn? columnSchema = null)
+        {
+            if (node == null) return ParseNull();
+
+            if (pars != null)
+            {
+                // If we have a list of parameters to store it, let's parametrize it
+                var name = Guid.NewGuid().ToString();
+                var par = new Parameter()
+                {
+                    Name = string.Format("[${0}]", name),
+                    Value = node,
+                    Virtual = VirtualMode,
+                    Schema = columnSchema,
+                };
+
+                pars.Add(name, par);
+
+                return par.Name;
+            }
+
+            return node.ToString(); // Last resort case
+        }
+
+        protected virtual string ParseNull()
+        {
+            return "NULL"; // Override if needed
+        }
+
+        internal string FixObjectName(string main, bool onlyColumn = false)
+        {
+            if (main.IndexOf("(") > 0 && main.IndexOf(")") > 0)
+                return main.FillStringWithVariables(f => string.Format("({0})", FixObjectNamePrivate(f, onlyColumn)), "(", ")");
+            else
+                return FixObjectNamePrivate(main, onlyColumn);
+        }
+
+        private string FixObjectNamePrivate(string f, bool onlyColumn = false)
+        {
+            var objects = f.Split('.')
+                .Select(x => Database.StripName(x));
+
+            if (onlyColumn || objects.Count() == 1)
+                f = Database.DecorateName(objects.Last());
+            else if (!IsTableAlias(objects.First()))
+                f = string.Join(".", objects.Select(o => Database.DecorateName(o)));
+            else
+                f = string.Format("{0}.{1}", objects.First(), string.Join(".", objects.Skip(1).Select(o => Database.DecorateName(o))));
+
+            return f;
+        }
+
+        #endregion Parser
+    }
+}
