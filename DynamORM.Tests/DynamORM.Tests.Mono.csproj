@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -44,9 +44,11 @@
     <Reference Include="Mono.Data.Sqlite" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helpers\Dynamic\DynamicParserTests.cs" />
     <Compile Include="Modify\DynamicModificationTests.cs" />
     <Compile Include="Modify\DynamicNoSchemaModificationTests.cs" />
     <Compile Include="Modify\DynamicTypeSchemaModificationTests.cs" />
+    <Compile Include="Modify\ParserTests.cs" />
     <Compile Include="Select\DynamicNoSchemaAccessTests.cs" />
     <Compile Include="Select\DynamicTypeSchemaAccessTests.cs" />
     <Compile Include="Helpers\AttachToDebugger.cs" />
@@ -59,6 +61,8 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="Select\LegacyParserTests.cs" />
+    <Compile Include="Select\ParserTests.cs" />
     <Compile Include="Select\RenamedTypedAccessTests.cs" />
     <Compile Include="TestsBase.cs" />
     <Compile Include="Select\TypedAccessTests.cs" />
