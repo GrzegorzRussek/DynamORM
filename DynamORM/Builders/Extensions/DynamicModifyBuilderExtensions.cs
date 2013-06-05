@@ -63,7 +63,6 @@ namespace DynamORM.Builders.Extensions
         internal static T Table<T>(this T builder, Type type) where T : DynamicQueryBuilder
         {
             var mapper = DynamicMapperCache.GetMapper(type);
-            string name = string.Empty;
 
             if (mapper == null)
                 throw new InvalidOperationException("Cant assign unmapable type as a table.");
