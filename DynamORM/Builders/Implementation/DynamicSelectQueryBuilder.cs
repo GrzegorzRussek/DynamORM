@@ -210,7 +210,7 @@ namespace DynamORM.Builders.Implementation
                                 argex.InnerException.NullOr(a => a, argex));
                         }
 
-                        yield return mapper.Create(val);
+                        yield return mapper.Create(val) as T;
                     }
             }
         }
