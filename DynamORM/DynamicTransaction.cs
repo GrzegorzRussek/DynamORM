@@ -49,7 +49,6 @@ namespace DynamORM
         /// <param name="disposed">This action is invoked when transaction is disposed.</param>
         internal DynamicTransaction(DynamicDatabase db, DynamicConnection con, bool singleTransaction, IsolationLevel? il, Action disposed)
         {
-            IsDisposed = false;
             _db = db;
             _con = con;
             _singleTransaction = singleTransaction;
@@ -63,7 +62,8 @@ namespace DynamORM
                     _operational = false;
                 else
                 {
-                    _db.TransactionPool[_con.Connection].Push(_con.Connection.BeginTransaction());
+                    _db.TransactionPool[_con.Connection]
+                        .Push(il.HasValue ? _con.Connection.BeginTransaction(il.Value) : _con.Connection.BeginTransaction());
                     _db.PoolStamp = DateTime.Now.Ticks;
                     _operational = true;
                 }
@@ -137,12 +137,10 @@ namespace DynamORM
 
             if (_disposed != null)
                 _disposed();
-
-            IsDisposed = true;
         }
 
         /// <summary>Gets a value indicating whether this instance is disposed.</summary>
-        public bool IsDisposed { get; private set; }
+        public bool IsDisposed { get { return !_operational; } }
 
         #endregion IExtendedDisposable Members
     }

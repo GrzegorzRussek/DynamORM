@@ -57,7 +57,7 @@ namespace DynamORM
                 else
                 {
                     _command = _con.Connection.CreateCommand();
-                    _db.CommandsPool[_con.Connection].Add(_command);
+                    _db.CommandsPool[_con.Connection].Add(this);
                 }
             }
         }
@@ -134,11 +134,13 @@ namespace DynamORM
                     ////_poolStamp = 0;
                     _command.Connection = _con.Connection;
                 }
-                else
+                else if (value == null)
                 {
                     _command.Transaction = null;
                     _command.Connection = null;
                 }
+                else
+                    throw new InvalidOperationException("Can't assign direct IDbConnection implementation. This property accepts only DynamORM implementation of IDbConnection.");
             }
         }
 
@@ -238,7 +240,7 @@ namespace DynamORM
         /// <summary>Gets or sets the transaction within which the Command
         /// object of a data provider executes.</summary>
         /// <remarks>It's does nothing, transaction is peeked from transaction
-        /// pool of a connection.</remarks>
+        /// pool of a connection. This is only a dummy.</remarks>
         public IDbTransaction Transaction { get { return null; } set { } }
 
         /// <summary>Gets or sets how command results are applied to the <see cref="T:System.Data.DataRow"/>
@@ -264,13 +266,13 @@ namespace DynamORM
                 {
                     var pool = _db.CommandsPool.TryGetValue(_con.Connection);
 
-                    if (pool != null && pool.Contains(_command))
-                        pool.Remove(_command);
+                    if (pool != null && pool.Contains(this))
+                        pool.Remove(this);
                 }
 
-                _command.Dispose();
-
                 IsDisposed = true;
+
+                _command.Dispose();
             }
         }
 

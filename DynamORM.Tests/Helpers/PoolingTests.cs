@@ -26,7 +26,6 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-using System;
 using NUnit.Framework;
 
 namespace DynamORM.Tests.Helpers
@@ -63,7 +62,7 @@ namespace DynamORM.Tests.Helpers
             Database.Dispose();
             Database = null;
 
-            Assert.Throws<ObjectDisposedException>(() => cmd.ExecuteScalar());
+            Assert.Throws<DynamicQueryException>(() => cmd.ExecuteScalar());
         }
 
         /// <summary>Test single mode transaction disposing.</summary>

@@ -87,6 +87,7 @@ namespace DynamORM
         internal Dictionary<IDbConnection, Stack<IDbTransaction>> TransactionPool { get; private set; }
 
         /// <summary>Gets pool of connections and commands.</summary>
+        /// <remarks>Pool should contain dynamic commands instead of native ones.</remarks>
         internal Dictionary<IDbConnection, List<IDbCommand>> CommandsPool { get; private set; }
 
         /// <summary>Gets schema columns cache.</summary>
