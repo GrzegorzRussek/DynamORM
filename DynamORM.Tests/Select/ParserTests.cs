@@ -617,6 +617,21 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>
+        /// Tests select escaped case.
+        /// </summary>
+        [Test]
+        public void TestCoalesceEscaped()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.c))
+                .Select(u => u("COALESCE(", Database.DecorateName("ServerHash"), ", ", new byte[16] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, ")").As(u.Hash));
+
+            Assert.AreEqual(string.Format("SELECT COALESCE(\"ServerHash\", [${0}]) AS \"Hash\" FROM \"dbo\".\"Users\" AS c",
+                cmd.Parameters.Keys.ToArray()[0]), cmd.CommandText());
+        }
+
+        /// <summary>
         /// Tests select escaped case with sub query.
         /// </summary>
         [Test]

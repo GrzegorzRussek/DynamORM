@@ -35,6 +35,9 @@ namespace DynamORM.Mapper
     /// <summary>Dynamic property invoker.</summary>
     public class DynamicPropertyInvoker
     {
+        /// <summary>Gets the type of property.</summary>
+        public Type Type { get; private set; }
+
         /// <summary>Gets value getter.</summary>
         public Func<object, object> Get { get; private set; }
 
@@ -56,6 +59,7 @@ namespace DynamORM.Mapper
         public DynamicPropertyInvoker(PropertyInfo property, ColumnAttribute attr)
         {
             Name = property.Name;
+            Type = property.PropertyType;
 
             var ignore = property.GetCustomAttributes(typeof(IgnoreAttribute), false);
 
@@ -63,8 +67,11 @@ namespace DynamORM.Mapper
 
             Column = attr;
 
-            Get = CreateGetter(property);
-            Set = CreateSetter(property);
+            if (property.CanRead)
+                Get = CreateGetter(property);
+
+            if (property.CanWrite)
+                Set = CreateSetter(property);
         }
 
         private Func<object, object> CreateGetter(PropertyInfo property)

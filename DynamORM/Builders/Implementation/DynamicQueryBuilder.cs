@@ -45,12 +45,16 @@ namespace DynamORM.Builders.Implementation
     internal abstract class DynamicQueryBuilder : IDynamicQueryBuilder
     {
         /// <summary>Empty interface to allow where query builder implementation use universal approach.</summary>
-        internal interface IQueryWithWhere { }
+        internal interface IQueryWithWhere
+        {
+            /// <summary>Gets or sets the where condition.</summary>
+            string WhereCondition { get; set; }
+
+            /// <summary>Gets or sets the amount of not closed brackets in where statement.</summary>
+            int OpenBracketsCount { get; set; }
+        }
 
         private DynamicQueryBuilder _parent = null;
-
-        /// <summary>Gets or sets a value indicating whether add virtual.</summary>
-        internal bool VirtualMode { get; set; }
 
         #region TableInfo
 
@@ -137,34 +141,29 @@ namespace DynamORM.Builders.Implementation
         /// <summary>Interface describing parameter info.</summary>
         internal class Parameter : IParameter
         {
+            /// <summary>Gets or sets the parameter position in command.</summary>
+            /// <remarks>Available after filling the command.</remarks>
+            public int Ordinal { get; internal set; }
+
             /// <summary>Gets or sets the parameter temporary name.</summary>
             public string Name { get; internal set; }
 
             /// <summary>Gets or sets the parameter value.</summary>
             public object Value { get; set; }
 
+            /// <summary>Gets or sets a value indicating whether name of temporary parameter is well known.</summary>
+            public bool WellKnown { get; set; }
+
             /// <summary>Gets or sets a value indicating whether this <see cref="Parameter"/> is virtual.</summary>
             public bool Virtual { get; set; }
 
             /// <summary>Gets or sets the parameter schema information.</summary>
-            public DynamicSchemaColumn? Schema { get; internal set; }
+            public DynamicSchemaColumn? Schema { get; set; }
         }
 
         #endregion Parameter
 
-        internal string WhereCondition { get; set; }
-
-        /// <summary>Gets <see cref="DynamicDatabase"/> instance.</summary>
-        public DynamicDatabase Database { get; private set; }
-
-        /// <summary>Gets the tables used in this builder.</summary>
-        public IList<ITableInfo> Tables { get; private set; }
-
-        /// <summary>Gets the tables used in this builder.</summary>
-        public IDictionary<string, IParameter> Parameters { get; private set; }
-
-        /// <summary>Gets a value indicating whether database supports standard schema.</summary>
-        public bool SupportSchema { get; private set; }
+        #region Constructor
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DynamicQueryBuilder"/> class.
@@ -175,6 +174,9 @@ namespace DynamORM.Builders.Implementation
             VirtualMode = false;
             Tables = new List<ITableInfo>();
             Parameters = new Dictionary<string, IParameter>();
+
+            WhereCondition = null;
+            OpenBracketsCount = 0;
 
             Database = db;
             SupportSchema = (db.Options & DynamicDatabaseOptions.SupportSchema) == DynamicDatabaseOptions.SupportSchema;
@@ -189,37 +191,85 @@ namespace DynamORM.Builders.Implementation
             _parent = parent;
         }
 
-        internal bool IsTableAlias(string name)
+        #endregion Constructor
+
+        #region IQueryWithWhere
+
+        /// <summary>Gets or sets the where condition.</summary>
+        public string WhereCondition { get; set; }
+
+        /// <summary>Gets or sets the amount of not closed brackets in where statement.</summary>
+        public int OpenBracketsCount { get; set; }
+
+        #endregion IQueryWithWhere
+
+        #region IDynamicQueryBuilder
+
+        /// <summary>Gets <see cref="DynamicDatabase"/> instance.</summary>
+        public DynamicDatabase Database { get; private set; }
+
+        /// <summary>Gets the tables used in this builder.</summary>
+        public IList<ITableInfo> Tables { get; private set; }
+
+        /// <summary>Gets the tables used in this builder.</summary>
+        public IDictionary<string, IParameter> Parameters { get; private set; }
+
+        /// <summary>Gets or sets a value indicating whether add virtual parameters.</summary>
+        public bool VirtualMode { get; set; }
+
+        /// <summary>Gets or sets the on create temporary parameter action.</summary>
+        /// <remarks>This is exposed to allow setting schema of column.</remarks>
+        public Action<IParameter> OnCreateTemporaryParameter { get; set; }
+
+        /// <summary>Gets or sets the on create real parameter action.</summary>
+        /// <remarks>This is exposed to allow modification of parameter.</remarks>
+        public Action<IParameter, IDbDataParameter> OnCreateParameter { get; set; }
+
+        /// <summary>Gets a value indicating whether database supports standard schema.</summary>
+        public bool SupportSchema { get; private set; }
+
+        /// <summary>
+        /// Generates the text this command will execute against the underlying database.
+        /// </summary>
+        /// <returns>The text to execute against the underlying database.</returns>
+        /// <remarks>This method must be override by derived classes.</remarks>
+        public abstract string CommandText();
+
+        /// <summary>Fill command with query.</summary>
+        /// <param name="command">Command to fill.</param>
+        /// <returns>Filled instance of <see cref="IDbCommand"/>.</returns>
+        public virtual IDbCommand FillCommand(IDbCommand command)
         {
-            DynamicQueryBuilder builder = this;
-
-            while (builder != null)
+            // End not ended where statement
+            if (this is IQueryWithWhere)
             {
-                if (builder.Tables.Any(t => t.Alias == name))
-                    return true;
-
-                builder = builder._parent;
+                while (OpenBracketsCount > 0)
+                {
+                    WhereCondition += ")";
+                    OpenBracketsCount--;
+                }
             }
 
-            return false;
+            return command.SetCommand(CommandText()
+                .FillStringWithVariables(s =>
+                {
+                    return Parameters.TryGetValue(s).NullOr(p =>
+                    {
+                        IDbDataParameter param = (IDbDataParameter)command
+                            .AddParameter(this, p.Schema, p.Value)
+                            .Parameters[command.Parameters.Count - 1];
+
+                        (p as Parameter).Ordinal = command.Parameters.Count - 1;
+
+                        if (OnCreateParameter != null)
+                            OnCreateParameter(p, param);
+
+                        return param.ParameterName;
+                    }, s);
+                }));
         }
 
-        internal bool IsTable(string name, string owner)
-        {
-            DynamicQueryBuilder builder = this;
-
-            while (builder != null)
-            {
-                if ((string.IsNullOrEmpty(owner) && builder.Tables.Any(t => t.Name.ToLower() == name.ToLower())) ||
-                    (!string.IsNullOrEmpty(owner) && builder.Tables.Any(t => t.Name.ToLower() == name.ToLower() &&
-                        !string.IsNullOrEmpty(t.Owner) && t.Owner.ToLower() == owner.ToLower())))
-                    return true;
-
-                builder = builder._parent;
-            }
-
-            return false;
-        }
+        #region SubQuery
 
         /// <summary>Creates sub query.</summary>
         /// <returns>Sub query builder.</returns>
@@ -242,71 +292,9 @@ namespace DynamORM.Builders.Implementation
             return SubQuery().From(func);
         }
 
-        /// <summary>
-        /// Generates the text this command will execute against the underlying database.
-        /// </summary>
-        /// <returns>The text to execute against the underlying database.</returns>
-        /// <remarks>This method must be override by derived classes.</remarks>
-        public abstract string CommandText();
+        #endregion SubQuery
 
-        /// <summary>Fill command with query.</summary>
-        /// <param name="command">Command to fill.</param>
-        /// <returns>Filled instance of <see cref="IDbCommand"/>.</returns>
-        public virtual IDbCommand FillCommand(IDbCommand command)
-        {
-            return command.SetCommand(CommandText()
-                .FillStringWithVariables(s =>
-                {
-                    return Parameters.TryGetValue(s).NullOr(p =>
-                    {
-                        return ((IDbDataParameter)command
-                            .AddParameter(this, p.Schema, p.Value)
-                            .Parameters[command.Parameters.Count - 1])
-                            .ParameterName;
-                    }, s);
-                }));
-        }
-
-        internal DynamicSchemaColumn? GetColumnFromSchema(string colName, DynamicTypeMap mapper = null, string table = null)
-        {
-            // This is tricky and will not always work unfortunetly.
-            if (colName.ContainsAny(StringExtensions.InvalidMultipartMemberChars))
-                return null;
-
-            // First we need to get real column name and it's owner if exist.
-            var parts = colName.Split('.')
-                .Select(c => Database.StripName(c))
-                .ToArray();
-
-            var columnName = parts.Last();
-
-            // Get table name from mapper
-            string tableName = table;
-
-            if (string.IsNullOrEmpty(tableName))
-            {
-                tableName = (mapper != null && mapper.Table != null) ? mapper.Table.Name : string.Empty;
-
-                if (parts.Length > 1 && string.IsNullOrEmpty(tableName))
-                {
-                    // OK, we have a multi part identifier, that's good, we can get table name
-                    tableName = string.Join(".", parts.Take(parts.Length - 1));
-                }
-            }
-
-            // Try to get table info from cache
-            var tableInfo = !string.IsNullOrEmpty(tableName) ?
-                Tables.FirstOrDefault(x => !string.IsNullOrEmpty(x.Alias) && x.Alias.ToLower() == tableName) ??
-                Tables.FirstOrDefault(x => x.Name.ToLower() == tableName.ToLower()) ?? Tables.FirstOrDefault() :
-                this is DynamicModifyBuilder ? Tables.FirstOrDefault() : null;
-
-            // Try to get column from schema
-            if (tableInfo != null && tableInfo.Schema != null)
-                return tableInfo.Schema.TryGetNullable(columnName.ToLower());
-
-            // Well, we failed to find a column
-            return null;
-        }
+        #endregion IDynamicQueryBuilder
 
         #region Parser
 
@@ -333,14 +321,14 @@ namespace DynamORM.Builders.Implementation
                 if (!nulls)
                     throw new ArgumentNullException("node", "Null nodes are not accepted.");
 
-                return Dispatch(node, pars, decorate);
+                return Dispatch(node, pars, decorate, columnSchema: columnSchema);
             }
 
             // Nodes that are strings are parametrized or not depending the "rawstr" flag...
             if (node is string)
             {
                 if (rawstr) return (string)node;
-                else return Dispatch(node, pars, decorate);
+                else return Dispatch(node, pars, decorate, columnSchema: columnSchema);
             }
 
             // If node is a delegate, parse it to create the logical tree...
@@ -689,23 +677,30 @@ namespace DynamORM.Builders.Implementation
 
         protected virtual string ParseConstant(object node, IDictionary<string, IParameter> pars = null, DynamicSchemaColumn? columnSchema = null)
         {
-            if (node == null) return ParseNull();
+            if (node == null && !VirtualMode)
+                return ParseNull();
 
             if (pars != null)
             {
+                bool wellKnownName = VirtualMode && node is String && ((String)node).StartsWith("[$") && ((String)node).EndsWith("]") && ((String)node).Length > 4;
+
                 // If we have a list of parameters to store it, let's parametrize it
-                var name = Guid.NewGuid().ToString();
                 var par = new Parameter()
                 {
-                    Name = string.Format("[${0}]", name),
-                    Value = node,
+                    Name = wellKnownName ? ((String)node).Substring(2, ((String)node).Length - 3) : Guid.NewGuid().ToString(),
+                    Value = wellKnownName ? null : node,
+                    WellKnown = wellKnownName,
                     Virtual = VirtualMode,
                     Schema = columnSchema,
                 };
 
-                pars.Add(name, par);
+                // If we are adding parameter we inform external sources about this.
+                if (OnCreateTemporaryParameter != null)
+                    OnCreateTemporaryParameter(par);
 
-                return par.Name;
+                pars.Add(par.Name, par);
+
+                return string.Format("[${0}]", par.Name);
             }
 
             return node.ToString(); // Last resort case
@@ -714,6 +709,42 @@ namespace DynamORM.Builders.Implementation
         protected virtual string ParseNull()
         {
             return "NULL"; // Override if needed
+        }
+
+        #endregion Parser
+
+        #region Helpers
+
+        internal bool IsTableAlias(string name)
+        {
+            DynamicQueryBuilder builder = this;
+
+            while (builder != null)
+            {
+                if (builder.Tables.Any(t => t.Alias == name))
+                    return true;
+
+                builder = builder._parent;
+            }
+
+            return false;
+        }
+
+        internal bool IsTable(string name, string owner)
+        {
+            DynamicQueryBuilder builder = this;
+
+            while (builder != null)
+            {
+                if ((string.IsNullOrEmpty(owner) && builder.Tables.Any(t => t.Name.ToLower() == name.ToLower())) ||
+                    (!string.IsNullOrEmpty(owner) && builder.Tables.Any(t => t.Name.ToLower() == name.ToLower() &&
+                        !string.IsNullOrEmpty(t.Owner) && t.Owner.ToLower() == owner.ToLower())))
+                    return true;
+
+                builder = builder._parent;
+            }
+
+            return false;
         }
 
         internal string FixObjectName(string main, bool onlyColumn = false)
@@ -739,6 +770,47 @@ namespace DynamORM.Builders.Implementation
             return f;
         }
 
-        #endregion Parser
+        internal DynamicSchemaColumn? GetColumnFromSchema(string colName, DynamicTypeMap mapper = null, string table = null)
+        {
+            // This is tricky and will not always work unfortunetly.
+            if (colName.ContainsAny(StringExtensions.InvalidMultipartMemberChars))
+                return null;
+
+            // First we need to get real column name and it's owner if exist.
+            var parts = colName.Split('.')
+                .Select(c => Database.StripName(c))
+                .ToArray();
+
+            var columnName = parts.Last();
+
+            // Get table name from mapper
+            string tableName = table;
+
+            if (string.IsNullOrEmpty(tableName))
+            {
+                tableName = (mapper != null && mapper.Table != null) ? mapper.Table.Name : string.Empty;
+
+                if (parts.Length > 1 && string.IsNullOrEmpty(tableName))
+                {
+                    // OK, we have a multi part identifier, that's good, we can get table name
+                    tableName = string.Join(".", parts.Take(parts.Length - 1));
+                }
+            }
+
+            // Try to get table info from cache
+            var tableInfo = !string.IsNullOrEmpty(tableName) ?
+                Tables.FirstOrDefault(x => !string.IsNullOrEmpty(x.Alias) && x.Alias.ToLower() == tableName) ??
+                Tables.FirstOrDefault(x => x.Name.ToLower() == tableName.ToLower()) ?? Tables.FirstOrDefault() :
+                this is DynamicModifyBuilder ? Tables.FirstOrDefault() : null;
+
+            // Try to get column from schema
+            if (tableInfo != null && tableInfo.Schema != null)
+                return tableInfo.Schema.TryGetNullable(columnName.ToLower());
+
+            // Well, we failed to find a column
+            return null;
+        }
+
+        #endregion Helpers
     }
 }

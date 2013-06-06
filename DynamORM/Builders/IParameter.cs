@@ -31,16 +31,23 @@ namespace DynamORM.Builders
     /// <summary>Interface describing parameter info.</summary>
     public interface IParameter
     {
+        /// <summary>Gets the parameter position in command.</summary>
+        /// <remarks>Available after filling the command.</remarks>
+        int Ordinal { get; }
+
         /// <summary>Gets the parameter temporary name.</summary>
         string Name { get; }
 
         /// <summary>Gets or sets the parameter value.</summary>
         object Value { get; set; }
 
+        /// <summary>Gets or sets a value indicating whether name of temporary parameter is well known.</summary>
+        bool WellKnown { get; set; }
+
         /// <summary>Gets or sets a value indicating whether this <see cref="Parameter"/> is virtual.</summary>
         bool Virtual { get; set; }
 
-        /// <summary>Gets the parameter schema information.</summary>
-        DynamicSchemaColumn? Schema { get; }
+        /// <summary>Gets or sets the parameter schema information.</summary>
+        DynamicSchemaColumn? Schema { get; set; }
     }
 }

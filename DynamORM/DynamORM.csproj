@@ -72,6 +72,7 @@
     <Compile Include="DynamicTransaction.cs" />
     <Compile Include="Helpers\CollectionComparer.cs" />
     <Compile Include="Helpers\Dynamics\DynamicParser.cs" />
+    <Compile Include="Helpers\Dynamics\DynamicProxy.cs" />
     <Compile Include="Helpers\IExtendedDisposable.cs" />
     <Compile Include="Helpers\FrameworkTools.cs" />
     <Compile Include="Helpers\StringExtensions.cs" />

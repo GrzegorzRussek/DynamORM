@@ -31,7 +31,7 @@ using System;
 namespace DynamORM.Helpers
 {
     /// <summary>Class contains unclassified extensions.</summary>
-    public static class UnclassifiedExtensions
+    internal static class UnclassifiedExtensions
     {
         /// <summary>Easy way to use conditional value.</summary>
         /// <remarks>Includes <see cref="DBNull.Value"/>.</remarks>

@@ -145,7 +145,7 @@ namespace DynamORM
         public bool EndBlock { get; set; }
 
         /// <summary>Gets or sets a value indicating whether set parameters for null values.</summary>
-        public bool VirtualColumn { get; set; }
+        public bool? VirtualColumn { get; set; }
 
         /// <summary>Gets or sets schema representation of a column.</summary>
         /// <remarks>Workaround to providers issues which sometimes pass wrong
@@ -370,7 +370,7 @@ namespace DynamORM
         /// <summary>Sets the virtual column.</summary>
         /// <param name="virt">Set virtual column value.</param>
         /// <returns>Returns self.</returns>
-        public DynamicColumn SetVirtualColumn(bool virt)
+        public DynamicColumn SetVirtualColumn(bool? virt)
         {
             VirtualColumn = virt;
             return this;

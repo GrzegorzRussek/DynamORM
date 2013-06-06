@@ -36,6 +36,7 @@ using DynamORM.Builders;
 using DynamORM.Builders.Extensions;
 using DynamORM.Builders.Implementation;
 using DynamORM.Helpers;
+using DynamORM.Helpers.Dynamics;
 using DynamORM.Mapper;
 
 namespace DynamORM
@@ -222,7 +223,7 @@ namespace DynamORM
         {
             get
             {
-                return string.IsNullOrEmpty(OwnerName) ?
+                return string.IsNullOrEmpty(TableName) ? null : string.IsNullOrEmpty(OwnerName) ?
                     Database.DecorateName(TableName) :
                     string.Format("{0}.{1}", Database.DecorateName(OwnerName), Database.DecorateName(TableName));
             }
@@ -412,8 +413,9 @@ namespace DynamORM
         {
             var builder = new DynamicSelectQueryBuilder(this.Database);
 
-            if (!string.IsNullOrEmpty(this.TableName))
-                builder.From(x => this.TableName);
+            var name = this.FullName;
+            if (!string.IsNullOrEmpty(name))
+                builder.From(x => name);
 
             return builder;
         }
@@ -532,9 +534,9 @@ namespace DynamORM
 
         /// <summary>Create new <see cref="DynamicInsertQueryBuilder"/>.</summary>
         /// <returns>New <see cref="DynamicInsertQueryBuilder"/> instance.</returns>
-        public IDynamicInsertQueryBuilder Insert()
+        public dynamic Insert()
         {
-            return new DynamicInsertQueryBuilder(this.Database, this.TableName);
+            return new DynamicProxy<IDynamicInsertQueryBuilder>(new DynamicInsertQueryBuilder(this.Database, this.FullName));
         }
 
         /// <summary>Adds a record to the database. You can pass in an Anonymous object, an <see cref="ExpandoObject"/>,
@@ -555,9 +557,9 @@ namespace DynamORM
 
         /// <summary>Create new <see cref="DynamicUpdateQueryBuilder"/>.</summary>
         /// <returns>New <see cref="DynamicUpdateQueryBuilder"/> instance.</returns>
-        public IDynamicUpdateQueryBuilder Update()
+        public dynamic Update()
         {
-            return new DynamicUpdateQueryBuilder(this.Database, this.TableName);
+            return new DynamicProxy<IDynamicUpdateQueryBuilder>(new DynamicUpdateQueryBuilder(this.Database, this.FullName));
         }
 
         /// <summary>Updates a record in the database. You can pass in an Anonymous object, an ExpandoObject,
@@ -593,9 +595,9 @@ namespace DynamORM
 
         /// <summary>Create new <see cref="DynamicDeleteQueryBuilder"/>.</summary>
         /// <returns>New <see cref="DynamicDeleteQueryBuilder"/> instance.</returns>
-        public IDynamicDeleteQueryBuilder Delete()
+        public dynamic Delete()
         {
-            return new DynamicDeleteQueryBuilder(this.Database, this.TableName);
+            return new DynamicProxy<IDynamicDeleteQueryBuilder>(new DynamicDeleteQueryBuilder(this.Database, this.FullName));
         }
 
         /// <summary>Removes a record from the database. You can pass in an Anonymous object, an <see cref="ExpandoObject"/>,

@@ -63,9 +63,11 @@ namespace DynamORM.Builders.Implementation
         public override string CommandText()
         {
             var info = Tables.Single();
-            return string.Format("DELETE FROM {0}{1} WHERE {2}",
+            return string.Format("DELETE FROM {0}{1}{2}{3}",
                 string.IsNullOrEmpty(info.Owner) ? string.Empty : string.Format("{0}.", Database.DecorateName(info.Owner)),
-                Database.DecorateName(info.Name), WhereCondition);
+                Database.DecorateName(info.Name),
+                string.IsNullOrEmpty(WhereCondition) ? string.Empty : " WHERE ",
+                WhereCondition);
         }
 
         #region Where

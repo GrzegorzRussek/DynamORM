@@ -244,7 +244,8 @@ namespace DynamORM.Builders.Implementation
         /// <returns>This instance to permit chaining.</returns>
         public virtual IDynamicSelectQueryBuilder From(params Func<dynamic, object>[] func)
         {
-            if (func == null) throw new ArgumentNullException("Array of functions cannot be null.");
+            if (func == null)
+                throw new ArgumentNullException("Array of functions cannot be null.");
 
             int index = -1;
             foreach (var f in func)
@@ -265,6 +266,19 @@ namespace DynamORM.Builders.Implementation
                             Database.StripName(parts.Last()).Validated("Table"),
                             tuple.Item2.Validated("Alias", canbeNull: true),
                             parts.Length == 2 ? Database.StripName(parts.First()).Validated("Owner", canbeNull: true) : null);
+                    }
+                    else if (result is Type)
+                    {
+                        Type type = (Type)result;
+                        if (type.IsAnonymous())
+                            throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}). Parsing {1}", type.FullName, result));
+
+                        var mapper = DynamicMapperCache.GetMapper(type);
+
+                        if (mapper == null)
+                            throw new InvalidOperationException(string.Format("Cant assign unmapable type as a table ({0}). Parsing {1}", type.FullName, result));
+
+                        tableInfo = new TableInfo(Database, type);
                     }
                     else if (result is DynamicParser.Node)
                     {
@@ -327,10 +341,13 @@ namespace DynamORM.Builders.Implementation
                                     if (invoke.Arguments.Length == 1 && invoke.Arguments[0] is Type)
                                     {
                                         type = (Type)invoke.Arguments[0];
+                                        if (type.IsAnonymous())
+                                            throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}). Parsing {1}", type.FullName, result));
+
                                         var mapper = DynamicMapperCache.GetMapper(type);
 
                                         if (mapper == null)
-                                            throw new InvalidOperationException(string.Format("Cant assign unmapable type as a table ({0}).", type.FullName));
+                                            throw new InvalidOperationException(string.Format("Cant assign unmapable type as a table ({0}). Parsing {1}", type.FullName, result));
 
                                         main = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
                                             mapper.Type.Name : mapper.Table.Name;

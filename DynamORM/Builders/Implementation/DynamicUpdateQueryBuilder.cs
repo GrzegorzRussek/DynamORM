@@ -58,9 +58,11 @@ namespace DynamORM.Builders.Implementation
         public override string CommandText()
         {
             var info = Tables.Single();
-            return string.Format("UPDATE {0}{1} SET {2} WHERE {3}",
+            return string.Format("UPDATE {0}{1} SET {2}{3}{4}",
                 string.IsNullOrEmpty(info.Owner) ? string.Empty : string.Format("{0}.", Database.DecorateName(info.Owner)),
-                Database.DecorateName(info.Name), _columns, WhereCondition);
+                Database.DecorateName(info.Name), _columns,
+                string.IsNullOrEmpty(WhereCondition) ? string.Empty : " WHERE ",
+                WhereCondition);
         }
 
         #region Update

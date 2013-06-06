@@ -795,6 +795,40 @@ namespace DynamORM
 
         #endregion Command extensions
 
+        #region Dynamic builders extensions
+
+        /// <summary>Turns an <see cref="IDynamicSelectQueryBuilder"/> to a Dynamic list of things.</summary>
+        /// <param name="b">Ready to execute builder.</param>
+        /// <returns>List of things.</returns>
+        public static List<dynamic> ToList(this IDynamicSelectQueryBuilder b)
+        {
+            return b.Execute().ToList();
+        }
+
+        /// <summary>Sets the on create temporary parameter action.</summary>
+        /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
+        /// <param name="b">The builder on which set delegate.</param>
+        /// <param name="a">Action to invoke.</param>
+        /// <returns>Returns instance of builder on which action is set.</returns>
+        public static T CreateTemporaryParameterAction<T>(this T b, Action<IParameter> a) where T : IDynamicQueryBuilder
+        {
+            b.OnCreateTemporaryParameter = a;
+            return b;
+        }
+
+        /// <summary>Sets the on create real parameter action.</summary>
+        /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
+        /// <param name="b">The builder on which set delegate.</param>
+        /// <param name="a">Action to invoke.</param>
+        /// <returns>Returns instance of builder on which action is set.</returns>
+        public static T CreateParameterAction<T>(this T b, Action<IParameter, IDbDataParameter> a) where T : IDynamicQueryBuilder
+        {
+            b.OnCreateParameter = a;
+            return b;
+        }
+
+        #endregion Dynamic builders extensions
+
         #region Dynamic extensions
 
         /// <summary>Turns an <see cref="IDataReader"/> to a Dynamic list of things.</summary>
@@ -808,14 +842,6 @@ namespace DynamORM
                 result.Add(r.RowToDynamic());
 
             return result;
-        }
-
-        /// <summary>Turns an <see cref="IDynamicSelectQueryBuilder"/> to a Dynamic list of things.</summary>
-        /// <param name="b">Ready to execute builder.</param>
-        /// <returns>List of things.</returns>
-        public static List<dynamic> ToList(this IDynamicSelectQueryBuilder b)
-        {
-            return b.Execute().ToList();
         }
 
         /// <summary>Turns an <see cref="IDynamicSelectQueryBuilder"/> to a Dynamic list of things with specified type.</summary>

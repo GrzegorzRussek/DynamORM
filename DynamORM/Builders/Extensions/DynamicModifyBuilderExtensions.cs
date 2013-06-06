@@ -34,12 +34,87 @@ using System.Collections.Generic;
 using System.Linq;
 using DynamORM.Builders.Implementation;
 using DynamORM.Helpers;
+using DynamORM.Helpers.Dynamics;
 using DynamORM.Mapper;
 
 namespace DynamORM.Builders.Extensions
 {
     internal static class DynamicModifyBuilderExtensions
     {
+        internal static T Table<T>(this T builder, Func<dynamic, object> func) where T : DynamicModifyBuilder
+        {
+            if (func == null)
+                throw new ArgumentNullException("Function cannot be null.");
+
+            using (var parser = DynamicParser.Parse(func))
+            {
+                var result = parser.Result;
+
+                // If the expression result is string.
+                if (result is string)
+                    return builder.Table((string)result);
+                else if (result is Type)
+                    return builder.Table((Type)result);
+                else if (result is DynamicParser.Node)
+                {
+                    // Or if it resolves to a dynamic node
+                    var node = (DynamicParser.Node)result;
+
+                    string owner = null;
+                    string main = null;
+
+                    while (true)
+                    {
+                        // Deny support for the AS() virtual method...
+                        if (node is DynamicParser.Node.Method && ((DynamicParser.Node.Method)node).Name.ToUpper() == "AS")
+                            throw new ArgumentException(string.Format("Alias is not supported on modification builders. (Parsing: {0})", result));
+
+                        // Support for table specifications...
+                        if (node is DynamicParser.Node.GetMember)
+                        {
+                            if (owner != null)
+                                throw new ArgumentException(string.Format("Owner '{0}.{1}' is already set when parsing '{2}'.", owner, main, result));
+
+                            if (main != null)
+                                owner = ((DynamicParser.Node.GetMember)node).Name;
+                            else
+                                main = ((DynamicParser.Node.GetMember)node).Name;
+
+                            node = node.Host;
+                            continue;
+                        }
+
+                        // Support for generic sources...
+                        if (node is DynamicParser.Node.Invoke)
+                        {
+                            if (owner == null && main == null)
+                            {
+                                var invoke = (DynamicParser.Node.Invoke)node;
+
+                                if (invoke.Arguments.Length == 1 && invoke.Arguments[0] is Type)
+                                    return builder.Table((Type)invoke.Arguments[0]);
+                                else if (invoke.Arguments.Length == 1 && invoke.Arguments[0] is String)
+                                    return builder.Table((string)invoke.Arguments[0]);
+                                else
+                                    throw new ArgumentException(string.Format("Invalid argument count or type when parsing '{2}'. Invoke supports only one argument of type Type or String", owner, main, result));
+                            }
+                            else if (owner != null)
+                                throw new ArgumentException(string.Format("Owner '{0}.{1}' is already set when parsing '{2}'.", owner, main, result));
+                            else if (main != null)
+                                throw new ArgumentException(string.Format("Main '{0}' is already set when parsing '{1}'.", main, result));
+                        }
+
+                        if (!string.IsNullOrEmpty(main))
+                            return builder.Table(string.Format("{0}{1}",
+                                string.IsNullOrEmpty(owner) ? string.Empty : string.Format("{0}.", owner),
+                                main));
+                    }
+                }
+
+                throw new ArgumentException(string.Format("Unable to set table parsing '{0}'", result));
+            }
+        }
+
         internal static T Table<T>(this T builder, string tableName, Dictionary<string, DynamicSchemaColumn> schema = null) where T : DynamicModifyBuilder
         {
             var tuple = tableName.Validated("Table Name").SplitSomethingAndAlias();
@@ -48,6 +123,9 @@ namespace DynamORM.Builders.Extensions
                 throw new ArgumentException(string.Format("Can not use aliases in INSERT steatement. ({0})", tableName), "tableName");
 
             var parts = tuple.Item1.Split('.');
+
+            if (parts.Length > 2)
+                throw new ArgumentException(string.Format("Table name can consist only from name or owner and name. ({0})", tableName), "tableName");
 
             builder.Tables.Clear();
             builder.Tables.Add(new DynamicQueryBuilder.TableInfo(builder.Database,
@@ -62,6 +140,9 @@ namespace DynamORM.Builders.Extensions
 
         internal static T Table<T>(this T builder, Type type) where T : DynamicQueryBuilder
         {
+            if (type.IsAnonymous())
+                throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}).", type.FullName));
+
             var mapper = DynamicMapperCache.GetMapper(type);
 
             if (mapper == null)

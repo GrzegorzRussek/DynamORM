@@ -45,6 +45,9 @@ namespace DynamORM.Builders
         /// <summary>Gets the tables used in this builder.</summary>
         IDictionary<string, IParameter> Parameters { get; }
 
+        /// <summary>Gets or sets a value indicating whether add virtual parameters.</summary>
+        bool VirtualMode { get; set; }
+
         /// <summary>Gets a value indicating whether database supports standard schema.</summary>
         bool SupportSchema { get; }
 
@@ -59,6 +62,14 @@ namespace DynamORM.Builders
         /// <returns>The text to execute against the underlying database.</returns>
         /// <remarks>This method must be override by derived classes.</remarks>
         string CommandText();
+
+        /// <summary>Gets or sets the on create temporary parameter action.</summary>
+        /// <remarks>This is exposed to allow setting schema of column.</remarks>
+        Action<IParameter> OnCreateTemporaryParameter { get; set; }
+
+        /// <summary>Gets or sets the on create real parameter action.</summary>
+        /// <remarks>This is exposed to allow modification of parameter.</remarks>
+        Action<IParameter, IDbDataParameter> OnCreateParameter { get; set; }
 
         /// <summary>Creates sub query.</summary>
         /// <returns>Sub query builder.</returns>

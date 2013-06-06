@@ -33,6 +33,7 @@ using System.Data.Common;
 using System.Linq;
 using System.Text;
 using DynamORM.Builders;
+using DynamORM.Builders.Extensions;
 using DynamORM.Builders.Implementation;
 using DynamORM.Helpers;
 using DynamORM.Mapper;
@@ -237,14 +238,14 @@ namespace DynamORM
 
         #endregion Table
 
-        #region From
+        #region From/Insert/Update/Delete
 
         /// <summary>
-        /// Adds to the 'From' clause the contents obtained by parsing the dynamic lambda expressions given. The supported
+        /// Adds to the <code>FROM</code> clause the contents obtained by parsing the dynamic lambda expressions given. The supported
         /// formats are:
-        /// <para>- Resolve to a string: 'x => "Table AS Alias', where the alias part is optional.</para>
-        /// <para>- Resolve to an expression: 'x => x.Table.As( x.Alias )', where the alias part is optional.</para>
-        /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this
+        /// <para>- Resolve to a string: <code>x => "owner.Table AS Alias"</code>, where the alias part is optional.</para>
+        /// <para>- Resolve to an expression: <code>x => x.owner.Table.As( x.Alias )</code>, where the alias part is optional.</para>
+        /// <para>- Generic expression: <code>x => x( expression ).As( x.Alias )</code>, where the alias part is mandatory. In this
         /// case the alias is not annotated.</para>
         /// </summary>
         /// <param name="func">The specification.</param>
@@ -254,7 +255,87 @@ namespace DynamORM
             return new DynamicSelectQueryBuilder(this).From(func);
         }
 
-        #endregion From
+        /// <summary>Adds to the <code>FROM</code> clause using <see cref="Type"/>.</summary>
+        /// <typeparam name="T">Type which can be represented in database.</typeparam>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicSelectQueryBuilder From<T>()
+        {
+            return new DynamicSelectQueryBuilder(this).From(x => x(typeof(T)));
+        }
+
+        /// <summary>
+        /// Adds to the <code>INSERT INTO</code> clause the contents obtained by parsing the dynamic lambda expressions given. The supported
+        /// formats are:
+        /// <para>- Resolve to a string: <code>x => "owner.Table"</code>.</para>
+        /// <para>- Resolve to a type: <code>x => typeof(SomeClass)</code>.</para>
+        /// <para>- Resolve to an expression: <code>x => x.owner.Table</code>.</para>
+        /// <para>- Generic expression: <code>x => x( expression )</code>. Expression can
+        /// be <see cref="string"/> or <see cref="Type"/>.</para>
+        /// </summary>
+        /// <param name="func">The specification.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicInsertQueryBuilder Insert(Func<dynamic, object> func)
+        {
+            return new DynamicInsertQueryBuilder(this).Table(func);
+        }
+
+        /// <summary>Adds to the <code>INSERT INTO</code> clause using <see cref="Type"/>.</summary>
+        /// <typeparam name="T">Type which can be represented in database.</typeparam>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicInsertQueryBuilder Insert<T>()
+        {
+            return new DynamicInsertQueryBuilder(this).Table(typeof(T));
+        }
+
+        /// <summary>
+        /// Adds to the <code>UPDATE</code> clause the contents obtained by parsing the dynamic lambda expressions given. The supported
+        /// formats are:
+        /// <para>- Resolve to a string: <code>x => "owner.Table"</code>.</para>
+        /// <para>- Resolve to a type: <code>x => typeof(SomeClass)</code>.</para>
+        /// <para>- Resolve to an expression: <code>x => x.owner.Table</code>.</para>
+        /// <para>- Generic expression: <code>x => x( expression )</code>. Expression can
+        /// be <see cref="string"/> or <see cref="Type"/>.</para>
+        /// </summary>
+        /// <param name="func">The specification.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicUpdateQueryBuilder Update(Func<dynamic, object> func)
+        {
+            return new DynamicUpdateQueryBuilder(this).Table(func);
+        }
+
+        /// <summary>Adds to the <code>UPDATE</code> clause using <see cref="Type"/>.</summary>
+        /// <typeparam name="T">Type which can be represented in database.</typeparam>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicUpdateQueryBuilder Update<T>()
+        {
+            return new DynamicUpdateQueryBuilder(this).Table(typeof(T));
+        }
+
+        /// <summary>
+        /// Adds to the <code>DELETE FROM</code> clause the contents obtained by parsing the dynamic lambda expressions given. The supported
+        /// formats are:
+        /// <para>- Resolve to a string: <code>x => "owner.Table"</code>.</para>
+        /// <para>- Resolve to a type: <code>x => typeof(SomeClass)</code>.</para>
+        /// <para>- Resolve to an expression: <code>x => x.owner.Table</code>.</para>
+        /// <para>- Generic expression: <code>x => x( expression )</code>. Expression can
+        /// be <see cref="string"/> or <see cref="Type"/>.</para>
+        /// </summary>
+        /// <param name="func">The specification.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicDeleteQueryBuilder Delete(Func<dynamic, object> func)
+        {
+            return new DynamicDeleteQueryBuilder(this).Table(func);
+        }
+
+        /// <summary>Adds to the <code>DELETE FROM</code> clause using <see cref="Type"/>.</summary>
+        /// <typeparam name="T">Type which can be represented in database.</typeparam>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicDeleteQueryBuilder Delete<T>()
+        {
+            return new DynamicDeleteQueryBuilder(this).Table(typeof(T));
+        }
+
+        #endregion From/Insert/Update/Delete
 
         #region Schema
 

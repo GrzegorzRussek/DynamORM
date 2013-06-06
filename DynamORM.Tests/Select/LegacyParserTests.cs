@@ -100,6 +100,42 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>
+        /// Tests the where expression equal with brackets.
+        /// </summary>
+        [Test]
+        public void TestWhereBracketsOrEq2()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(x => x.dbo.Users.As(x.u))
+                .Where(new DynamicColumn("u.Id_User").Greater(1))
+                .Where(new DynamicColumn("u.Deleted").Eq(0).SetBeginBlock())
+                .Where(new DynamicColumn("u.IsActive").Eq(1).SetOr().SetEndBlock());
+
+            Assert.AreEqual(string.Format("SELECT * FROM \"dbo\".\"Users\" AS u WHERE (u.\"Id_User\" > [${0}]) AND ((u.\"Deleted\" = [${1}]) OR (u.\"IsActive\" = [${2}]))",
+                cmd.Parameters.Keys.ToArray()[0], cmd.Parameters.Keys.ToArray()[1], cmd.Parameters.Keys.ToArray()[2]), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests the where expression equal with brackets.
+        /// </summary>
+        [Test]
+        public void TestWhereBracketsOrEqForgotToEnd()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(x => x.dbo.Users.As(x.u))
+                .Where(new DynamicColumn("u.Id_User").Greater(1))
+                .Where(new DynamicColumn("u.Deleted").Eq(0).SetBeginBlock())
+                .Where(new DynamicColumn("u.IsActive").Eq(1).SetOr());
+
+            using (var con = Database.Open())
+            using (var c = con.CreateCommand())
+                Assert.AreEqual(string.Format("SELECT * FROM \"dbo\".\"Users\" AS u WHERE (u.\"Id_User\" > @0) AND ((u.\"Deleted\" = @1) OR (u.\"IsActive\" = @2))"),
+                    c.SetCommand(cmd).CommandText);
+        }
+
+        /// <summary>
         /// Tests the where expression not equal.
         /// </summary>
         [Test]
