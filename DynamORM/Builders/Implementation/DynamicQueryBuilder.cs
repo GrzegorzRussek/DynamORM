@@ -311,7 +311,7 @@ namespace DynamORM.Builders.Implementation
         /// <param name="isMultiPart">If set parse argument as alias. This is workaround for AS method.</param>
         /// <param name="columnSchema">This parameter is used to determine type of parameter used in query.</param>
         /// <returns>A string containing the result of the parsing, along with the parameters extracted in the
-        /// <see cref="pars" /> instance if such is given.</returns>
+        /// <paramref name="pars" /> instance if such is given.</returns>
         /// <exception cref="System.ArgumentNullException">Null nodes are not accepted.</exception>
         internal virtual string Parse(object node, IDictionary<string, IParameter> pars = null, bool rawstr = false, bool nulls = false, bool decorate = true, bool isMultiPart = true, DynamicSchemaColumn? columnSchema = null)
         {

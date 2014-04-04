@@ -696,7 +696,7 @@ namespace DynamORM.Helpers.Dynamics
 
             /// <summary>
             /// Represents a binary operation between a dynamic element and an arbitrary object, including null ones, as in
-            /// 'x =&gt; (x &amp;&amp; null)'. The left operand must be an instance of <see cref="DynamicNode"/>, whereas the right one
+            /// 'x =&gt; (x &amp;&amp; null)'. The left operand must be an instance of <see cref="Node"/>, whereas the right one
             /// can be any object, including null values.
             /// </summary>
             [Serializable]
@@ -770,7 +770,7 @@ namespace DynamORM.Helpers.Dynamics
             #region Unary
 
             /// <summary>
-            /// Represents an unary operation, as in 'x => !x'. The target must be a <see cref="DynamicNode"/> instance. There
+            /// Represents an unary operation, as in 'x => !x'. The target must be a <see cref="Node"/> instance. There
             /// is no distinction between pre- and post- version of the same operation.
             /// </summary>
             [Serializable]
@@ -1055,7 +1055,7 @@ namespace DynamORM.Helpers.Dynamics
 
         /// <summary>
         /// Gets the result of the parsing of the dynamic lambda expression. This result can be either an arbitrary object,
-        /// including null, if the expression resolves to it, or an instance of the <see cref="DynamicNode"/> class that
+        /// including null, if the expression resolves to it, or an instance of the <see cref="Node"/> class that
         /// contains the last logic expression evaluated when parsing the dynamic lambda expression.
         /// </summary>
         public object Result

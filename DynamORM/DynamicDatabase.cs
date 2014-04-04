@@ -652,39 +652,41 @@ namespace DynamORM
             if (connection == null)
                 return;
 
-            lock (SyncLock)
+            if (!_singleConnection && connection != null && TransactionPool.ContainsKey(connection))
             {
-                if (!_singleConnection && connection != null && TransactionPool.ContainsKey(connection))
+                // Close all commands
+                if (CommandsPool.ContainsKey(connection))
                 {
-                    // Close all commands
-                    if (CommandsPool.ContainsKey(connection))
-                    {
-                        CommandsPool[connection].ForEach(cmd => cmd.Dispose());
-                        CommandsPool[connection].Clear();
-                    }
+                    var tmp = CommandsPool[connection].ToList();
+                    tmp.ForEach(cmd => cmd.Dispose());
 
-                    // Rollback remaining transactions
-                    while (TransactionPool[connection].Count > 0)
-                    {
-                        IDbTransaction trans = TransactionPool[connection].Pop();
-                        trans.Rollback();
-                        trans.Dispose();
-                    }
+                    CommandsPool[connection].Clear();
+                }
 
-                    // Close connection
-                    if (connection.State == ConnectionState.Open)
-                        connection.Close();
+                // Rollback remaining transactions
+                while (TransactionPool[connection].Count > 0)
+                {
+                    IDbTransaction trans = TransactionPool[connection].Pop();
+                    trans.Rollback();
+                    trans.Dispose();
+                }
 
-                    // remove from pools
+                // Close connection
+                if (connection.State == ConnectionState.Open)
+                    connection.Close();
+
+                // remove from pools
+                lock (SyncLock)
+                {
                     TransactionPool.Remove(connection);
                     CommandsPool.Remove(connection);
-
-                    // Set stamp
-                    _poolStamp = DateTime.Now.Ticks;
-
-                    // Dispose the corpse
-                    connection.Dispose();
                 }
+
+                // Set stamp
+                _poolStamp = DateTime.Now.Ticks;
+
+                // Dispose the corpse
+                connection.Dispose();
             }
         }
 
@@ -733,43 +735,46 @@ namespace DynamORM
         /// releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
         {
-            lock (SyncLock)
+            var tables = TablesCache.Values.ToList();
+            TablesCache.Clear();
+
+            tables.ForEach(t => t.Dispose());
+
+            foreach (var con in TransactionPool)
             {
-                var tables = TablesCache.Values.ToList();
-                TablesCache.Clear();
-
-                tables.ForEach(t => t.Dispose());
-
-                foreach (var con in TransactionPool)
+                // Close all commands
+                if (CommandsPool.ContainsKey(con.Key))
                 {
-                    // Close all commands
-                    if (CommandsPool.ContainsKey(con.Key))
-                    {
-                        CommandsPool[con.Key].ForEach(cmd => cmd.Dispose());
-                        CommandsPool[con.Key].Clear();
-                    }
+                    var tmp = CommandsPool[con.Key].ToList();
+                    tmp.ForEach(cmd => cmd.Dispose());
 
-                    // Rollback remaining transactions
-                    while (con.Value.Count > 0)
-                    {
-                        IDbTransaction trans = con.Value.Pop();
-                        trans.Rollback();
-                        trans.Dispose();
-                    }
-
-                    // Close connection
-                    if (con.Key.State == ConnectionState.Open)
-                        con.Key.Close();
-
-                    // Dispose it
-                    con.Key.Dispose();
+                    CommandsPool[con.Key].Clear();
                 }
 
-                // Clear pools
+                // Rollback remaining transactions
+                while (con.Value.Count > 0)
+                {
+                    IDbTransaction trans = con.Value.Pop();
+                    trans.Rollback();
+                    trans.Dispose();
+                }
+
+                // Close connection
+                if (con.Key.State == ConnectionState.Open)
+                    con.Key.Close();
+
+                // Dispose it
+                con.Key.Dispose();
+            }
+
+            // Clear pools
+            lock (SyncLock)
+            {
                 TransactionPool.Clear();
                 CommandsPool.Clear();
-                IsDisposed = true;
             }
+
+            IsDisposed = true;
         }
 
         /// <summary>Gets a value indicating whether this instance is disposed.</summary>

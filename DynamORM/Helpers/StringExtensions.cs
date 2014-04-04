@@ -58,7 +58,7 @@ namespace DynamORM.Helpers
         /// <summary>
         /// Provides with an alternate and generic way to obtain an alternate string representation for this instance,
         /// applying the following rules:
-        /// <para>- Null values are returned as with the <see cref="NullString"/> value, or a null object.</para>
+        /// <para>- Null values are returned as with the <paramref name="nullString"/> value, or a null object.</para>
         /// <para>- Enum values are translated into their string representation.</para>
         /// <para>- If the type has override the 'ToString' method then it is used.</para>
         /// <para>- If it is a dictionary, then a collection of key/value pairs where the value part is also translated.</para>

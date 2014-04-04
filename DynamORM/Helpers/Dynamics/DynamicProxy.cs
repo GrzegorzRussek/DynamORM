@@ -205,7 +205,7 @@ namespace DynamORM.Helpers.Dynamics
         /// during the invoke operation. For example, for the statement
         /// sampleObject.SampleMethod(100), where sampleObject is derived from the
         /// <see cref="T:System.Dynamic.DynamicObject" /> class,
-        /// <paramref name="args[0]" /> is equal to 100.</param>
+        /// First element of <paramref name="args" /> is equal to 100.</param>
         /// <param name="result">The result of the member invocation.</param>
         /// <returns>Returns <c>true</c> if the operation is successful; otherwise,
         /// <c>false</c>. If this method returns false, the run-time binder of the

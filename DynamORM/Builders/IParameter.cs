@@ -44,7 +44,7 @@ namespace DynamORM.Builders
         /// <summary>Gets or sets a value indicating whether name of temporary parameter is well known.</summary>
         bool WellKnown { get; set; }
 
-        /// <summary>Gets or sets a value indicating whether this <see cref="Parameter"/> is virtual.</summary>
+        /// <summary>Gets or sets a value indicating whether this <see cref="IParameter"/> is virtual.</summary>
         bool Virtual { get; set; }
 
         /// <summary>Gets or sets the parameter schema information.</summary>

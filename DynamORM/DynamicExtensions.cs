@@ -816,6 +816,17 @@ namespace DynamORM
             return b;
         }
 
+        /// <summary>Sets the virtual mode on builder.</summary>
+        /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
+        /// <param name="b">The builder on which set delegate.</param>
+        /// <param name="virtualMode">Virtual mode.</param>
+        /// <returns>Returns instance of builder on which virtual mode is set.</returns>
+        public static T SetVirtualMode<T>(this T b, bool virtualMode) where T : IDynamicQueryBuilder
+        {
+            b.VirtualMode = virtualMode;
+            return b;
+        }
+
         /// <summary>Sets the on create real parameter action.</summary>
         /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
         /// <param name="b">The builder on which set delegate.</param>
@@ -1071,7 +1082,7 @@ namespace DynamORM
         {
             TValue val;
 
-            if (dict.TryGetValue(key, out val))
+            if (key != null && dict.TryGetValue(key, out val))
                 return val;
 
             return null;
@@ -1087,7 +1098,7 @@ namespace DynamORM
         {
             TValue val;
 
-            if (dict.TryGetValue(key, out val))
+            if (key != null && dict.TryGetValue(key, out val))
                 return val;
 
             return default(TValue);

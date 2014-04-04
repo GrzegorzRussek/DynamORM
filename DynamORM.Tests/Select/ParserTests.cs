@@ -181,6 +181,19 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>
+        /// Tests from method using invoke with sub query.
+        /// </summary>
+        [Test]
+        public void TestFromSubQuery3()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.SubQuery((b, s) => b.From(y => y(s.From(x => x.dbo.Users)).As("u")));
+
+            Assert.AreEqual("SELECT * FROM (SELECT * FROM \"dbo\".\"Users\") AS u", cmd.CommandText());
+        }
+
+        /// <summary>
         /// Tests where method with alias.
         /// </summary>
         [Test]
@@ -339,6 +352,21 @@ namespace DynamORM.Tests.Select
                 .Select(usr => usr.All(), uc => uc.Users);
 
             Assert.AreEqual(string.Format("SELECT usr.*, uc.\"Users\" FROM \"dbo\".\"Users\" AS usr INNER JOIN \"dbo\".\"UserClients\" AS uc ON ((usr.\"Id_User\" = uc.\"User_Id\") AND (uc.\"Users\" IS NOT NULL))"), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests from method using invoke with sub query.
+        /// </summary>
+        [Test]
+        public void TestInnerJoin3()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.usr))
+                .SubQuery((b, s) => b.Join(usr => usr(s.From(x => x.dbo.UserClients)).Inner().As(usr.uc).On(usr.Id_User == usr.uc.User_Id && usr.uc.Users != null)))
+                .Select(usr => usr.All(), uc => uc.Users);
+
+            Assert.AreEqual(string.Format("SELECT usr.*, uc.\"Users\" FROM \"dbo\".\"Users\" AS usr INNER JOIN (SELECT * FROM \"dbo\".\"UserClients\") AS uc ON ((usr.\"Id_User\" = uc.\"User_Id\") AND (uc.\"Users\" IS NOT NULL))"), cmd.CommandText());
         }
 
         /// <summary>
