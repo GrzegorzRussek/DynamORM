@@ -36,6 +36,7 @@ namespace DynamORM.Tests.Select
     /// <summary>
     /// New parser tests.
     /// </summary>
+    [TestFixture]
     public class ParserTests : TestsBase
     {
         /// <summary>Setup test parameters.</summary>

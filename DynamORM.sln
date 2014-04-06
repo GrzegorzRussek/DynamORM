@@ -1,11 +1,10 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
+# SharpDevelop 4.2.2.8818
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamORM", "DynamORM\DynamORM.csproj", "{63963ED7-9C78-4672-A4D4-339B6E825503}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamORM.Tests", "DynamORM.Tests\DynamORM.Tests.csproj", "{D5013B4E-8A1B-4DBB-8FB5-E09935F4F764}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Workbench", "Workbench\Workbench.csproj", "{01429808-B1A9-4272-852E-B2F7649BD788}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -37,16 +36,6 @@ Global
 		{D5013B4E-8A1B-4DBB-8FB5-E09935F4F764}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{D5013B4E-8A1B-4DBB-8FB5-E09935F4F764}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{D5013B4E-8A1B-4DBB-8FB5-E09935F4F764}.Release|x86.ActiveCfg = Release|Any CPU
-		{01429808-B1A9-4272-852E-B2F7649BD788}.Debug|Any CPU.ActiveCfg = Debug|x86
-		{01429808-B1A9-4272-852E-B2F7649BD788}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
-		{01429808-B1A9-4272-852E-B2F7649BD788}.Debug|Mixed Platforms.Build.0 = Debug|x86
-		{01429808-B1A9-4272-852E-B2F7649BD788}.Debug|x86.ActiveCfg = Debug|x86
-		{01429808-B1A9-4272-852E-B2F7649BD788}.Debug|x86.Build.0 = Debug|x86
-		{01429808-B1A9-4272-852E-B2F7649BD788}.Release|Any CPU.ActiveCfg = Release|x86
-		{01429808-B1A9-4272-852E-B2F7649BD788}.Release|Mixed Platforms.ActiveCfg = Release|x86
-		{01429808-B1A9-4272-852E-B2F7649BD788}.Release|Mixed Platforms.Build.0 = Release|x86
-		{01429808-B1A9-4272-852E-B2F7649BD788}.Release|x86.ActiveCfg = Release|x86
-		{01429808-B1A9-4272-852E-B2F7649BD788}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

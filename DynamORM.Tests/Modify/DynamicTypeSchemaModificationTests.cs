@@ -26,6 +26,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+using System.Collections.Generic;
 using DynamORM.Tests.Helpers;
 using NUnit.Framework;
 
@@ -40,6 +41,26 @@ namespace DynamORM.Tests.Modify
         public override dynamic GetTestTable()
         {
             return Database.Table<users>();
+        }
+        
+        [Test]
+        public void TestBulkInsert()
+        {
+        	Assert.AreEqual(2, Database.Insert<users>(new List<users>
+        	{
+                new users
+                {
+                	id = 1001,
+                	login = "a",
+                },
+                new users
+                {
+                	id = 1002,
+                	login = "b",
+                }
+        	}));
+        	
+        	Assert.AreEqual(2, Database.Delete<users>().Where(u => u.users.id.In(1001, 1002)).Execute());
         }
     }
 }

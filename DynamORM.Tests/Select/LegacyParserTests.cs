@@ -34,6 +34,7 @@ using NUnit.Framework;
 namespace DynamORM.Tests.Select
 {
     /// <summary>Tests of legacy parser methods.</summary>
+    [TestFixture]
     public class LegacyParserTests : TestsBase
     {
         /// <summary>Setup test parameters.</summary>

@@ -46,9 +46,11 @@ namespace DynamORM.Mapper
         public Func<object> Creator { get; private set; }
 
         /// <summary>Gets map of columns to properties.</summary>
+        /// <remarks>Key: Column name (lower), Value: <see cref="DynamicPropertyInvoker"/>.</remarks>
         public Dictionary<string, DynamicPropertyInvoker> ColumnsMap { get; private set; }
 
         /// <summary>Gets map of properties to column.</summary>
+        /// <remarks>Key: Property name, Value: Column name.</remarks>
         public Dictionary<string, string> PropertyMap { get; private set; }
 
         /// <summary>Gets list of ignored properties.</summary>
@@ -73,6 +75,7 @@ namespace DynamORM.Mapper
         {
             var columnMap = new Dictionary<string, DynamicPropertyInvoker>();
             var propertyMap = new Dictionary<string, string>();
+            var ignored = new List<string>();
 
             foreach (var pi in Type.GetProperties())
             {
@@ -89,12 +92,15 @@ namespace DynamORM.Mapper
                 columnMap.Add(col.ToLower(), val);
 
                 propertyMap.Add(pi.Name, col);
+                
+                if (val.Ignore)
+                	ignored.Add(pi.Name);
             }
 
             ColumnsMap = columnMap;
             PropertyMap = propertyMap;
 
-            Ignored = columnMap.Where(i => i.Value.Ignore).Select(i => i.Value.Name).ToList();
+            Ignored = ignored; ////columnMap.Where(i => i.Value.Ignore).Select(i => i.Value.Name).ToList();
         }
 
         private Func<object> CreateCreator()

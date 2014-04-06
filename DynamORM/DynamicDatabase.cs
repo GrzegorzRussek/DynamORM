@@ -286,6 +286,61 @@ namespace DynamORM
         {
             return new DynamicInsertQueryBuilder(this).Table(typeof(T));
         }
+        
+        public virtual int Insert<T>(IEnumerable<T> e) where T : class
+        {
+        	int affected = 0;
+	        var mapper = DynamicMapperCache.GetMapper(typeof(T));
+	        
+            if (mapper != null) 
+	            using (var con = Open())
+	            using (var tra = con.BeginTransaction())
+	            using (var cmd = con.CreateCommand())
+	            {
+	            	try
+	            	{
+		                DynamicPropertyInvoker currentprop = null;
+		                var temp = new Dictionary<string, DynamicPropertyInvoker>();
+		                var parameters = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
+		                
+		                var ib = Insert<T>()
+		                    .SetVirtualMode(true)
+		                    .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
+		                    .CreateParameterAction((p, cp) => parameters[cp] = temp[p.Name]);
+		                
+	                    foreach (var prop in mapper.PropertyMap)
+	                        if (!mapper.Ignored.Contains(prop.Key))
+	                        {
+	                            var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
+	                            currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
+	                            
+	                            if (currentprop.Get != null)
+	                            	ib.Insert(col, null);
+	                        }
+	                    
+	                    ib.FillCommand(cmd);
+	                
+	                    foreach (var o in e) 
+	                    {
+	                        foreach (var m in parameters) 
+	                        	m.Key.Value = m.Value.Get(o);
+	                        
+	                        affected += cmd.ExecuteNonQuery();
+	                    }
+	                
+		                tra.Commit();
+		            }
+	            	catch
+	            	{
+	            		if (tra != null)
+	            			tra.Rollback();
+	            		
+	            		throw;
+	            	}
+	            }
+            
+            return affected;
+        }
 
         /// <summary>
         /// Adds to the <code>UPDATE</code> clause the contents obtained by parsing the dynamic lambda expressions given. The supported

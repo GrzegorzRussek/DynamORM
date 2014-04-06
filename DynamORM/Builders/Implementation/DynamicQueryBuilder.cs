@@ -360,7 +360,7 @@ namespace DynamORM.Builders.Implementation
             return ParseConstant(node, pars, columnSchema);
         }
 
-        protected virtual string ParseCommand(DynamicQueryBuilder node, IDictionary<string, IParameter> pars = null)
+        internal virtual string ParseCommand(DynamicQueryBuilder node, IDictionary<string, IParameter> pars = null)
         {
             // Getting the command's text...
             string str = node.CommandText(); // Avoiding spurious "OUTPUT XXX" statements

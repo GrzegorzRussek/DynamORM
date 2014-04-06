@@ -34,6 +34,7 @@ using NUnit.Framework;
 namespace DynamORM.Tests.Select
 {
     /// <summary>Test typed ORM.</summary>
+    [TestFixture]
     public class RenamedTypedAccessTests : TypedAccessTests<Users>
     {
         /// <summary>Test something fancy... like: <code>select "first", count("first") aggregatefield from "users" group by "first" order by 2 desc;</code>.</summary>

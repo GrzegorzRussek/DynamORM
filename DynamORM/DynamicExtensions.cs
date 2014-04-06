@@ -816,17 +816,6 @@ namespace DynamORM
             return b;
         }
 
-        /// <summary>Sets the virtual mode on builder.</summary>
-        /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
-        /// <param name="b">The builder on which set delegate.</param>
-        /// <param name="virtualMode">Virtual mode.</param>
-        /// <returns>Returns instance of builder on which virtual mode is set.</returns>
-        public static T SetVirtualMode<T>(this T b, bool virtualMode) where T : IDynamicQueryBuilder
-        {
-            b.VirtualMode = virtualMode;
-            return b;
-        }
-
         /// <summary>Sets the on create real parameter action.</summary>
         /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
         /// <param name="b">The builder on which set delegate.</param>
@@ -835,6 +824,33 @@ namespace DynamORM
         public static T CreateParameterAction<T>(this T b, Action<IParameter, IDbDataParameter> a) where T : IDynamicQueryBuilder
         {
             b.OnCreateParameter = a;
+            return b;
+        }
+
+        /// <summary>Sets the virtual mode on builder.</summary>
+        /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
+        /// <param name="b">The builder on which set virtual mode.</param>
+        /// <param name="virtualMode">Virtual mode.</param>
+        /// <returns>Returns instance of builder on which virtual mode is set.</returns>
+        public static T SetVirtualMode<T>(this T b, bool virtualMode) where T : IDynamicQueryBuilder
+        {
+            b.VirtualMode = virtualMode;
+            return b;
+        }
+
+        /// <summary>Creates sub query that can be used inside of from/join/expresions.</summary>
+        /// <param name="b">The builder that will be parent of new sub query.</param>
+        /// <param name="subquery">First argument is parent query, second one is a subquery.</param>
+        /// <param name="func">The specification for subquery.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public static T SubQuery<T>(this T b, Action<T, IDynamicSelectQueryBuilder> subquery, params Func<dynamic, object>[] func) where T : IDynamicQueryBuilder
+        {
+            var sub = func == null || func.Length == 0 ? b.SubQuery() : b.SubQuery(func);
+
+            subquery(b, sub);
+
+            (b as DynamicQueryBuilder).ParseCommand(sub as DynamicQueryBuilder, b.Parameters);
+
             return b;
         }
 

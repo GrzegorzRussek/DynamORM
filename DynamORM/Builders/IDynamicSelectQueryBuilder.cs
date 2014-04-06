@@ -53,22 +53,6 @@ namespace DynamORM.Builders
         /// <returns>Result of a query.</returns>
         object Scalar();
 
-        #region SubQuery
-
-        /// <summary>Adds to the 'From' clause of sub query the contents obtained by
-        /// parsing the dynamic lambda expressions given. The supported formats are:
-        /// <para>- Resolve to a string: 'x => "Table AS Alias', where the alias part is optional.</para>
-        /// <para>- Resolve to an expression: 'x => x.Table.As( x.Alias )', where the alias part is optional.</para>
-        /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this
-        /// case the alias is not annotated.</para>
-        /// </summary>
-        /// <param name="subquery">First argument is parent query, second one is a subquery.</param>
-        /// <param name="func">The specification for subquery.</param>
-        /// <returns>This instance to permit chaining.</returns>
-        IDynamicSelectQueryBuilder SubQuery(Action<IDynamicSelectQueryBuilder, IDynamicSelectQueryBuilder> subquery, params Func<dynamic, object>[] func);
-
-        #endregion SubQuery
-
         #region From/Join
 
         /// <summary>
