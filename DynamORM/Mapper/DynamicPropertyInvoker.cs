@@ -27,6 +27,7 @@
 */
 
 using System;
+using System.Data;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -35,6 +36,15 @@ namespace DynamORM.Mapper
     /// <summary>Dynamic property invoker.</summary>
     public class DynamicPropertyInvoker
     {
+        internal class ParameterSpec
+        {
+            public string Name { get; set; }
+
+            public DbType Type { get; set; }
+
+            public int Ordinal { get; set; }
+        }
+
         /// <summary>Gets the type of property.</summary>
         public Type Type { get; private set; }
 
@@ -105,5 +115,13 @@ namespace DynamORM.Mapper
                     Expression.Convert(valueParm, property.PropertyType)),
                     objParm, valueParm).Compile();
         }
+
+        #region Type command cache
+
+        internal ParameterSpec InsertCommandParameter { get; set; }
+
+        internal ParameterSpec UpdateCommandParameter { get; set; }
+
+        #endregion Type command cache
     }
 }

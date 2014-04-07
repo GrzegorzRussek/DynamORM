@@ -28,7 +28,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 
 namespace DynamORM.Mapper
@@ -92,9 +91,9 @@ namespace DynamORM.Mapper
                 columnMap.Add(col.ToLower(), val);
 
                 propertyMap.Add(pi.Name, col);
-                
+
                 if (val.Ignore)
-                	ignored.Add(pi.Name);
+                    ignored.Add(pi.Name);
             }
 
             ColumnsMap = columnMap;
@@ -136,5 +135,13 @@ namespace DynamORM.Mapper
 
             return destination;
         }
+
+        #region Type command cache
+
+        internal string InsertCommandText { get; set; }
+
+        internal string UpdateCommandText { get; set; }
+
+        #endregion Type command cache
     }
 }

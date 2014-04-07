@@ -42,25 +42,28 @@ namespace DynamORM.Tests.Modify
         {
             return Database.Table<users>();
         }
-        
+
+        /// <summary>
+        /// Tests the bulk insert.
+        /// </summary>
         [Test]
         public void TestBulkInsert()
         {
-        	Assert.AreEqual(2, Database.Insert<users>(new List<users>
-        	{
+            Assert.AreEqual(2, Database.Insert<users>(new List<users>
+            {
                 new users
                 {
-                	id = 1001,
-                	login = "a",
+                    id = 1001,
+                    login = "a",
                 },
                 new users
                 {
-                	id = 1002,
-                	login = "b",
+                    id = 1002,
+                    login = "b",
                 }
-        	}));
-        	
-        	Assert.AreEqual(2, Database.Delete<users>().Where(u => u.users.id.In(1001, 1002)).Execute());
+            }));
+
+            Assert.AreEqual(2, Database.Delete<users>().Where(u => u.users.id.In(1001, 1002)).Execute());
         }
     }
 }

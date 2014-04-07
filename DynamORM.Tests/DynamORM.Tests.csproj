@@ -77,7 +77,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DynamicClassBuilderTest.cs" />
     <Compile Include="Helpers\Dynamic\DynamicParserTests.cs" />
     <Compile Include="Helpers\PoolingTests.cs" />
     <Compile Include="Modify\DynamicModificationTests.cs" />
