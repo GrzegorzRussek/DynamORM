@@ -378,10 +378,10 @@ namespace DynamORM
 
                         affected = 0;
 
-                        var exCmd = new StringBuilder();
-                        cmd.Dump(exCmd);
+                        var problematicCommand = new StringBuilder();
+                        cmd.Dump(problematicCommand);
 
-                        throw new InvalidOperationException(exCmd.ToString(), ex);
+                        throw new InvalidOperationException(problematicCommand.ToString(), ex);
                     }
                 }
             }
@@ -413,7 +413,7 @@ namespace DynamORM
             return new DynamicUpdateQueryBuilder(this).Table(typeof(T));
         }
 
-        /// <summary>Bulk update objects into database.</summary>
+        /// <summary>Bulk update objects in database.</summary>
         /// <typeparam name="T">Type of objects to update.</typeparam>
         /// <param name="e">Enumerable containing instances of objects to update.</param>
         /// <returns>Number of updated rows.</returns>
@@ -509,10 +509,192 @@ namespace DynamORM
 
                         affected = 0;
 
-                        var exCmd = new StringBuilder();
-                        cmd.Dump(exCmd);
+                        var problematicCommand = new StringBuilder();
+                        cmd.Dump(problematicCommand);
 
-                        throw new InvalidOperationException(exCmd.ToString(), ex);
+                        throw new InvalidOperationException(problematicCommand.ToString(), ex);
+                    }
+                }
+            }
+
+            return affected;
+        }
+
+        /// <summary>Bulk update or insert objects into database.</summary>
+        /// <typeparam name="T">Type of objects to update or insert.</typeparam>
+        /// <param name="e">Enumerable containing instances of objects to update or insert.</param>
+        /// <returns>Number of updated or inserted rows.</returns>
+        public virtual int UpdateOrInsert<T>(IEnumerable<T> e) where T : class
+        {
+            int affected = 0;
+            var mapper = DynamicMapperCache.GetMapper(typeof(T));
+
+            if (mapper != null)
+            {
+                using (var con = Open())
+                using (var tra = con.BeginTransaction())
+                using (var cmdUp = con.CreateCommand())
+                using (var cmdIn = con.CreateCommand())
+                {
+                    try
+                    {
+                        #region Update
+
+                        var parametersUp = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
+
+                        if (!string.IsNullOrEmpty(mapper.UpdateCommandText))
+                        {
+                            cmdUp.CommandText = mapper.UpdateCommandText;
+
+                            foreach (var col in mapper.ColumnsMap.Values
+                                .Where(di => !di.Ignore && di.UpdateCommandParameter != null)
+                                .OrderBy(di => di.UpdateCommandParameter.Ordinal))
+                            {
+                                var para = cmdUp.CreateParameter();
+                                para.ParameterName = col.UpdateCommandParameter.Name;
+                                para.DbType = col.UpdateCommandParameter.Type;
+                                cmdUp.Parameters.Add(para);
+
+                                parametersUp[para] = col;
+                            }
+                        }
+                        else
+                        {
+                            DynamicPropertyInvoker currentprop = null;
+                            var temp = new Dictionary<string, DynamicPropertyInvoker>();
+                            int ord = 0;
+
+                            var ib = Update<T>()
+                                .SetVirtualMode(true)
+                                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
+                                .CreateParameterAction((p, cp) =>
+                                {
+                                    parametersUp[cp] = temp[p.Name];
+                                    parametersUp[cp].UpdateCommandParameter = new DynamicPropertyInvoker.ParameterSpec
+                                    {
+                                        Name = cp.ParameterName,
+                                        Type = cp.DbType,
+                                        Ordinal = ord++,
+                                    };
+                                });
+
+                            foreach (var prop in mapper.PropertyMap)
+                                if (!mapper.Ignored.Contains(prop.Key))
+                                {
+                                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
+                                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
+
+                                    if (currentprop.Ignore)
+                                        continue;
+
+                                    if (currentprop.Get != null)
+                                    {
+                                        if (currentprop.Column != null && currentprop.Column.IsKey)
+                                            ib.Where(col, null);
+                                        else
+                                            ib.Values(col, null);
+                                    }
+                                }
+
+                            ib.FillCommand(cmdUp);
+
+                            // Cache command
+                            mapper.UpdateCommandText = cmdUp.CommandText;
+                        }
+
+                        #endregion Update
+
+                        #region Insert
+
+                        var parametersIn = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
+
+                        if (!string.IsNullOrEmpty(mapper.InsertCommandText))
+                        {
+                            cmdIn.CommandText = mapper.InsertCommandText;
+
+                            foreach (var col in mapper.ColumnsMap.Values
+                                .Where(di => !di.Ignore && di.InsertCommandParameter != null)
+                                .OrderBy(di => di.InsertCommandParameter.Ordinal))
+                            {
+                                var para = cmdIn.CreateParameter();
+                                para.ParameterName = col.InsertCommandParameter.Name;
+                                para.DbType = col.InsertCommandParameter.Type;
+                                cmdIn.Parameters.Add(para);
+
+                                parametersIn[para] = col;
+                            }
+                        }
+                        else
+                        {
+                            DynamicPropertyInvoker currentprop = null;
+                            var temp = new Dictionary<string, DynamicPropertyInvoker>();
+                            int ord = 0;
+
+                            var ib = Insert<T>()
+                                .SetVirtualMode(true)
+                                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
+                                .CreateParameterAction((p, cp) =>
+                                {
+                                    parametersIn[cp] = temp[p.Name];
+                                    parametersIn[cp].InsertCommandParameter = new DynamicPropertyInvoker.ParameterSpec
+                                    {
+                                        Name = cp.ParameterName,
+                                        Type = cp.DbType,
+                                        Ordinal = ord++,
+                                    };
+                                });
+
+                            foreach (var prop in mapper.PropertyMap)
+                                if (!mapper.Ignored.Contains(prop.Key))
+                                {
+                                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
+                                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
+
+                                    if (currentprop.Ignore)
+                                        continue;
+
+                                    if (currentprop.Get != null)
+                                        ib.Insert(col, null);
+                                }
+
+                            ib.FillCommand(cmdIn);
+
+                            // Cache command
+                            mapper.InsertCommandText = cmdIn.CommandText;
+                        }
+
+                        #endregion Insert
+
+                        foreach (var o in e)
+                        {
+                            foreach (var m in parametersUp)
+                                m.Key.Value = m.Value.Get(o);
+
+                            int a = cmdUp.ExecuteNonQuery();
+                            if (a == 0)
+                            {
+                                foreach (var m in parametersIn)
+                                    m.Key.Value = m.Value.Get(o);
+
+                                a = cmdIn.ExecuteNonQuery();
+                            }
+
+                            affected += a;
+                        }
+
+                        tra.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        if (tra != null)
+                            tra.Rollback();
+
+                        affected = 0;
+
+                        var problematicCommand = new StringBuilder();
+                        cmdUp.Dump(problematicCommand);
+
+                        throw new InvalidOperationException(problematicCommand.ToString(), ex);
                     }
                 }
             }
@@ -542,6 +724,111 @@ namespace DynamORM
         public virtual IDynamicDeleteQueryBuilder Delete<T>()
         {
             return new DynamicDeleteQueryBuilder(this).Table(typeof(T));
+        }
+
+        /// <summary>Bulk delete objects in database.</summary>
+        /// <typeparam name="T">Type of objects to delete.</typeparam>
+        /// <param name="e">Enumerable containing instances of objects to delete.</param>
+        /// <returns>Number of deleted rows.</returns>
+        public virtual int Delete<T>(IEnumerable<T> e) where T : class
+        {
+            int affected = 0;
+            var mapper = DynamicMapperCache.GetMapper(typeof(T));
+
+            if (mapper != null)
+            {
+                using (var con = Open())
+                using (var tra = con.BeginTransaction())
+                using (var cmd = con.CreateCommand())
+                {
+                    try
+                    {
+                        var parameters = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
+
+                        if (!string.IsNullOrEmpty(mapper.DeleteCommandText))
+                        {
+                            cmd.CommandText = mapper.DeleteCommandText;
+
+                            foreach (var col in mapper.ColumnsMap.Values
+                                .Where(di => !di.Ignore && di.DeleteCommandParameter != null)
+                                .OrderBy(di => di.DeleteCommandParameter.Ordinal))
+                            {
+                                var para = cmd.CreateParameter();
+                                para.ParameterName = col.DeleteCommandParameter.Name;
+                                para.DbType = col.DeleteCommandParameter.Type;
+                                cmd.Parameters.Add(para);
+
+                                parameters[para] = col;
+                            }
+                        }
+                        else
+                        {
+                            DynamicPropertyInvoker currentprop = null;
+                            var temp = new Dictionary<string, DynamicPropertyInvoker>();
+                            int ord = 0;
+
+                            var ib = Delete<T>()
+                                .SetVirtualMode(true)
+                                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
+                                .CreateParameterAction((p, cp) =>
+                                {
+                                    parameters[cp] = temp[p.Name];
+                                    parameters[cp].DeleteCommandParameter = new DynamicPropertyInvoker.ParameterSpec
+                                    {
+                                        Name = cp.ParameterName,
+                                        Type = cp.DbType,
+                                        Ordinal = ord++,
+                                    };
+                                });
+
+                            foreach (var prop in mapper.PropertyMap)
+                                if (!mapper.Ignored.Contains(prop.Key))
+                                {
+                                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
+                                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
+
+                                    if (currentprop.Ignore)
+                                        continue;
+
+                                    if (currentprop.Get != null)
+                                    {
+                                        if (currentprop.Column != null && currentprop.Column.IsKey)
+                                            ib.Where(col, null);
+                                    }
+                                }
+
+                            ib.FillCommand(cmd);
+
+                            // Cache command
+                            mapper.DeleteCommandText = cmd.CommandText;
+                        }
+
+                        foreach (var o in e)
+                        {
+                            foreach (var m in parameters)
+                                m.Key.Value = m.Value.Get(o);
+
+                            affected += cmd.ExecuteNonQuery();
+                        }
+
+                        tra.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        if (tra != null)
+                            tra.Rollback();
+
+                        affected = 0;
+
+                        var problematicCommand = new StringBuilder();
+                        cmd.Dump(problematicCommand);
+
+                        throw new InvalidOperationException(problematicCommand.ToString(), ex);
+                    }
+                }
+            }
+
+            return affected;
         }
 
         #endregion From/Insert/Update/Delete

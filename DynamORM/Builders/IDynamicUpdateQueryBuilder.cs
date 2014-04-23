@@ -41,11 +41,6 @@ namespace DynamORM.Builders
         #region Update
 
         /// <summary>Add update value or where condition using schema.</summary>
-        /// <param name="column">Update or where column name and value.</param>
-        /// <returns>Builder instance.</returns>
-        IDynamicUpdateQueryBuilder Update(DynamicColumn column);
-
-        /// <summary>Add update value or where condition using schema.</summary>
         /// <param name="column">Update or where column name.</param>
         /// <param name="value">Column value.</param>
         /// <returns>Builder instance.</returns>
@@ -69,11 +64,6 @@ namespace DynamORM.Builders
         /// <param name="func">The specifications.</param>
         /// <returns>This instance to permit chaining.</returns>
         IDynamicUpdateQueryBuilder Values(params Func<dynamic, object>[] func);
-
-        /// <summary>Add insert fields.</summary>
-        /// <param name="column">Insert column and value.</param>
-        /// <returns>Builder instance.</returns>
-        IDynamicUpdateQueryBuilder Values(DynamicColumn column);
 
         /// <summary>Add insert fields.</summary>
         /// <param name="column">Insert column.</param>

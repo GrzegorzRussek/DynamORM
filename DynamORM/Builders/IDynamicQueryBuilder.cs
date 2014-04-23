@@ -70,20 +70,5 @@ namespace DynamORM.Builders
         /// <summary>Gets or sets the on create real parameter action.</summary>
         /// <remarks>This is exposed to allow modification of parameter.</remarks>
         Action<IParameter, IDbDataParameter> OnCreateParameter { get; set; }
-
-        /// <summary>Creates sub query.</summary>
-        /// <returns>Sub query builder.</returns>
-        IDynamicSelectQueryBuilder SubQuery();
-
-        /// <summary>Adds to the 'From' clause of sub query the contents obtained by
-        /// parsing the dynamic lambda expressions given. The supported formats are:
-        /// <para>- Resolve to a string: 'x => "Table AS Alias', where the alias part is optional.</para>
-        /// <para>- Resolve to an expression: 'x => x.Table.As( x.Alias )', where the alias part is optional.</para>
-        /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this
-        /// case the alias is not annotated.</para>
-        /// </summary>
-        /// <param name="func">The specification.</param>
-        /// <returns>This instance to permit chaining.</returns>
-        IDynamicSelectQueryBuilder SubQuery(params Func<dynamic, object>[] func);
     }
 }

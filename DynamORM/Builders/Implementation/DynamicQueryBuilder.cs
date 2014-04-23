@@ -269,31 +269,6 @@ namespace DynamORM.Builders.Implementation
                 }));
         }
 
-        #region SubQuery
-
-        /// <summary>Creates sub query.</summary>
-        /// <returns>Sub query builder.</returns>
-        public IDynamicSelectQueryBuilder SubQuery()
-        {
-            return new DynamicSelectQueryBuilder(Database, this);
-        }
-
-        /// <summary>Adds to the 'From' clause of sub query the contents obtained by
-        /// parsing the dynamic lambda expressions given. The supported formats are:
-        /// <para>- Resolve to a string: 'x => "Table AS Alias', where the alias part is optional.</para>
-        /// <para>- Resolve to an expression: 'x => x.Table.As( x.Alias )', where the alias part is optional.</para>
-        /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this
-        /// case the alias is not annotated.</para>
-        /// </summary>
-        /// <param name="func">The specification.</param>
-        /// <returns>This instance to permit chaining.</returns>
-        public IDynamicSelectQueryBuilder SubQuery(params Func<dynamic, object>[] func)
-        {
-            return SubQuery().From(func);
-        }
-
-        #endregion SubQuery
-
         #endregion IDynamicQueryBuilder
 
         #region Parser

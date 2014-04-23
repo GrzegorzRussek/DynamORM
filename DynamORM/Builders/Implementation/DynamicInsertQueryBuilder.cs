@@ -137,22 +137,6 @@ namespace DynamORM.Builders.Implementation
         }
 
         /// <summary>Add insert fields.</summary>
-        /// <param name="column">Insert column and value.</param>
-        /// <returns>Builder instance.</returns>
-        public virtual IDynamicInsertQueryBuilder Insert(DynamicColumn column)
-        {
-            DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
-
-            string main = FixObjectName(column.ColumnName, onlyColumn: true);
-            string value = Parse(column.Value, pars: Parameters, nulls: true, columnSchema: col);
-
-            _columns = _columns == null ? main : string.Format("{0}, {1}", _columns, main);
-            _values = _values == null ? value : string.Format("{0}, {1}", _values, value);
-
-            return this;
-        }
-
-        /// <summary>Add insert fields.</summary>
         /// <param name="column">Insert column.</param>
         /// <param name="value">Insert value.</param>
         /// <returns>Builder instance.</returns>
@@ -180,6 +164,20 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicInsertQueryBuilder Insert(object o)
         {
+            if (o is DynamicColumn)
+            {
+                var column = (DynamicColumn)o;
+                DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
+
+                string main = FixObjectName(column.ColumnName, onlyColumn: true);
+                string value = Parse(column.Value, pars: Parameters, nulls: true, columnSchema: col);
+
+                _columns = _columns == null ? main : string.Format("{0}, {1}", _columns, main);
+                _values = _values == null ? value : string.Format("{0}, {1}", _values, value);
+
+                return this;
+            }
+
             var dict = o.ToDictionary();
             var mapper = DynamicMapperCache.GetMapper(o.GetType());
 

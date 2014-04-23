@@ -49,11 +49,6 @@ namespace DynamORM.Builders
         IDynamicInsertQueryBuilder Insert(params Func<dynamic, object>[] func);
 
         /// <summary>Add insert fields.</summary>
-        /// <param name="column">Insert column and value.</param>
-        /// <returns>Builder instance.</returns>
-        IDynamicInsertQueryBuilder Insert(DynamicColumn column);
-
-        /// <summary>Add insert fields.</summary>
         /// <param name="column">Insert column.</param>
         /// <param name="value">Insert value.</param>
         /// <returns>Builder instance.</returns>

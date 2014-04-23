@@ -838,14 +838,25 @@ namespace DynamORM
             return b;
         }
 
-        /// <summary>Creates sub query that can be used inside of from/join/expresions.</summary>
+        /// <summary>Creates sub query that can be used inside of from/join/expressions.</summary>
+        /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
         /// <param name="b">The builder that will be parent of new sub query.</param>
-        /// <param name="subquery">First argument is parent query, second one is a subquery.</param>
-        /// <param name="func">The specification for subquery.</param>
+        /// <param name="func">The specification for sub query.</param>
+        /// <returns>Instance of sub query.</returns>
+        public static IDynamicSelectQueryBuilder SubQuery<T>(this T b, params Func<dynamic, object>[] func) where T : IDynamicQueryBuilder
+        {
+            return func == null || func.Length == 0 ? new DynamicSelectQueryBuilder(b.Database, b as DynamicQueryBuilder) : new DynamicSelectQueryBuilder(b.Database, b as DynamicQueryBuilder).From(func);
+        }
+
+        /// <summary>Creates sub query that can be used inside of from/join/expressions.</summary>
+        /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
+        /// <param name="b">The builder that will be parent of new sub query.</param>
+        /// <param name="subquery">First argument is parent query, second one is a sub query.</param>
+        /// <param name="func">The specification for sub query.</param>
         /// <returns>This instance to permit chaining.</returns>
         public static T SubQuery<T>(this T b, Action<T, IDynamicSelectQueryBuilder> subquery, params Func<dynamic, object>[] func) where T : IDynamicQueryBuilder
         {
-            var sub = func == null || func.Length == 0 ? b.SubQuery() : b.SubQuery(func);
+            var sub = b.SubQuery(func);
 
             subquery(b, sub);
 

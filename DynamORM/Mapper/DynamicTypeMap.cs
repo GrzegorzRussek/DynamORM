@@ -142,6 +142,8 @@ namespace DynamORM.Mapper
 
         internal string UpdateCommandText { get; set; }
 
+        internal string DeleteCommandText { get; set; }
+
         #endregion Type command cache
     }
 }

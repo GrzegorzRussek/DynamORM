@@ -122,6 +122,8 @@ namespace DynamORM.Mapper
 
         internal ParameterSpec UpdateCommandParameter { get; set; }
 
+        internal ParameterSpec DeleteCommandParameter { get; set; }
+
         #endregion Type command cache
     }
 }

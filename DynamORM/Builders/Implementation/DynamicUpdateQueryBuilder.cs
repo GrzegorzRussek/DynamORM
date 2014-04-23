@@ -68,24 +68,6 @@ namespace DynamORM.Builders.Implementation
         #region Update
 
         /// <summary>Add update value or where condition using schema.</summary>
-        /// <param name="column">Update or where column name and value.</param>
-        /// <returns>Builder instance.</returns>
-        public virtual IDynamicUpdateQueryBuilder Update(DynamicColumn column)
-        {
-            DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
-
-            if (!col.HasValue && SupportSchema)
-                throw new InvalidOperationException(string.Format("Column '{0}' not found in schema, can't use universal approach.", column));
-
-            if (col.HasValue && col.Value.IsKey)
-                Where(column);
-            else
-                Values(column.ColumnName, column.Value);
-
-            return this;
-        }
-
-        /// <summary>Add update value or where condition using schema.</summary>
         /// <param name="column">Update or where column name.</param>
         /// <param name="value">Column value.</param>
         /// <returns>Builder instance.</returns>
@@ -110,7 +92,21 @@ namespace DynamORM.Builders.Implementation
         public virtual IDynamicUpdateQueryBuilder Update(object conditions)
         {
             if (conditions is DynamicColumn)
-                return Update((DynamicColumn)conditions);
+            {
+                var column = (DynamicColumn)conditions;
+
+                DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
+
+                if (!col.HasValue && SupportSchema)
+                    throw new InvalidOperationException(string.Format("Column '{0}' not found in schema, can't use universal approach.", column));
+
+                if (col.HasValue && col.Value.IsKey)
+                    Where(column);
+                else
+                    Values(column.ColumnName, column.Value);
+
+                return this;
+            }
 
             var dict = conditions.ToDictionary();
             var mapper = DynamicMapperCache.GetMapper(conditions.GetType());
@@ -206,22 +202,6 @@ namespace DynamORM.Builders.Implementation
         }
 
         /// <summary>Add insert fields.</summary>
-        /// <param name="column">Insert column and value.</param>
-        /// <returns>Builder instance.</returns>
-        public virtual IDynamicUpdateQueryBuilder Values(DynamicColumn column)
-        {
-            DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
-
-            string main = FixObjectName(column.ColumnName, onlyColumn: true);
-            string value = Parse(column.Value, pars: Parameters, nulls: true, columnSchema: col);
-
-            var str = string.Format("{0} = {1}", main, value);
-            _columns = _columns == null ? str : string.Format("{0}, {1}", _columns, str);
-
-            return this;
-        }
-
-        /// <summary>Add insert fields.</summary>
         /// <param name="column">Insert column.</param>
         /// <param name="value">Insert value.</param>
         /// <returns>Builder instance.</returns>
@@ -249,6 +229,20 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicUpdateQueryBuilder Values(object o)
         {
+            if (o is DynamicColumn)
+            {
+                var column = (DynamicColumn)o;
+                DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
+
+                string main = FixObjectName(column.ColumnName, onlyColumn: true);
+                string value = Parse(column.Value, pars: Parameters, nulls: true, columnSchema: col);
+
+                var str = string.Format("{0} = {1}", main, value);
+                _columns = _columns == null ? str : string.Format("{0}, {1}", _columns, str);
+
+                return this;
+            }
+
             var dict = o.ToDictionary();
             var mapper = DynamicMapperCache.GetMapper(o.GetType());
 
