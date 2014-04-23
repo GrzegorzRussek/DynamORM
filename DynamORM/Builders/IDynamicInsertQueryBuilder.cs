@@ -56,7 +56,9 @@ namespace DynamORM.Builders
 
         /// <summary>Add insert fields.</summary>
         /// <param name="o">Set insert value as properties and values of an object.</param>
+        /// <param name="schema">If <c>true</c> use schema to determine key columns and ignore those which
+        /// aren't keys.</param>
         /// <returns>Builder instance.</returns>
-        IDynamicInsertQueryBuilder Insert(object o);
+        IDynamicInsertQueryBuilder Insert(object o, bool schema = false);
     }
 }
