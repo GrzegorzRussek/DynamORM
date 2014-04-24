@@ -80,60 +80,65 @@ namespace DynamORM.Builders.Implementation
         /// <para>- Resolve to a string, in this case a '=' must appear in the string.</para>
         /// <para>- Resolve to a expression with the form: 'x => x.Column = Value'.</para>
         /// </summary>
+        /// <param name="fn">The specifications.</param>
         /// <param name="func">The specifications.</param>
         /// <returns>This instance to permit chaining.</returns>
-        public virtual IDynamicInsertQueryBuilder Insert(params Func<dynamic, object>[] func)
+        public virtual IDynamicInsertQueryBuilder Values(Func<dynamic, object> fn, params Func<dynamic, object>[] func)
         {
-            if (func == null)
+            if (fn == null)
                 throw new ArgumentNullException("Array of specifications cannot be null.");
 
-            int index = -1;
+            int index = InsertFunc(-1, fn);
 
-            foreach (var f in func)
-            {
-                index++;
-
-                if (f == null)
-                    throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
-
-                using (var parser = DynamicParser.Parse(f))
-                {
-                    var result = parser.Result;
-                    if (result == null)
-                        throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
-
-                    string main = null;
-                    string value = null;
-                    string str = null;
-
-                    // When 'x => x.Table.Column = value' or 'x => x.Column = value'...
-                    if (result is DynamicParser.Node.SetMember)
-                    {
-                        var node = (DynamicParser.Node.SetMember)result;
-
-                        DynamicSchemaColumn? col = GetColumnFromSchema(node.Name);
-                        main = Database.DecorateName(node.Name);
-                        value = Parse(node.Value, pars: Parameters, nulls: true, columnSchema: col);
-
-                        _columns = _columns == null ? main : string.Format("{0}, {1}", _columns, main);
-                        _values = _values == null ? value : string.Format("{0}, {1}", _values, value);
-                        continue;
-                    }
-                    else if (!(result is DynamicParser.Node) && !result.GetType().IsValueType)
-                    {
-                        Insert(result);
-                        continue;
-                    }
-
-                    // Other specifications are considered invalid...
-                    var err = string.Format("Specification '{0}' is invalid.", result);
-                    str = Parse(result);
-                    if (str.Contains("=")) err += " May have you used a '==' instead of a '=' operator?";
-                    throw new ArgumentException(err);
-                }
-            }
+            if (func != null)
+                foreach (var f in func)
+                    index = InsertFunc(index, f);
 
             return this;
+        }
+
+        private int InsertFunc(int index, Func<dynamic, object> f)
+        {
+            index++;
+
+            if (f == null)
+                throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
+
+            using (var parser = DynamicParser.Parse(f))
+            {
+                var result = parser.Result;
+                if (result == null)
+                    throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
+
+                string main = null;
+                string value = null;
+                string str = null;
+
+                // When 'x => x.Table.Column = value' or 'x => x.Column = value'...
+                if (result is DynamicParser.Node.SetMember)
+                {
+                    var node = (DynamicParser.Node.SetMember)result;
+
+                    DynamicSchemaColumn? col = GetColumnFromSchema(node.Name);
+                    main = Database.DecorateName(node.Name);
+                    value = Parse(node.Value, pars: Parameters, nulls: true, columnSchema: col);
+
+                    _columns = _columns == null ? main : string.Format("{0}, {1}", _columns, main);
+                    _values = _values == null ? value : string.Format("{0}, {1}", _values, value);
+                    return index;
+                }
+                else if (!(result is DynamicParser.Node) && !result.GetType().IsValueType)
+                {
+                    Insert(result);
+                    return index;
+                }
+
+                // Other specifications are considered invalid...
+                var err = string.Format("Specification '{0}' is invalid.", result);
+                str = Parse(result);
+                if (str.Contains("=")) err += " May have you used a '==' instead of a '=' operator?";
+                throw new ArgumentException(err);
+            }
         }
 
         /// <summary>Add insert fields.</summary>
@@ -161,10 +166,8 @@ namespace DynamORM.Builders.Implementation
 
         /// <summary>Add insert fields.</summary>
         /// <param name="o">Set insert value as properties and values of an object.</param>
-        /// <param name="schema">If <c>true</c> use schema to determine key columns and ignore those which
-        /// aren't keys.</param>
         /// <returns>Builder instance.</returns>
-        public virtual IDynamicInsertQueryBuilder Insert(object o, bool schema = false)
+        public virtual IDynamicInsertQueryBuilder Insert(object o)
         {
             if (o is DynamicColumn)
             {

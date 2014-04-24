@@ -26,6 +26,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  *
  * See: http://opensource.org/licenses/bsd-license.php
+ *
+ * Supported preprocessor flags:
+ *  * DYNAMORM_OMMIT_OLDSYNTAX - Remove dynamic table functionality
+ *  * DYNAMORM_OMMIT_GENERICEXECUTION - Remove generic execution functionality
+ *  * DYNAMORM_OMMIT_TRYPARSE - Remove TryParse helpers (also applies DYNAMORM_OMMIT_GENERICEXECUTION)
 */
 
 using System.Reflection;

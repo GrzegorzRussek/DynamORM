@@ -66,7 +66,7 @@ namespace DynamORM.Tests.Modify
         {
             IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
 
-            cmd.Insert(x => x.Users.Code = "001", x => x.Users.Name = "Admin", x => x.Users.IsAdmin = 1);
+            cmd.Values(x => x.Users.Code = "001", x => x.Users.Name = "Admin", x => x.Users.IsAdmin = 1);
 
             Assert.AreEqual(string.Format(@"INSERT INTO ""Users"" (""Code"", ""Name"", ""IsAdmin"") VALUES ({0})",
                 string.Join(", ", cmd.Parameters.Keys.Select(p => string.Format("[${0}]", p)))), cmd.CommandText());
@@ -80,7 +80,7 @@ namespace DynamORM.Tests.Modify
         {
             IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
 
-            cmd.Insert(x => x.Code = "001", x => x.Name = "Admin", x => x.IsAdmin = x(cmd
+            cmd.Values(x => x.Code = "001", x => x.Name = "Admin", x => x.IsAdmin = x(cmd
                 .SubQuery(a => a.AccessRights.As(a.a))
                 .Select(a => a.IsAdmin)
                 .Where(a => a.User_Id == "001")));
@@ -97,7 +97,7 @@ namespace DynamORM.Tests.Modify
         {
             IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
 
-            cmd.Insert(x => new { Code = "001", Name = "Admin", IsAdmin = 1 });
+            cmd.Values(x => new { Code = "001", Name = "Admin", IsAdmin = 1 });
 
             Assert.AreEqual(string.Format(@"INSERT INTO ""Users"" (""Code"", ""Name"", ""IsAdmin"") VALUES ({0})",
                 string.Join(", ", cmd.Parameters.Keys.Select(p => string.Format("[${0}]", p)))), cmd.CommandText());
@@ -111,7 +111,7 @@ namespace DynamORM.Tests.Modify
         {
             IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
 
-            cmd.Insert(x => new
+            cmd.Values(x => new
             {
                 Code = "001",
                 Name = "Admin",
@@ -137,7 +137,7 @@ namespace DynamORM.Tests.Modify
         {
             IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
 
-            cmd.Values(x => x.Users.Code = "001", x => x.Users.Name = "Admin", x => x.Users.IsAdmin = 1)
+            cmd.Set(x => x.Users.Code = "001", x => x.Users.Name = "Admin", x => x.Users.IsAdmin = 1)
                 .Where(x => x.Users.Id_User == 1);
 
             Assert.AreEqual(string.Format(@"UPDATE ""Users"" SET ""Code"" = [${0}], ""Name"" = [${1}], ""IsAdmin"" = [${2}] WHERE (""Users"".""Id_User"" = [${3}])",
@@ -152,7 +152,7 @@ namespace DynamORM.Tests.Modify
         {
             IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
 
-            cmd.Values(x => x.Users.Code = "001", x => x.Users.Name = "Admin", x => x.Users.IsAdmin = x(cmd
+            cmd.Set(x => x.Users.Code = "001", x => x.Users.Name = "Admin", x => x.Users.IsAdmin = x(cmd
                     .SubQuery(a => a.AccessRights.As(a.a))
                     .Select(a => a.IsAdmin)
                     .Where(a => a.User_Id == a.Users.Id_User)))
@@ -170,7 +170,7 @@ namespace DynamORM.Tests.Modify
         {
             IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
 
-            cmd.Values(x => new { Code = "001", Name = "Admin", IsAdmin = 1 })
+            cmd.Set(x => new { Code = "001", Name = "Admin", IsAdmin = 1 })
                 .Where(x => new { Id_User = 1 });
 
             Assert.AreEqual(string.Format(@"UPDATE ""Users"" SET ""Code"" = [${0}], ""Name"" = [${1}], ""IsAdmin"" = [${2}] WHERE (""Id_User"" = [${3}])",
@@ -185,7 +185,7 @@ namespace DynamORM.Tests.Modify
         {
             IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
 
-            cmd.Values(x => new
+            cmd.Set(x => new
             {
                 Code = "001",
                 Name = "Admin",

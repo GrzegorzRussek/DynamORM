@@ -601,6 +601,8 @@ namespace DynamORM
 
         #region Generic Execution
 
+#if !DYNAMORM_OMMIT_GENERICEXECUTION && !DYNAMORM_OMMIT_TRYPARSE
+
         /// <summary>Execute scalar and return string if possible.</summary>
         /// <typeparam name="T">Type to parse to.</typeparam>
         /// <param name="command"><see cref="System.Data.IDbCommand"/> which will be executed.</param>
@@ -725,6 +727,8 @@ namespace DynamORM
             }
         }
 
+#endif
+
         #endregion Generic Execution
 
         /// <summary>Dump command into text writer.</summary>
@@ -841,22 +845,49 @@ namespace DynamORM
         /// <summary>Creates sub query that can be used inside of from/join/expressions.</summary>
         /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
         /// <param name="b">The builder that will be parent of new sub query.</param>
+        /// <returns>Instance of sub query.</returns>
+        public static IDynamicSelectQueryBuilder SubQuery<T>(this T b) where T : IDynamicQueryBuilder
+        {
+            return new DynamicSelectQueryBuilder(b.Database, b as DynamicQueryBuilder);
+        }
+
+        /// <summary>Creates sub query that can be used inside of from/join/expressions.</summary>
+        /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
+        /// <param name="b">The builder that will be parent of new sub query.</param>
+        /// <param name="fn">The specification for sub query.</param>
         /// <param name="func">The specification for sub query.</param>
         /// <returns>Instance of sub query.</returns>
-        public static IDynamicSelectQueryBuilder SubQuery<T>(this T b, params Func<dynamic, object>[] func) where T : IDynamicQueryBuilder
+        public static IDynamicSelectQueryBuilder SubQuery<T>(this T b, Func<dynamic, object> fn, params Func<dynamic, object>[] func) where T : IDynamicQueryBuilder
         {
-            return func == null || func.Length == 0 ? new DynamicSelectQueryBuilder(b.Database, b as DynamicQueryBuilder) : new DynamicSelectQueryBuilder(b.Database, b as DynamicQueryBuilder).From(func);
+            return new DynamicSelectQueryBuilder(b.Database, b as DynamicQueryBuilder).From(fn, func);
         }
 
         /// <summary>Creates sub query that can be used inside of from/join/expressions.</summary>
         /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
         /// <param name="b">The builder that will be parent of new sub query.</param>
         /// <param name="subquery">First argument is parent query, second one is a sub query.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public static T SubQuery<T>(this T b, Action<T, IDynamicSelectQueryBuilder> subquery) where T : IDynamicQueryBuilder
+        {
+            var sub = b.SubQuery();
+
+            subquery(b, sub);
+
+            (b as DynamicQueryBuilder).ParseCommand(sub as DynamicQueryBuilder, b.Parameters);
+
+            return b;
+        }
+
+        /// <summary>Creates sub query that can be used inside of from/join/expressions.</summary>
+        /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
+        /// <param name="b">The builder that will be parent of new sub query.</param>
+        /// <param name="subquery">First argument is parent query, second one is a sub query.</param>
+        /// <param name="fn">The specification for sub query.</param>
         /// <param name="func">The specification for sub query.</param>
         /// <returns>This instance to permit chaining.</returns>
-        public static T SubQuery<T>(this T b, Action<T, IDynamicSelectQueryBuilder> subquery, params Func<dynamic, object>[] func) where T : IDynamicQueryBuilder
+        public static T SubQuery<T>(this T b, Action<T, IDynamicSelectQueryBuilder> subquery, Func<dynamic, object> fn, params Func<dynamic, object>[] func) where T : IDynamicQueryBuilder
         {
-            var sub = b.SubQuery(func);
+            var sub = b.SubQuery(fn, func);
 
             subquery(b, sub);
 
@@ -1244,6 +1275,8 @@ namespace DynamORM
 
         #region TryParse extensions
 
+#if !DYNAMORM_OMMIT_TRYPARSE
+
         /// <summary>Generic try parse.</summary>
         /// <typeparam name="T">Type to parse to.</typeparam>
         /// <param name="value">Value to parse.</param>
@@ -1287,6 +1320,8 @@ namespace DynamORM
         /// <param name="result">Resulting value.</param>
         /// <returns>Returns <c>true</c> if conversion was successful.</returns>
         public delegate bool TryParseHandler<T>(string value, out T result);
+
+#endif
 
         #endregion TryParse extensions
 

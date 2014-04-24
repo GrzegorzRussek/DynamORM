@@ -63,9 +63,10 @@ namespace DynamORM.Builders
         /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this
         /// case the alias is not annotated.</para>
         /// </summary>
+        /// <param name="fn">The specification.</param>
         /// <param name="func">The specification.</param>
         /// <returns>This instance to permit chaining.</returns>
-        IDynamicSelectQueryBuilder From(params Func<dynamic, object>[] func);
+        IDynamicSelectQueryBuilder From(Func<dynamic, object> fn, params Func<dynamic, object>[] func);
 
         /// <summary>
         /// Adds to the 'Join' clause the contents obtained by parsing the dynamic lambda expressions given. The supported
@@ -139,21 +140,22 @@ namespace DynamORM.Builders
         /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this case
         /// the alias is not annotated.</para>
         /// </summary>
+        /// <param name="fn">The specification.</param>
         /// <param name="func">The specification.</param>
         /// <returns>This instance to permit chaining.</returns>
-        IDynamicSelectQueryBuilder Select(params Func<dynamic, object>[] func);
+        IDynamicSelectQueryBuilder Select(Func<dynamic, object> fn, params Func<dynamic, object>[] func);
 
         /// <summary>Add select columns.</summary>
         /// <param name="columns">Columns to add to object.</param>
         /// <returns>Builder instance.</returns>
-        IDynamicSelectQueryBuilder Select(params DynamicColumn[] columns);
+        IDynamicSelectQueryBuilder SelectColumn(params DynamicColumn[] columns);
 
         /// <summary>Add select columns.</summary>
         /// <param name="columns">Columns to add to object.</param>
         /// <remarks>Column format consist of <c>Column Name</c>, <c>Alias</c> and
         /// <c>Aggregate function</c> in this order separated by '<c>:</c>'.</remarks>
         /// <returns>Builder instance.</returns>
-        IDynamicSelectQueryBuilder Select(params string[] columns);
+        IDynamicSelectQueryBuilder SelectColumn(params string[] columns);
 
         #endregion Select
 
@@ -162,21 +164,22 @@ namespace DynamORM.Builders
         /// <summary>
         /// Adds to the 'Group By' clause the contents obtained from from parsing the dynamic lambda expression given.
         /// </summary>
+        /// <param name="fn">The specification.</param>
         /// <param name="func">The specification.</param>
         /// <returns>This instance to permit chaining.</returns>
-        IDynamicSelectQueryBuilder GroupBy(params Func<dynamic, object>[] func);
+        IDynamicSelectQueryBuilder GroupBy(Func<dynamic, object> fn, params Func<dynamic, object>[] func);
 
         /// <summary>Add select columns.</summary>
         /// <param name="columns">Columns to group by.</param>
         /// <returns>Builder instance.</returns>
-        IDynamicSelectQueryBuilder GroupBy(params DynamicColumn[] columns);
+        IDynamicSelectQueryBuilder GroupByColumn(params DynamicColumn[] columns);
 
         /// <summary>Add select columns.</summary>
         /// <param name="columns">Columns to group by.</param>
         /// <remarks>Column format consist of <c>Column Name</c> and
         /// <c>Alias</c> in this order separated by '<c>:</c>'.</remarks>
         /// <returns>Builder instance.</returns>
-        IDynamicSelectQueryBuilder GroupBy(params string[] columns);
+        IDynamicSelectQueryBuilder GroupByColumn(params string[] columns);
 
         #endregion GroupBy
 
@@ -188,21 +191,22 @@ namespace DynamORM.Builders
         /// to specify the direction. If no virtual method is used, the default is ascending order. You can also use the
         /// shorter versions <code>Asc()</code> and <code>Desc()</code>.
         /// </summary>
+        /// <param name="fn">The specification.</param>
         /// <param name="func">The specification.</param>
         /// <returns>This instance to permit chaining.</returns>
-        IDynamicSelectQueryBuilder OrderBy(params Func<dynamic, object>[] func);
+        IDynamicSelectQueryBuilder OrderBy(Func<dynamic, object> fn, params Func<dynamic, object>[] func);
 
         /// <summary>Add select columns.</summary>
         /// <param name="columns">Columns to order by.</param>
         /// <returns>Builder instance.</returns>
-        IDynamicSelectQueryBuilder OrderBy(params DynamicColumn[] columns);
+        IDynamicSelectQueryBuilder OrderByColumn(params DynamicColumn[] columns);
 
         /// <summary>Add select columns.</summary>
         /// <param name="columns">Columns to order by.</param>
         /// <remarks>Column format consist of <c>Column Name</c> and
         /// <c>Alias</c> in this order separated by '<c>:</c>'.</remarks>
         /// <returns>Builder instance.</returns>
-        IDynamicSelectQueryBuilder OrderBy(params string[] columns);
+        IDynamicSelectQueryBuilder OrderByColumn(params string[] columns);
 
         #endregion OrderBy
 

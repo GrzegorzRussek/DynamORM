@@ -44,9 +44,10 @@ namespace DynamORM.Builders
         /// <para>- Resolve to a string, in this case a '=' must appear in the string.</para>
         /// <para>- Resolve to a expression with the form: 'x => x.Column = Value'.</para>
         /// </summary>
+        /// <param name="fn">The specifications.</param>
         /// <param name="func">The specifications.</param>
         /// <returns>This instance to permit chaining.</returns>
-        IDynamicInsertQueryBuilder Insert(params Func<dynamic, object>[] func);
+        IDynamicInsertQueryBuilder Values(Func<dynamic, object> fn, params Func<dynamic, object>[] func);
 
         /// <summary>Add insert fields.</summary>
         /// <param name="column">Insert column.</param>
@@ -56,9 +57,7 @@ namespace DynamORM.Builders
 
         /// <summary>Add insert fields.</summary>
         /// <param name="o">Set insert value as properties and values of an object.</param>
-        /// <param name="schema">If <c>true</c> use schema to determine key columns and ignore those which
-        /// aren't keys.</param>
         /// <returns>Builder instance.</returns>
-        IDynamicInsertQueryBuilder Insert(object o, bool schema = false);
+        IDynamicInsertQueryBuilder Insert(object o);
     }
 }

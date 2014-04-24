@@ -357,7 +357,7 @@ namespace DynamORM.Tests.Select
                 GetTestBuilder()
                     .From(x => x(typeof(T)).As(x.t))
                     .Where(x => x.t.id < 20)
-                    .Select("group_concat(first):first")
+                    .SelectColumn("group_concat(first):first")
                     .Scalar());
         }
 

@@ -251,174 +251,182 @@ namespace DynamORM.Builders.Implementation
         /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this
         /// case the alias is not annotated.</para>
         /// </summary>
+        /// <param name="fn">The specification.</param>
         /// <param name="func">The specification.</param>
         /// <returns>This instance to permit chaining.</returns>
-        public virtual IDynamicSelectQueryBuilder From(params Func<dynamic, object>[] func)
+        public virtual IDynamicSelectQueryBuilder From(Func<dynamic, object> fn, params Func<dynamic, object>[] func)
         {
-            if (func == null)
-                throw new ArgumentNullException("Array of functions cannot be null.");
+            if (fn == null)
+                throw new ArgumentNullException("Array of functions cannot be or contain null.");
 
-            int index = -1;
+            int index = FromFunc(-1, fn);
             foreach (var f in func)
-            {
-                index++;
-                ITableInfo tableInfo = null;
-                using (var parser = DynamicParser.Parse(f))
-                {
-                    var result = parser.Result;
-
-                    // If the expression result is string.
-                    if (result is string)
-                    {
-                        var node = (string)result;
-                        var tuple = node.SplitSomethingAndAlias();
-                        var parts = tuple.Item1.Split('.');
-                        tableInfo = new TableInfo(Database,
-                            Database.StripName(parts.Last()).Validated("Table"),
-                            tuple.Item2.Validated("Alias", canbeNull: true),
-                            parts.Length == 2 ? Database.StripName(parts.First()).Validated("Owner", canbeNull: true) : null);
-                    }
-                    else if (result is Type)
-                    {
-                        Type type = (Type)result;
-                        if (type.IsAnonymous())
-                            throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}). Parsing {1}", type.FullName, result));
-
-                        var mapper = DynamicMapperCache.GetMapper(type);
-
-                        if (mapper == null)
-                            throw new InvalidOperationException(string.Format("Cant assign unmapable type as a table ({0}). Parsing {1}", type.FullName, result));
-
-                        tableInfo = new TableInfo(Database, type);
-                    }
-                    else if (result is DynamicParser.Node)
-                    {
-                        // Or if it resolves to a dynamic node
-                        var node = (DynamicParser.Node)result;
-
-                        string owner = null;
-                        string main = null;
-                        string alias = null;
-                        Type type = null;
-
-                        while (true)
-                        {
-                            // Support for the AS() virtual method...
-                            if (node is DynamicParser.Node.Method && ((DynamicParser.Node.Method)node).Name.ToUpper() == "AS")
-                            {
-                                if (alias != null)
-                                    throw new ArgumentException(string.Format("Alias '{0}' is already set when parsing '{1}'.", alias, result));
-
-                                object[] args = ((DynamicParser.Node.Method)node).Arguments;
-
-                                if (args == null)
-                                    throw new ArgumentNullException("arg", "AS() is not a parameterless method.");
-
-                                if (args.Length != 1)
-                                    throw new ArgumentException("AS() requires one and only one parameter: " + args.Sketch());
-
-                                alias = Parse(args[0], rawstr: true, decorate: false).Validated("Alias");
-
-                                node = node.Host;
-                                continue;
-                            }
-
-                            /*if (node is DynamicParser.Node.Method && ((DynamicParser.Node.Method)node).Name.ToUpper() == "subquery")
-                            {
-                                main = Parse(this.SubQuery(((DynamicParser.Node.Method)node).Arguments.Where(p => p is Func<dynamic, object>).Cast<Func<dynamic, object>>().ToArray()), Parameters);
-                                continue;
-                            }*/
-
-                            // Support for table specifications...
-                            if (node is DynamicParser.Node.GetMember)
-                            {
-                                if (owner != null)
-                                    throw new ArgumentException(string.Format("Owner '{0}.{1}' is already set when parsing '{2}'.", owner, main, result));
-
-                                if (main != null)
-                                    owner = ((DynamicParser.Node.GetMember)node).Name;
-                                else
-                                    main = ((DynamicParser.Node.GetMember)node).Name;
-
-                                node = node.Host;
-                                continue;
-                            }
-
-                            // Support for generic sources...
-                            if (node is DynamicParser.Node.Invoke)
-                            {
-                                if (owner != null)
-                                    throw new ArgumentException(string.Format("Owner '{0}.{1}' is already set when parsing '{2}'.", owner, main, result));
-
-                                if (main != null)
-                                    owner = string.Format("{0}", Parse(node, rawstr: true, pars: Parameters));
-                                else
-                                {
-                                    var invoke = (DynamicParser.Node.Invoke)node;
-                                    if (invoke.Arguments.Length == 1 && invoke.Arguments[0] is Type)
-                                    {
-                                        type = (Type)invoke.Arguments[0];
-                                        if (type.IsAnonymous())
-                                            throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}). Parsing {1}", type.FullName, result));
-
-                                        var mapper = DynamicMapperCache.GetMapper(type);
-
-                                        if (mapper == null)
-                                            throw new InvalidOperationException(string.Format("Cant assign unmapable type as a table ({0}). Parsing {1}", type.FullName, result));
-
-                                        main = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
-                                            mapper.Type.Name : mapper.Table.Name;
-
-                                        owner = (mapper.Table != null) ? mapper.Table.Owner : owner;
-                                    }
-                                    else
-                                        main = string.Format("{0}", Parse(node, rawstr: true, pars: Parameters));
-                                }
-
-                                node = node.Host;
-                                continue;
-                            }
-
-                            // Just finished the parsing...
-                            if (node is DynamicParser.Node.Argument) break;
-
-                            // All others are assumed to be part of the main element...
-                            if (main != null)
-                                main = Parse(node, pars: Parameters);
-                            else
-                                main = Parse(node, pars: Parameters);
-
-                            break;
-                        }
-
-                        if (!string.IsNullOrEmpty(main))
-                            tableInfo = type == null ? new TableInfo(Database, main, alias, owner) : new TableInfo(Database, type, alias, owner);
-                        else
-                            throw new ArgumentException(string.Format("Specification #{0} is invalid: {1}", index, result));
-                    }
-
-                    // Or it is a not supported expression...
-                    if (tableInfo == null)
-                        throw new ArgumentException(string.Format("Specification #{0} is invalid: {1}", index, result));
-
-                    Tables.Add(tableInfo);
-
-                    // We finally add the contents...
-                    StringBuilder sb = new StringBuilder();
-
-                    if (!string.IsNullOrEmpty(tableInfo.Owner))
-                        sb.AppendFormat("{0}.", Database.DecorateName(tableInfo.Owner));
-
-                    sb.Append(tableInfo.Name.ContainsAny(StringExtensions.InvalidMemberChars) ? tableInfo.Name : Database.DecorateName(tableInfo.Name));
-
-                    if (!string.IsNullOrEmpty(tableInfo.Alias))
-                        sb.AppendFormat(" AS {0}", tableInfo.Alias);
-
-                    _from = string.IsNullOrEmpty(_from) ? sb.ToString() : string.Format("{0}, {1}", _from, sb.ToString());
-                }
-            }
+                index = FromFunc(index, f);
 
             return this;
+        }
+
+        private int FromFunc(int index, Func<dynamic, object> f)
+        {
+            if (f == null)
+                throw new ArgumentNullException("Array of functions cannot be or contain null.");
+
+            index++;
+            ITableInfo tableInfo = null;
+            using (var parser = DynamicParser.Parse(f))
+            {
+                var result = parser.Result;
+
+                // If the expression result is string.
+                if (result is string)
+                {
+                    var node = (string)result;
+                    var tuple = node.SplitSomethingAndAlias();
+                    var parts = tuple.Item1.Split('.');
+                    tableInfo = new TableInfo(Database,
+                        Database.StripName(parts.Last()).Validated("Table"),
+                        tuple.Item2.Validated("Alias", canbeNull: true),
+                        parts.Length == 2 ? Database.StripName(parts.First()).Validated("Owner", canbeNull: true) : null);
+                }
+                else if (result is Type)
+                {
+                    Type type = (Type)result;
+                    if (type.IsAnonymous())
+                        throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}). Parsing {1}", type.FullName, result));
+
+                    var mapper = DynamicMapperCache.GetMapper(type);
+
+                    if (mapper == null)
+                        throw new InvalidOperationException(string.Format("Cant assign unmapable type as a table ({0}). Parsing {1}", type.FullName, result));
+
+                    tableInfo = new TableInfo(Database, type);
+                }
+                else if (result is DynamicParser.Node)
+                {
+                    // Or if it resolves to a dynamic node
+                    var node = (DynamicParser.Node)result;
+
+                    string owner = null;
+                    string main = null;
+                    string alias = null;
+                    Type type = null;
+
+                    while (true)
+                    {
+                        // Support for the AS() virtual method...
+                        if (node is DynamicParser.Node.Method && ((DynamicParser.Node.Method)node).Name.ToUpper() == "AS")
+                        {
+                            if (alias != null)
+                                throw new ArgumentException(string.Format("Alias '{0}' is already set when parsing '{1}'.", alias, result));
+
+                            object[] args = ((DynamicParser.Node.Method)node).Arguments;
+
+                            if (args == null)
+                                throw new ArgumentNullException("arg", "AS() is not a parameterless method.");
+
+                            if (args.Length != 1)
+                                throw new ArgumentException("AS() requires one and only one parameter: " + args.Sketch());
+
+                            alias = Parse(args[0], rawstr: true, decorate: false).Validated("Alias");
+
+                            node = node.Host;
+                            continue;
+                        }
+
+                        /*if (node is DynamicParser.Node.Method && ((DynamicParser.Node.Method)node).Name.ToUpper() == "subquery")
+                        {
+                            main = Parse(this.SubQuery(((DynamicParser.Node.Method)node).Arguments.Where(p => p is Func<dynamic, object>).Cast<Func<dynamic, object>>().ToArray()), Parameters);
+                            continue;
+                        }*/
+
+                        // Support for table specifications...
+                        if (node is DynamicParser.Node.GetMember)
+                        {
+                            if (owner != null)
+                                throw new ArgumentException(string.Format("Owner '{0}.{1}' is already set when parsing '{2}'.", owner, main, result));
+
+                            if (main != null)
+                                owner = ((DynamicParser.Node.GetMember)node).Name;
+                            else
+                                main = ((DynamicParser.Node.GetMember)node).Name;
+
+                            node = node.Host;
+                            continue;
+                        }
+
+                        // Support for generic sources...
+                        if (node is DynamicParser.Node.Invoke)
+                        {
+                            if (owner != null)
+                                throw new ArgumentException(string.Format("Owner '{0}.{1}' is already set when parsing '{2}'.", owner, main, result));
+
+                            if (main != null)
+                                owner = string.Format("{0}", Parse(node, rawstr: true, pars: Parameters));
+                            else
+                            {
+                                var invoke = (DynamicParser.Node.Invoke)node;
+                                if (invoke.Arguments.Length == 1 && invoke.Arguments[0] is Type)
+                                {
+                                    type = (Type)invoke.Arguments[0];
+                                    if (type.IsAnonymous())
+                                        throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}). Parsing {1}", type.FullName, result));
+
+                                    var mapper = DynamicMapperCache.GetMapper(type);
+
+                                    if (mapper == null)
+                                        throw new InvalidOperationException(string.Format("Cant assign unmapable type as a table ({0}). Parsing {1}", type.FullName, result));
+
+                                    main = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
+                                        mapper.Type.Name : mapper.Table.Name;
+
+                                    owner = (mapper.Table != null) ? mapper.Table.Owner : owner;
+                                }
+                                else
+                                    main = string.Format("{0}", Parse(node, rawstr: true, pars: Parameters));
+                            }
+
+                            node = node.Host;
+                            continue;
+                        }
+
+                        // Just finished the parsing...
+                        if (node is DynamicParser.Node.Argument) break;
+
+                        // All others are assumed to be part of the main element...
+                        if (main != null)
+                            main = Parse(node, pars: Parameters);
+                        else
+                            main = Parse(node, pars: Parameters);
+
+                        break;
+                    }
+
+                    if (!string.IsNullOrEmpty(main))
+                        tableInfo = type == null ? new TableInfo(Database, main, alias, owner) : new TableInfo(Database, type, alias, owner);
+                    else
+                        throw new ArgumentException(string.Format("Specification #{0} is invalid: {1}", index, result));
+                }
+
+                // Or it is a not supported expression...
+                if (tableInfo == null)
+                    throw new ArgumentException(string.Format("Specification #{0} is invalid: {1}", index, result));
+
+                Tables.Add(tableInfo);
+
+                // We finally add the contents...
+                StringBuilder sb = new StringBuilder();
+
+                if (!string.IsNullOrEmpty(tableInfo.Owner))
+                    sb.AppendFormat("{0}.", Database.DecorateName(tableInfo.Owner));
+
+                sb.Append(tableInfo.Name.ContainsAny(StringExtensions.InvalidMemberChars) ? tableInfo.Name : Database.DecorateName(tableInfo.Name));
+
+                if (!string.IsNullOrEmpty(tableInfo.Alias))
+                    sb.AppendFormat(" AS {0}", tableInfo.Alias);
+
+                _from = string.IsNullOrEmpty(_from) ? sb.ToString() : string.Format("{0}, {1}", _from, sb.ToString());
+            }
+            return index;
         }
 
         /// <summary>
@@ -780,94 +788,100 @@ namespace DynamORM.Builders.Implementation
         /// <para>- Generic expression: 'x => x( expression ).As( x.Alias )', where the alias part is mandatory. In this case
         /// the alias is not annotated.</para>
         /// </summary>
+        /// <param name="fn">The specification.</param>
         /// <param name="func">The specification.</param>
         /// <returns>This instance to permit chaining.</returns>
-        public virtual IDynamicSelectQueryBuilder Select(params Func<dynamic, object>[] func)
+        public virtual IDynamicSelectQueryBuilder Select(Func<dynamic, object> fn, params Func<dynamic, object>[] func)
         {
-            if (func == null)
+            if (fn == null)
                 throw new ArgumentNullException("Array of specifications cannot be null.");
 
-            int index = -1;
-            foreach (var f in func)
-            {
-                index++;
-                if (f == null)
-                    throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
-
-                using (var parser = DynamicParser.Parse(f))
-                {
-                    var result = parser.Result;
-                    if (result == null)
-                        throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
-
-                    string main = null;
-                    string alias = null;
-                    bool all = false;
-                    bool anon = false;
-
-                    // If the expression resolves to a string...
-                    if (result is string)
-                    {
-                        var node = (string)result;
-                        var tuple = node.SplitSomethingAndAlias();
-                        main = tuple.Item1.Validated("Table and/or Column");
-
-                        main = FixObjectName(main);
-
-                        alias = tuple.Item2.Validated("Alias", canbeNull: true);
-                    }
-                    else if (result is DynamicParser.Node)
-                    {
-                        // Or if it resolves to a dynamic node...
-                        ParseSelectNode(result, ref main, ref alias, ref all);
-                    }
-                    else if (result.GetType().IsAnonymous())
-                    {
-                        anon = true;
-
-                        foreach (var prop in result.ToDictionary())
-                        {
-                            if (prop.Value is string)
-                            {
-                                var node = (string)prop.Value;
-                                var tuple = node.SplitSomethingAndAlias();
-                                main = FixObjectName(tuple.Item1.Validated("Table and/or Column"));
-
-                                ////alias = tuple.Item2.Validated("Alias", canbeNull: true);
-                            }
-                            else if (prop.Value is DynamicParser.Node)
-                            {
-                                // Or if it resolves to a dynamic node...
-                                ParseSelectNode(prop.Value, ref main, ref alias, ref all);
-                            }
-                            else
-                            {
-                                // Or it is a not supported expression...
-                                throw new ArgumentException(string.Format("Specification #{0} in anonymous type is invalid: {1}", index, prop.Value));
-                            }
-
-                            alias = Database.DecorateName(prop.Key);
-                            ParseSelectAddColumn(main, alias, all);
-                        }
-                    }
-                    else
-                    {
-                        // Or it is a not supported expression...
-                        throw new ArgumentException(string.Format("Specification #{0} is invalid: {1}", index, result));
-                    }
-
-                    if (!anon)
-                        ParseSelectAddColumn(main, alias, all);
-                }
-            }
+            int index = SelectFunc(-1, fn);
+            if (func != null)
+                foreach (var f in func)
+                    index = SelectFunc(index, f);
 
             return this;
+        }
+
+        private int SelectFunc(int index, Func<dynamic, object> f)
+        {
+            index++;
+            if (f == null)
+                throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
+
+            using (var parser = DynamicParser.Parse(f))
+            {
+                var result = parser.Result;
+                if (result == null)
+                    throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
+
+                string main = null;
+                string alias = null;
+                bool all = false;
+                bool anon = false;
+
+                // If the expression resolves to a string...
+                if (result is string)
+                {
+                    var node = (string)result;
+                    var tuple = node.SplitSomethingAndAlias();
+                    main = tuple.Item1.Validated("Table and/or Column");
+
+                    main = FixObjectName(main);
+
+                    alias = tuple.Item2.Validated("Alias", canbeNull: true);
+                }
+                else if (result is DynamicParser.Node)
+                {
+                    // Or if it resolves to a dynamic node...
+                    ParseSelectNode(result, ref main, ref alias, ref all);
+                }
+                else if (result.GetType().IsAnonymous())
+                {
+                    anon = true;
+
+                    foreach (var prop in result.ToDictionary())
+                    {
+                        if (prop.Value is string)
+                        {
+                            var node = (string)prop.Value;
+                            var tuple = node.SplitSomethingAndAlias();
+                            main = FixObjectName(tuple.Item1.Validated("Table and/or Column"));
+
+                            ////alias = tuple.Item2.Validated("Alias", canbeNull: true);
+                        }
+                        else if (prop.Value is DynamicParser.Node)
+                        {
+                            // Or if it resolves to a dynamic node...
+                            ParseSelectNode(prop.Value, ref main, ref alias, ref all);
+                        }
+                        else
+                        {
+                            // Or it is a not supported expression...
+                            throw new ArgumentException(string.Format("Specification #{0} in anonymous type is invalid: {1}", index, prop.Value));
+                        }
+
+                        alias = Database.DecorateName(prop.Key);
+                        ParseSelectAddColumn(main, alias, all);
+                    }
+                }
+                else
+                {
+                    // Or it is a not supported expression...
+                    throw new ArgumentException(string.Format("Specification #{0} is invalid: {1}", index, result));
+                }
+
+                if (!anon)
+                    ParseSelectAddColumn(main, alias, all);
+            }
+            return index;
         }
 
         /// <summary>Add select columns.</summary>
         /// <param name="columns">Columns to add to object.</param>
         /// <returns>Builder instance.</returns>
-        public virtual IDynamicSelectQueryBuilder Select(params DynamicColumn[] columns)
+        public virtual IDynamicSelectQueryBuilder SelectColumn(params DynamicColumn[] columns)
         {
             foreach (var col in columns)
                 Select(x => col.ToSQLSelectColumn(Database));
@@ -880,9 +894,9 @@ namespace DynamORM.Builders.Implementation
         /// <remarks>Column format consist of <c>Column Name</c>, <c>Alias</c> and
         /// <c>Aggregate function</c> in this order separated by '<c>:</c>'.</remarks>
         /// <returns>Builder instance.</returns>
-        public virtual IDynamicSelectQueryBuilder Select(params string[] columns)
+        public virtual IDynamicSelectQueryBuilder SelectColumn(params string[] columns)
         {
-            return Select(columns.Select(c => DynamicColumn.ParseSelectColumn(c)).ToArray());
+            return SelectColumn(columns.Select(c => DynamicColumn.ParseSelectColumn(c)).ToArray());
         }
 
         #endregion Select
@@ -892,48 +906,54 @@ namespace DynamORM.Builders.Implementation
         /// <summary>
         /// Adds to the 'Group By' clause the contents obtained from from parsing the dynamic lambda expression given.
         /// </summary>
+        /// <param name="fn">The specification.</param>
         /// <param name="func">The specification.</param>
         /// <returns>This instance to permit chaining.</returns>
-        public virtual IDynamicSelectQueryBuilder GroupBy(params Func<dynamic, object>[] func)
+        public virtual IDynamicSelectQueryBuilder GroupBy(Func<dynamic, object> fn, params Func<dynamic, object>[] func)
         {
-            if (func == null)
+            if (fn == null)
                 throw new ArgumentNullException("Array of specifications cannot be null.");
 
-            int index = -1;
+            int index = GroupByFunc(-1, fn);
 
-            foreach (var f in func)
-            {
-                index++;
-                if (f == null)
-                    throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
-                using (var parser = DynamicParser.Parse(f))
-                {
-                    var result = parser.Result;
-                    if (result == null)
-                        throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
-
-                    string main = null;
-
-                    if (result is string)
-                        main = FixObjectName(result as string);
-                    else
-                        main = Parse(result, pars: Parameters);
-
-                    main = main.Validated("Group By");
-                    if (_groupby == null)
-                        _groupby = main;
-                    else
-                        _groupby = string.Format("{0}, {1}", _groupby, main);
-                }
-            }
+            if (func != null)
+                foreach (var f in func)
+                    index = GroupByFunc(index, f);
 
             return this;
+        }
+
+        private int GroupByFunc(int index, Func<dynamic, object> f)
+        {
+            index++;
+            if (f == null)
+                throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
+            using (var parser = DynamicParser.Parse(f))
+            {
+                var result = parser.Result;
+                if (result == null)
+                    throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
+
+                string main = null;
+
+                if (result is string)
+                    main = FixObjectName(result as string);
+                else
+                    main = Parse(result, pars: Parameters);
+
+                main = main.Validated("Group By");
+                if (_groupby == null)
+                    _groupby = main;
+                else
+                    _groupby = string.Format("{0}, {1}", _groupby, main);
+            }
+            return index;
         }
 
         /// <summary>Add select columns.</summary>
         /// <param name="columns">Columns to group by.</param>
         /// <returns>Builder instance.</returns>
-        public virtual IDynamicSelectQueryBuilder GroupBy(params DynamicColumn[] columns)
+        public virtual IDynamicSelectQueryBuilder GroupByColumn(params DynamicColumn[] columns)
         {
             foreach (var col in columns)
                 GroupBy(x => col.ToSQLGroupByColumn(Database));
@@ -946,9 +966,9 @@ namespace DynamORM.Builders.Implementation
         /// <remarks>Column format consist of <c>Column Name</c> and
         /// <c>Alias</c> in this order separated by '<c>:</c>'.</remarks>
         /// <returns>Builder instance.</returns>
-        public virtual IDynamicSelectQueryBuilder GroupBy(params string[] columns)
+        public virtual IDynamicSelectQueryBuilder GroupByColumn(params string[] columns)
         {
-            return GroupBy(columns.Select(c => DynamicColumn.ParseSelectColumn(c)).ToArray());
+            return GroupByColumn(columns.Select(c => DynamicColumn.ParseSelectColumn(c)).ToArray());
         }
 
         #endregion GroupBy
@@ -961,101 +981,107 @@ namespace DynamORM.Builders.Implementation
         /// to specify the direction. If no virtual method is used, the default is ascending order. You can also use the
         /// shorter versions <code>Asc()</code> and <code>Desc()</code>.
         /// </summary>
+        /// <param name="fn">The specification.</param>
         /// <param name="func">The specification.</param>
         /// <returns>This instance to permit chaining.</returns>
-        public virtual IDynamicSelectQueryBuilder OrderBy(params Func<dynamic, object>[] func)
+        public virtual IDynamicSelectQueryBuilder OrderBy(Func<dynamic, object> fn, params Func<dynamic, object>[] func)
         {
-            if (func == null)
+            if (fn == null)
                 throw new ArgumentNullException("Array of specifications cannot be null.");
 
-            int index = -1;
+            int index = OrderByFunc(-1, fn);
 
-            foreach (var f in func)
-            {
-                index++;
-                if (f == null)
-                    throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
-
-                using (var parser = DynamicParser.Parse(f))
-                {
-                    var result = parser.Result;
-                    if (result == null) throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
-
-                    string main = null;
-                    bool ascending = true;
-
-                    if (result is int)
-                        main = result.ToString();
-                    else if (result is string)
-                    {
-                        var parts = ((string)result).Split(' ');
-                        main = Database.StripName(parts.First());
-
-                        int colNo;
-                        if (!Int32.TryParse(main, out colNo))
-                            main = FixObjectName(main);
-
-                        ascending = parts.Length != 2 || parts.Last().ToUpper() == "ASCENDING" || parts.Last().ToUpper() == "ASC";
-                    }
-                    else
-                    {
-                        // Intercepting trailing 'Ascending' or 'Descending' virtual methods...
-                        if (result is DynamicParser.Node.Method)
-                        {
-                            var node = (DynamicParser.Node.Method)result;
-                            var name = node.Name.ToUpper();
-                            if (name == "ASCENDING" || name == "ASC" || name == "DESCENDING" || name == "DESC")
-                            {
-                                object[] args = node.Arguments;
-                                if (args != null && !(node.Host is DynamicParser.Node.Argument))
-                                    throw new ArgumentException(string.Format("{0} must be a parameterless method, but found: {1}.", name, args.Sketch()));
-                                else if ((args == null || args.Length != 1) && node.Host is DynamicParser.Node.Argument)
-                                    throw new ArgumentException(string.Format("{0} requires one numeric parameter, but found: {1}.", name, args.Sketch()));
-
-                                ascending = (name == "ASCENDING" || name == "ASC") ? true : false;
-
-                                if (args != null && args.Length == 1)
-                                {
-                                    int col = -1;
-                                    if (args[0] is int)
-                                        main = args[0].ToString();
-                                    else if (args[0] is string)
-                                    {
-                                        if (Int32.TryParse(args[0].ToString(), out col))
-                                            main = col.ToString();
-                                        else
-                                            main = FixObjectName(args[0].ToString());
-                                    }
-                                    else
-                                        main = Parse(args[0], pars: Parameters);
-                                }
-
-                                result = node.Host;
-                            }
-                        }
-
-                        // Just parsing the contents...
-                        if (!(result is DynamicParser.Node.Argument))
-                            main = Parse(result, pars: Parameters);
-                    }
-
-                    main = main.Validated("Order By");
-                    main = string.Format("{0} {1}", main, ascending ? "ASC" : "DESC");
-
-                    if (_orderby == null)
-                        _orderby = main;
-                    else
-                        _orderby = string.Format("{0}, {1}", _orderby, main);
-                }
-            }
+            if (func != null)
+                foreach (var f in func)
+                    index = OrderByFunc(index, f);
 
             return this;
+        }
+
+        private int OrderByFunc(int index, Func<dynamic, object> f)
+        {
+            index++;
+            if (f == null)
+                throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
+
+            using (var parser = DynamicParser.Parse(f))
+            {
+                var result = parser.Result;
+                if (result == null) throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
+
+                string main = null;
+                bool ascending = true;
+
+                if (result is int)
+                    main = result.ToString();
+                else if (result is string)
+                {
+                    var parts = ((string)result).Split(' ');
+                    main = Database.StripName(parts.First());
+
+                    int colNo;
+                    if (!Int32.TryParse(main, out colNo))
+                        main = FixObjectName(main);
+
+                    ascending = parts.Length != 2 || parts.Last().ToUpper() == "ASCENDING" || parts.Last().ToUpper() == "ASC";
+                }
+                else
+                {
+                    // Intercepting trailing 'Ascending' or 'Descending' virtual methods...
+                    if (result is DynamicParser.Node.Method)
+                    {
+                        var node = (DynamicParser.Node.Method)result;
+                        var name = node.Name.ToUpper();
+                        if (name == "ASCENDING" || name == "ASC" || name == "DESCENDING" || name == "DESC")
+                        {
+                            object[] args = node.Arguments;
+                            if (args != null && !(node.Host is DynamicParser.Node.Argument))
+                                throw new ArgumentException(string.Format("{0} must be a parameterless method, but found: {1}.", name, args.Sketch()));
+                            else if ((args == null || args.Length != 1) && node.Host is DynamicParser.Node.Argument)
+                                throw new ArgumentException(string.Format("{0} requires one numeric parameter, but found: {1}.", name, args.Sketch()));
+
+                            ascending = (name == "ASCENDING" || name == "ASC") ? true : false;
+
+                            if (args != null && args.Length == 1)
+                            {
+                                int col = -1;
+                                if (args[0] is int)
+                                    main = args[0].ToString();
+                                else if (args[0] is string)
+                                {
+                                    if (Int32.TryParse(args[0].ToString(), out col))
+                                        main = col.ToString();
+                                    else
+                                        main = FixObjectName(args[0].ToString());
+                                }
+                                else
+                                    main = Parse(args[0], pars: Parameters);
+                            }
+
+                            result = node.Host;
+                        }
+                    }
+
+                    // Just parsing the contents...
+                    if (!(result is DynamicParser.Node.Argument))
+                        main = Parse(result, pars: Parameters);
+                }
+
+                main = main.Validated("Order By");
+                main = string.Format("{0} {1}", main, ascending ? "ASC" : "DESC");
+
+                if (_orderby == null)
+                    _orderby = main;
+                else
+                    _orderby = string.Format("{0}, {1}", _orderby, main);
+            }
+            return index;
         }
 
         /// <summary>Add select columns.</summary>
         /// <param name="columns">Columns to order by.</param>
         /// <returns>Builder instance.</returns>
-        public virtual IDynamicSelectQueryBuilder OrderBy(params DynamicColumn[] columns)
+        public virtual IDynamicSelectQueryBuilder OrderByColumn(params DynamicColumn[] columns)
         {
             foreach (var col in columns)
                 OrderBy(x => col.ToSQLOrderByColumn(Database));
@@ -1068,9 +1094,9 @@ namespace DynamORM.Builders.Implementation
         /// <remarks>Column format consist of <c>Column Name</c> and
         /// <c>Alias</c> in this order separated by '<c>:</c>'.</remarks>
         /// <returns>Builder instance.</returns>
-        public virtual IDynamicSelectQueryBuilder OrderBy(params string[] columns)
+        public virtual IDynamicSelectQueryBuilder OrderByColumn(params string[] columns)
         {
-            return OrderBy(columns.Select(c => DynamicColumn.ParseOrderByColumn(c)).ToArray());
+            return OrderByColumn(columns.Select(c => DynamicColumn.ParseOrderByColumn(c)).ToArray());
         }
 
         #endregion OrderBy

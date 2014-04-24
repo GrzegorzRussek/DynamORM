@@ -63,7 +63,7 @@ namespace DynamORM.Builders
         /// </summary>
         /// <param name="func">The specifications.</param>
         /// <returns>This instance to permit chaining.</returns>
-        IDynamicUpdateQueryBuilder Values(params Func<dynamic, object>[] func);
+        IDynamicUpdateQueryBuilder Set(params Func<dynamic, object>[] func);
 
         /// <summary>Add insert fields.</summary>
         /// <param name="column">Insert column.</param>

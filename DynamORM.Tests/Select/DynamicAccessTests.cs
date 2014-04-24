@@ -314,7 +314,7 @@ namespace DynamORM.Tests.Select
             Assert.AreEqual("Clarke,Marny,Dai,Forrest,Blossom,George,Ivory,Inez,Sigourney,Fulton,Logan,Anne,Alexandra,Adena,Lionel,Aimee,Selma,Lara,Ori",
                 GetTestBuilder()
                     .Where(x => x.id < 20)
-                    .Select("group_concat(first):first")
+                    .SelectColumn("group_concat(first):first")
                     .Scalar());
         }
 

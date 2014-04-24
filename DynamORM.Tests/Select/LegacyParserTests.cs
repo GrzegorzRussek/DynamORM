@@ -285,7 +285,7 @@ namespace DynamORM.Tests.Select
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
 
             cmd.From(x => x.dbo.Users.As(x.u))
-                .OrderBy(new DynamicColumn("u.Name").Desc());
+                .OrderByColumn(new DynamicColumn("u.Name").Desc());
 
             Assert.AreEqual(string.Format("SELECT * FROM \"dbo\".\"Users\" AS u ORDER BY u.\"Name\" DESC"), cmd.CommandText());
         }
@@ -299,7 +299,7 @@ namespace DynamORM.Tests.Select
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
 
             cmd.From(x => x.dbo.Users.As(x.u))
-                .OrderBy(new DynamicColumn("u.Name").SetAlias("1").Desc());
+                .OrderByColumn(new DynamicColumn("u.Name").SetAlias("1").Desc());
 
             Assert.AreEqual(string.Format("SELECT * FROM \"dbo\".\"Users\" AS u ORDER BY 1 DESC"), cmd.CommandText());
         }
@@ -313,7 +313,7 @@ namespace DynamORM.Tests.Select
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
 
             cmd.From(x => x.dbo.Users.As(x.u))
-                .GroupBy(new DynamicColumn("u.Name"));
+                .GroupByColumn(new DynamicColumn("u.Name"));
 
             Assert.AreEqual(string.Format("SELECT * FROM \"dbo\".\"Users\" AS u GROUP BY u.\"Name\""), cmd.CommandText());
         }

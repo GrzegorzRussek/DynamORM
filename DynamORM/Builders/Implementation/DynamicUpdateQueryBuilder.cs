@@ -152,7 +152,7 @@ namespace DynamORM.Builders.Implementation
         /// </summary>
         /// <param name="func">The specifications.</param>
         /// <returns>This instance to permit chaining.</returns>
-        public virtual IDynamicUpdateQueryBuilder Values(params Func<dynamic, object>[] func)
+        public virtual IDynamicUpdateQueryBuilder Set(params Func<dynamic, object>[] func)
         {
             if (func == null)
                 throw new ArgumentNullException("Array of specifications cannot be null.");

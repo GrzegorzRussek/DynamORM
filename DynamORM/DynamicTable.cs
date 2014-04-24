@@ -41,6 +41,8 @@ using DynamORM.Mapper;
 
 namespace DynamORM
 {
+#if !DYNAMORM_OMMIT_OLDSYNTAX
+
     /// <summary>Dynamic table is a simple ORM using dynamic objects.</summary>
     /// <example>
     /// <para>Assume that we have a table representing Users class.</para>
@@ -836,25 +838,25 @@ namespace DynamORM
                     {
                         case "order":
                             if (args[i] is string)
-                                builder.OrderBy(((string)args[i]).Split(','));
+                                builder.OrderByColumn(((string)args[i]).Split(','));
                             else if (args[i] is string[])
-                                builder.OrderBy(args[i] as string);
+                                builder.OrderByColumn(args[i] as string);
                             else if (args[i] is DynamicColumn[])
-                                builder.OrderBy((DynamicColumn[])args[i]);
+                                builder.OrderByColumn((DynamicColumn[])args[i]);
                             else if (args[i] is DynamicColumn)
-                                builder.OrderBy((DynamicColumn)args[i]);
+                                builder.OrderByColumn((DynamicColumn)args[i]);
                             else goto default;
                             break;
 
                         case "group":
                             if (args[i] is string)
-                                builder.GroupBy(((string)args[i]).Split(','));
+                                builder.GroupByColumn(((string)args[i]).Split(','));
                             else if (args[i] is string[])
-                                builder.GroupBy(args[i] as string);
+                                builder.GroupByColumn(args[i] as string);
                             else if (args[i] is DynamicColumn[])
-                                builder.GroupBy((DynamicColumn[])args[i]);
+                                builder.GroupByColumn((DynamicColumn[])args[i]);
                             else if (args[i] is DynamicColumn)
-                                builder.GroupBy((DynamicColumn)args[i]);
+                                builder.GroupByColumn((DynamicColumn)args[i]);
                             else goto default;
                             break;
 
@@ -864,7 +866,7 @@ namespace DynamORM
                                     op.ToUpper() : null;
 
                                 if (args[i] is string || args[i] is string[])
-                                    builder.Select((args[i] as String).NullOr(s => s.Split(','), args[i] as String[])
+                                    builder.SelectColumn((args[i] as String).NullOr(s => s.Split(','), args[i] as String[])
                                         .Select(c =>
                                         {
                                             var col = DynamicColumn.ParseSelectColumn(c);
@@ -874,7 +876,7 @@ namespace DynamORM
                                             return col;
                                         }).ToArray());
                                 else if (args[i] is DynamicColumn || args[i] is DynamicColumn[])
-                                    builder.Select((args[i] as DynamicColumn).NullOr(c => new DynamicColumn[] { c }, args[i] as DynamicColumn[])
+                                    builder.SelectColumn((args[i] as DynamicColumn).NullOr(c => new DynamicColumn[] { c }, args[i] as DynamicColumn[])
                                         .Select(c =>
                                         {
                                             if (string.IsNullOrEmpty(c.Aggregate))
@@ -1042,4 +1044,6 @@ namespace DynamORM
 
         #endregion ICloneable Members
     }
+
+#endif
 }

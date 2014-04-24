@@ -94,8 +94,12 @@ namespace DynamORM
         /// <summary>Gets schema columns cache.</summary>
         internal Dictionary<string, Dictionary<string, DynamicSchemaColumn>> Schema { get; private set; }
 
+#if !DYNAMORM_OMMIT_OLDSYNTAX
+
         /// <summary>Gets tables cache for this database instance.</summary>
         internal Dictionary<string, DynamicTable> TablesCache { get; private set; }
+
+#endif
 
         #endregion Internal fields and properties
 
@@ -160,12 +164,16 @@ namespace DynamORM
             TransactionPool = new Dictionary<IDbConnection, Stack<IDbTransaction>>();
             CommandsPool = new Dictionary<IDbConnection, List<IDbCommand>>();
             Schema = new Dictionary<string, Dictionary<string, DynamicSchemaColumn>>();
+#if !DYNAMORM_OMMIT_OLDSYNTAX
             TablesCache = new Dictionary<string, DynamicTable>();
+#endif
         }
 
         #endregion Properties and Constructors
 
         #region Table
+
+#if !DYNAMORM_OMMIT_OLDSYNTAX
 
         /// <summary>Gets dynamic table which is a simple ORM using dynamic objects.</summary>
         /// <param name="action">The action with instance of <see cref="DynamicTable"/> as parameter.</param>
@@ -236,6 +244,8 @@ namespace DynamORM
                 TablesCache.Remove(item.Key);
         }
 
+#endif
+
         #endregion Table
 
         #region From/Insert/Update/Delete
@@ -248,11 +258,11 @@ namespace DynamORM
         /// <para>- Generic expression: <code>x => x( expression ).As( x.Alias )</code>, where the alias part is mandatory. In this
         /// case the alias is not annotated.</para>
         /// </summary>
-        /// <param name="func">The specification.</param>
+        /// <param name="fn">The specification.</param>
         /// <returns>This instance to permit chaining.</returns>
-        public virtual IDynamicSelectQueryBuilder From(params Func<dynamic, object>[] func)
+        public virtual IDynamicSelectQueryBuilder From(Func<dynamic, object> fn)
         {
-            return new DynamicSelectQueryBuilder(this).From(func);
+            return new DynamicSelectQueryBuilder(this).From(fn);
         }
 
         /// <summary>Adds to the <code>FROM</code> clause using <see cref="Type"/>.</summary>
@@ -261,6 +271,14 @@ namespace DynamORM
         public virtual IDynamicSelectQueryBuilder From<T>()
         {
             return new DynamicSelectQueryBuilder(this).From(x => x(typeof(T)));
+        }
+
+        /// <summary>Adds to the <code>FROM</code> clause using <see cref="Type"/>.</summary>
+        /// <param name="t">Type which can be represented in database.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicSelectQueryBuilder From(Type t)
+        {
+            return new DynamicSelectQueryBuilder(this).From(x => x(t));
         }
 
         /// <summary>
@@ -285,6 +303,14 @@ namespace DynamORM
         public virtual IDynamicInsertQueryBuilder Insert<T>()
         {
             return new DynamicInsertQueryBuilder(this).Table(typeof(T));
+        }
+
+        /// <summary>Adds to the <code>INSERT INTO</code> clause using <see cref="Type"/>.</summary>
+        /// <param name="t">Type which can be represented in database.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicInsertQueryBuilder Insert(Type t)
+        {
+            return new DynamicInsertQueryBuilder(this).Table(t);
         }
 
         /// <summary>Bulk insert objects into database.</summary>
@@ -411,6 +437,14 @@ namespace DynamORM
         public virtual IDynamicUpdateQueryBuilder Update<T>()
         {
             return new DynamicUpdateQueryBuilder(this).Table(typeof(T));
+        }
+
+        /// <summary>Adds to the <code>UPDATE</code> clause using <see cref="Type"/>.</summary>
+        /// <param name="t">Type which can be represented in database.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicUpdateQueryBuilder Update(Type t)
+        {
+            return new DynamicUpdateQueryBuilder(this).Table(t);
         }
 
         /// <summary>Bulk update objects in database.</summary>
@@ -1231,10 +1265,12 @@ namespace DynamORM
         /// releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
         {
+#if !DYNAMORM_OMMIT_OLDSYNTAX
             var tables = TablesCache.Values.ToList();
             TablesCache.Clear();
 
             tables.ForEach(t => t.Dispose());
+#endif
 
             foreach (var con in TransactionPool)
             {
