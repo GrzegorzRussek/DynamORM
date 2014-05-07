@@ -134,7 +134,9 @@ namespace DynamORM.Builders.Implementation
                     }
                 }
 
-                Values(colName, con.Value);
+                var propMap = mapper.ColumnsMap.TryGetValue(colName.ToLower());
+                if (propMap == null || propMap.Column == null || !propMap.Column.IsNoUpdate)
+                    Values(colName, con.Value);
             }
 
             return this;

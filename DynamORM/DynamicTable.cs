@@ -680,7 +680,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var name = info.ArgumentNames[i].ToLower();
+                    var fullName = info.ArgumentNames[i];
+                    var name = fullName.ToLower();
 
                     switch (name)
                     {
@@ -701,7 +702,7 @@ namespace DynamORM
                             break;
 
                         default:
-                            builder.Insert(name, args[i]);
+                            builder.Insert(fullName, args[i]);
                             break;
                     }
                 }
@@ -726,7 +727,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var name = info.ArgumentNames[i].ToLower();
+                    var fullName = info.ArgumentNames[i];
+                    var name = fullName.ToLower();
 
                     switch (name)
                     {
@@ -755,7 +757,7 @@ namespace DynamORM
                             break;
 
                         default:
-                            builder.Update(name, args[i]);
+                            builder.Update(fullName, args[i]);
                             break;
                     }
                 }
@@ -780,7 +782,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var name = info.ArgumentNames[i].ToLower();
+                    var fullName = info.ArgumentNames[i];
+                    var name = fullName.ToLower();
 
                     switch (name)
                     {
@@ -805,7 +808,7 @@ namespace DynamORM
                             break;
 
                         default:
-                            builder.Where(name, args[i]);
+                            builder.Where(fullName, args[i]);
                             break;
                     }
                 }
@@ -831,7 +834,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var name = info.ArgumentNames[i].ToLower();
+                    var fullName = info.ArgumentNames[i];
+                    var name = fullName.ToLower();
 
                     // TODO: Make this nicer
                     switch (name)
@@ -906,7 +910,7 @@ namespace DynamORM
                             break;
 
                         default:
-                            builder.Where(name, args[i]);
+                            builder.Where(fullName, args[i]);
                             break;
                     }
                 }

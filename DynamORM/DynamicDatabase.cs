@@ -349,43 +349,7 @@ namespace DynamORM
                             }
                         }
                         else
-                        {
-                            DynamicPropertyInvoker currentprop = null;
-                            var temp = new Dictionary<string, DynamicPropertyInvoker>();
-                            int ord = 0;
-
-                            var ib = Insert<T>()
-                                .SetVirtualMode(true)
-                                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
-                                .CreateParameterAction((p, cp) =>
-                                {
-                                    parameters[cp] = temp[p.Name];
-                                    parameters[cp].InsertCommandParameter = new DynamicPropertyInvoker.ParameterSpec
-                                    {
-                                        Name = cp.ParameterName,
-                                        Type = cp.DbType,
-                                        Ordinal = ord++,
-                                    };
-                                });
-
-                            foreach (var prop in mapper.PropertyMap)
-                                if (!mapper.Ignored.Contains(prop.Key))
-                                {
-                                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
-                                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
-
-                                    if (currentprop.Ignore)
-                                        continue;
-
-                                    if (currentprop.Get != null)
-                                        ib.Insert(col, null);
-                                }
-
-                            ib.FillCommand(cmd);
-
-                            // Cache command
-                            mapper.InsertCommandText = cmd.CommandText;
-                        }
+                            PrepareBatchInsert<T>(mapper, cmd, parameters);
 
                         foreach (var o in e)
                         {
@@ -483,48 +447,7 @@ namespace DynamORM
                             }
                         }
                         else
-                        {
-                            DynamicPropertyInvoker currentprop = null;
-                            var temp = new Dictionary<string, DynamicPropertyInvoker>();
-                            int ord = 0;
-
-                            var ib = Update<T>()
-                                .SetVirtualMode(true)
-                                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
-                                .CreateParameterAction((p, cp) =>
-                                {
-                                    parameters[cp] = temp[p.Name];
-                                    parameters[cp].UpdateCommandParameter = new DynamicPropertyInvoker.ParameterSpec
-                                    {
-                                        Name = cp.ParameterName,
-                                        Type = cp.DbType,
-                                        Ordinal = ord++,
-                                    };
-                                });
-
-                            foreach (var prop in mapper.PropertyMap)
-                                if (!mapper.Ignored.Contains(prop.Key))
-                                {
-                                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
-                                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
-
-                                    if (currentprop.Ignore)
-                                        continue;
-
-                                    if (currentprop.Get != null)
-                                    {
-                                        if (currentprop.Column != null && currentprop.Column.IsKey)
-                                            ib.Where(col, null);
-                                        else
-                                            ib.Values(col, null);
-                                    }
-                                }
-
-                            ib.FillCommand(cmd);
-
-                            // Cache command
-                            mapper.UpdateCommandText = cmd.CommandText;
-                        }
+                            PrepareBatchUpdate<T>(mapper, cmd, parameters);
 
                         foreach (var o in e)
                         {
@@ -593,48 +516,7 @@ namespace DynamORM
                             }
                         }
                         else
-                        {
-                            DynamicPropertyInvoker currentprop = null;
-                            var temp = new Dictionary<string, DynamicPropertyInvoker>();
-                            int ord = 0;
-
-                            var ib = Update<T>()
-                                .SetVirtualMode(true)
-                                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
-                                .CreateParameterAction((p, cp) =>
-                                {
-                                    parametersUp[cp] = temp[p.Name];
-                                    parametersUp[cp].UpdateCommandParameter = new DynamicPropertyInvoker.ParameterSpec
-                                    {
-                                        Name = cp.ParameterName,
-                                        Type = cp.DbType,
-                                        Ordinal = ord++,
-                                    };
-                                });
-
-                            foreach (var prop in mapper.PropertyMap)
-                                if (!mapper.Ignored.Contains(prop.Key))
-                                {
-                                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
-                                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
-
-                                    if (currentprop.Ignore)
-                                        continue;
-
-                                    if (currentprop.Get != null)
-                                    {
-                                        if (currentprop.Column != null && currentprop.Column.IsKey)
-                                            ib.Where(col, null);
-                                        else
-                                            ib.Values(col, null);
-                                    }
-                                }
-
-                            ib.FillCommand(cmdUp);
-
-                            // Cache command
-                            mapper.UpdateCommandText = cmdUp.CommandText;
-                        }
+                            PrepareBatchUpdate<T>(mapper, cmdUp, parametersUp);
 
                         #endregion Update
 
@@ -659,43 +541,7 @@ namespace DynamORM
                             }
                         }
                         else
-                        {
-                            DynamicPropertyInvoker currentprop = null;
-                            var temp = new Dictionary<string, DynamicPropertyInvoker>();
-                            int ord = 0;
-
-                            var ib = Insert<T>()
-                                .SetVirtualMode(true)
-                                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
-                                .CreateParameterAction((p, cp) =>
-                                {
-                                    parametersIn[cp] = temp[p.Name];
-                                    parametersIn[cp].InsertCommandParameter = new DynamicPropertyInvoker.ParameterSpec
-                                    {
-                                        Name = cp.ParameterName,
-                                        Type = cp.DbType,
-                                        Ordinal = ord++,
-                                    };
-                                });
-
-                            foreach (var prop in mapper.PropertyMap)
-                                if (!mapper.Ignored.Contains(prop.Key))
-                                {
-                                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
-                                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
-
-                                    if (currentprop.Ignore)
-                                        continue;
-
-                                    if (currentprop.Get != null)
-                                        ib.Insert(col, null);
-                                }
-
-                            ib.FillCommand(cmdIn);
-
-                            // Cache command
-                            mapper.InsertCommandText = cmdIn.CommandText;
-                        }
+                            PrepareBatchInsert<T>(mapper, cmdIn, parametersIn);
 
                         #endregion Insert
 
@@ -796,46 +642,7 @@ namespace DynamORM
                             }
                         }
                         else
-                        {
-                            DynamicPropertyInvoker currentprop = null;
-                            var temp = new Dictionary<string, DynamicPropertyInvoker>();
-                            int ord = 0;
-
-                            var ib = Delete<T>()
-                                .SetVirtualMode(true)
-                                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
-                                .CreateParameterAction((p, cp) =>
-                                {
-                                    parameters[cp] = temp[p.Name];
-                                    parameters[cp].DeleteCommandParameter = new DynamicPropertyInvoker.ParameterSpec
-                                    {
-                                        Name = cp.ParameterName,
-                                        Type = cp.DbType,
-                                        Ordinal = ord++,
-                                    };
-                                });
-
-                            foreach (var prop in mapper.PropertyMap)
-                                if (!mapper.Ignored.Contains(prop.Key))
-                                {
-                                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
-                                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
-
-                                    if (currentprop.Ignore)
-                                        continue;
-
-                                    if (currentprop.Get != null)
-                                    {
-                                        if (currentprop.Column != null && currentprop.Column.IsKey)
-                                            ib.Where(col, null);
-                                    }
-                                }
-
-                            ib.FillCommand(cmd);
-
-                            // Cache command
-                            mapper.DeleteCommandText = cmd.CommandText;
-                        }
+                            PrepareBatchDelete<T>(mapper, cmd, parameters);
 
                         foreach (var o in e)
                         {
@@ -863,6 +670,190 @@ namespace DynamORM
             }
 
             return affected;
+        }
+
+        private void PrepareBatchInsert<T>(DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
+        {
+            DynamicPropertyInvoker currentprop = null;
+            var temp = new Dictionary<string, DynamicPropertyInvoker>();
+            var schema = this.GetSchema<T>();
+            int ord = 0;
+
+            var ib = Insert<T>()
+                .SetVirtualMode(true)
+                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
+                .CreateParameterAction((p, cp) =>
+                {
+                    parameters[cp] = temp[p.Name];
+                    parameters[cp].InsertCommandParameter = new DynamicPropertyInvoker.ParameterSpec
+                    {
+                        Name = cp.ParameterName,
+                        Type = cp.DbType,
+                        Ordinal = ord++,
+                    };
+                });
+
+            foreach (var prop in mapper.PropertyMap)
+                if (!mapper.Ignored.Contains(prop.Key))
+                {
+                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
+                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
+
+                    if (currentprop.Ignore || (currentprop.Column != null && currentprop.Column.IsNoInsert))
+                        continue;
+
+                    if (currentprop.Get != null)
+                        ib.Insert(new DynamicColumn()
+                        {
+                            ColumnName = col,
+                            Schema = schema == null ? null : schema.TryGetNullable(col.ToLower()),
+                            Operator = DynamicColumn.CompareOperator.Eq,
+                            Value = null,
+                            VirtualColumn = true,
+                        });
+                }
+
+            ib.FillCommand(cmd);
+
+            // Cache command
+            mapper.InsertCommandText = cmd.CommandText;
+        }
+
+        private void PrepareBatchUpdate<T>(DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
+        {
+            DynamicPropertyInvoker currentprop = null;
+            var temp = new Dictionary<string, DynamicPropertyInvoker>();
+            var schema = this.GetSchema<T>();
+            int ord = 0;
+
+            var ib = Update<T>()
+                .SetVirtualMode(true)
+                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
+                .CreateParameterAction((p, cp) =>
+                {
+                    parameters[cp] = temp[p.Name];
+                    parameters[cp].UpdateCommandParameter = new DynamicPropertyInvoker.ParameterSpec
+                    {
+                        Name = cp.ParameterName,
+                        Type = cp.DbType,
+                        Ordinal = ord++,
+                    };
+                });
+
+            foreach (var prop in mapper.PropertyMap)
+                if (!mapper.Ignored.Contains(prop.Key))
+                {
+                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
+                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
+
+                    if (currentprop.Ignore)
+                        continue;
+
+                    if (currentprop.Get != null)
+                    {
+                        var colS = schema == null ? null : schema.TryGetNullable(col.ToLower());
+
+                        if (colS.HasValue)
+                        {
+                            if (colS.Value.IsKey)
+                                ib.Where(new DynamicColumn()
+                                {
+                                    ColumnName = col,
+                                    Schema = colS,
+                                    Operator = DynamicColumn.CompareOperator.Eq,
+                                    Value = null,
+                                    VirtualColumn = true,
+                                });
+                            else if (currentprop.Column == null || !currentprop.Column.IsNoUpdate)
+                                ib.Values(new DynamicColumn()
+                                {
+                                    ColumnName = col,
+                                    Schema = colS,
+                                    Operator = DynamicColumn.CompareOperator.Eq,
+                                    Value = null,
+                                    VirtualColumn = true,
+                                });
+                        }
+                        else if (currentprop.Column != null && currentprop.Column.IsKey)
+                            ib.Where(new DynamicColumn()
+                            {
+                                ColumnName = col,
+                                Schema = colS,
+                                Operator = DynamicColumn.CompareOperator.Eq,
+                                Value = null,
+                                VirtualColumn = true,
+                            });
+                    }
+                }
+
+            ib.FillCommand(cmd);
+
+            // Cache command
+            mapper.UpdateCommandText = cmd.CommandText;
+        }
+
+        private void PrepareBatchDelete<T>(DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
+        {
+            DynamicPropertyInvoker currentprop = null;
+            var temp = new Dictionary<string, DynamicPropertyInvoker>();
+            var schema = this.GetSchema<T>();
+            int ord = 0;
+
+            var ib = Delete<T>()
+                .SetVirtualMode(true)
+                .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
+                .CreateParameterAction((p, cp) =>
+                {
+                    parameters[cp] = temp[p.Name];
+                    parameters[cp].DeleteCommandParameter = new DynamicPropertyInvoker.ParameterSpec
+                    {
+                        Name = cp.ParameterName,
+                        Type = cp.DbType,
+                        Ordinal = ord++,
+                    };
+                });
+
+            foreach (var prop in mapper.PropertyMap)
+                if (!mapper.Ignored.Contains(prop.Key))
+                {
+                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
+                    currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
+
+                    if (currentprop.Ignore)
+                        continue;
+
+                    if (currentprop.Get != null)
+                    {
+                        var colS = schema == null ? null : schema.TryGetNullable(col.ToLower());
+
+                        if (colS != null)
+                        {
+                            if (colS.Value.IsKey)
+                                ib.Where(new DynamicColumn()
+                                {
+                                    ColumnName = col,
+                                    Schema = colS,
+                                    Operator = DynamicColumn.CompareOperator.Eq,
+                                    Value = null,
+                                    VirtualColumn = true,
+                                });
+                        }
+                        else if (currentprop.Column != null && currentprop.Column.IsKey)
+                            ib.Where(new DynamicColumn()
+                            {
+                                ColumnName = col,
+                                Schema = colS,
+                                Operator = DynamicColumn.CompareOperator.Eq,
+                                Value = null,
+                                VirtualColumn = true,
+                            });
+                    }
+                }
+
+            ib.FillCommand(cmd);
+
+            // Cache command
+            mapper.DeleteCommandText = cmd.CommandText;
         }
 
         #endregion From/Insert/Update/Delete
@@ -895,7 +886,7 @@ namespace DynamORM
             Dictionary<string, DynamicSchemaColumn> schema = null;
 
             lock (SyncLock)
-                schema = Schema.TryGetValue(typeof(T).GetType().FullName) ??
+                schema = Schema.TryGetValue(typeof(T).FullName) ??
                     BuildAndCacheSchema(null, DynamicMapperCache.GetMapper<T>());
 
             return schema;
@@ -977,7 +968,8 @@ namespace DynamORM
 
             #region Type schema
 
-            if (mapperSchema && !Schema.ContainsKey(mapper.Type.FullName))
+            if ((mapperSchema && !Schema.ContainsKey(mapper.Type.FullName)) ||
+                (schema == null && !mapper.Type.IsAnonymous()))
             {
                 // TODO: Ged rid of this monster below...
                 if (databaseSchemaSupport)
@@ -999,7 +991,7 @@ namespace DynamORM
                                 col.HasValue ? col.Value.IsKey : false).Value,
                             Type = DynamicExtensions.CoalesceNullable<DbType>(
                                 v.Value.Column != null ? v.Value.Column.Type : null,
-                                col.HasValue ? col.Value.Type : DbType.String).Value,
+                                col.HasValue ? col.Value.Type : DynamicExtensions.TypeMap.TryGetNullable(v.Value.Type) ?? DbType.String).Value,
                             IsUnique = DynamicExtensions.CoalesceNullable<bool>(
                                 v.Value.Column != null ? v.Value.Column.IsUnique : null,
                                 col.HasValue ? col.Value.IsUnique : false).Value,
@@ -1026,7 +1018,7 @@ namespace DynamORM
                         {
                             Name = DynamicExtensions.Coalesce<string>(v.Value.Column == null || string.IsNullOrEmpty(v.Value.Column.Name) ? null : v.Value.Column.Name, v.Value.Name),
                             IsKey = DynamicExtensions.CoalesceNullable<bool>(v.Value.Column != null ? v.Value.Column.IsKey : false, false).Value,
-                            Type = DynamicExtensions.CoalesceNullable<DbType>(v.Value.Column != null ? v.Value.Column.Type : null, DbType.String).Value,
+                            Type = DynamicExtensions.CoalesceNullable<DbType>(v.Value.Column != null ? v.Value.Column.Type : null, DynamicExtensions.TypeMap.TryGetNullable(v.Value.Type)).Value,
                             IsUnique = DynamicExtensions.CoalesceNullable<bool>(v.Value.Column != null ? v.Value.Column.IsUnique : null, false).Value,
                             Size = DynamicExtensions.CoalesceNullable<int>(v.Value.Column != null ? v.Value.Column.Size : null, 0).Value,
                             Precision = DynamicExtensions.CoalesceNullable<byte>(v.Value.Column != null ? v.Value.Column.Precision : null, 0).Value,

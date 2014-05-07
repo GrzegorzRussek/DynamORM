@@ -190,7 +190,13 @@ namespace DynamORM.Builders.Implementation
             {
                 foreach (var con in dict)
                     if (!mapper.Ignored.Contains(con.Key))
-                        Insert(mapper.PropertyMap.TryGetValue(con.Key) ?? con.Key, con.Value);
+                    {
+                        var colName = mapper.PropertyMap.TryGetValue(con.Key) ?? con.Key;
+                        var propMap = mapper.ColumnsMap.TryGetValue(colName.ToLower());
+
+                        if (propMap == null || propMap.Column == null || !propMap.Column.IsNoInsert)
+                            Insert(colName, con.Value);
+                    }
             }
             else
                 foreach (var con in dict)

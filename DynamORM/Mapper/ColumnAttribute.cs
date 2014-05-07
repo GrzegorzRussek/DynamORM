@@ -61,10 +61,20 @@ namespace DynamORM.Mapper
         /// <remarks>Used when overriding schema.</remarks>
         public byte? Scale { get; set; }
 
+        /// <summary>Gets or sets a value indicating whether this kolumn is no allowed to be inserted.</summary>
+        /// <remarks>This is only a suggesstion to automated mapping.</remarks>
+        public bool IsNoInsert { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether this kolumn is no allowed to be updated.</summary>
+        /// <remarks>This is only a suggesstion to automated mapping.</remarks>
+        public bool IsNoUpdate { get; set; }
+
         #region Constructors
 
         /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
-        public ColumnAttribute() { }
+        public ColumnAttribute()
+        {
+        }
 
         /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
         /// <param name="name">Name of column.</param>
@@ -74,12 +84,28 @@ namespace DynamORM.Mapper
         }
 
         /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
+        /// <param name="isKey">Set column as a key column.</param>
+        public ColumnAttribute(bool isKey)
+        {
+            IsKey = isKey;
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
         /// <param name="name">Name of column.</param>
         /// <param name="isKey">Set column as a key column.</param>
         public ColumnAttribute(string name, bool isKey)
             : this(name)
         {
             IsKey = isKey;
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
+        /// <param name="isKey">Set column as a key column.</param>
+        /// <param name="type">Set column type.</param>
+        public ColumnAttribute(bool isKey, DbType type)
+            : this(isKey)
+        {
+            Type = type;
         }
 
         /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>

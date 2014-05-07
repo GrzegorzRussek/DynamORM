@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamORM.Tests", "DynamORM.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AmalgamationTool", "AmalgamationTool\AmalgamationTool.csproj", "{A64D2052-D0CD-488E-BF05-E5952615D926}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tester", "Tester\Tester.csproj", "{F747AA57-BEA7-4FB8-B371-546296789AEF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,6 +49,16 @@ Global
 		{A64D2052-D0CD-488E-BF05-E5952615D926}.Release|Mixed Platforms.Build.0 = Release|x86
 		{A64D2052-D0CD-488E-BF05-E5952615D926}.Release|x86.ActiveCfg = Release|x86
 		{A64D2052-D0CD-488E-BF05-E5952615D926}.Release|x86.Build.0 = Release|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|Any CPU.ActiveCfg = Debug|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|Mixed Platforms.Build.0 = Debug|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|x86.ActiveCfg = Debug|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|x86.Build.0 = Debug|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Release|Any CPU.ActiveCfg = Release|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Release|Mixed Platforms.ActiveCfg = Release|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Release|Mixed Platforms.Build.0 = Release|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Release|x86.ActiveCfg = Release|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
