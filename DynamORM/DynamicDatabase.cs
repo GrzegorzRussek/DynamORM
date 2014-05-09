@@ -969,7 +969,7 @@ namespace DynamORM
             #region Type schema
 
             if ((mapperSchema && !Schema.ContainsKey(mapper.Type.FullName)) ||
-                (schema == null && !mapper.Type.IsAnonymous()))
+                (schema == null && mapper != null && !mapper.Type.IsAnonymous()))
             {
                 // TODO: Ged rid of this monster below...
                 if (databaseSchemaSupport)
@@ -1018,7 +1018,7 @@ namespace DynamORM
                         {
                             Name = DynamicExtensions.Coalesce<string>(v.Value.Column == null || string.IsNullOrEmpty(v.Value.Column.Name) ? null : v.Value.Column.Name, v.Value.Name),
                             IsKey = DynamicExtensions.CoalesceNullable<bool>(v.Value.Column != null ? v.Value.Column.IsKey : false, false).Value,
-                            Type = DynamicExtensions.CoalesceNullable<DbType>(v.Value.Column != null ? v.Value.Column.Type : null, DynamicExtensions.TypeMap.TryGetNullable(v.Value.Type)).Value,
+                            Type = DynamicExtensions.CoalesceNullable<DbType>(v.Value.Column != null ? v.Value.Column.Type : null, DynamicExtensions.TypeMap.TryGetNullable(v.Value.Type) ?? DbType.String).Value,
                             IsUnique = DynamicExtensions.CoalesceNullable<bool>(v.Value.Column != null ? v.Value.Column.IsUnique : null, false).Value,
                             Size = DynamicExtensions.CoalesceNullable<int>(v.Value.Column != null ? v.Value.Column.Size : null, 0).Value,
                             Precision = DynamicExtensions.CoalesceNullable<byte>(v.Value.Column != null ? v.Value.Column.Precision : null, 0).Value,
