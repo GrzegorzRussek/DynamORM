@@ -57,11 +57,12 @@ namespace DynamORM
 
         /// <summary>Begins a database transaction.</summary>
         /// <param name="il">One of the <see cref="System.Data.IsolationLevel"/> values.</param>
+        /// <param name="custom">Custom parameter describing transaction options.</param>
         /// <param name="disposed">This action is invoked when transaction is disposed.</param>
         /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
-        internal DynamicTransaction BeginTransaction(IsolationLevel? il, Action disposed)
+        internal DynamicTransaction BeginTransaction(IsolationLevel? il, object custom, Action disposed)
         {
-            return new DynamicTransaction(_db, this, _singleTransaction, il, disposed);
+            return new DynamicTransaction(_db, this, _singleTransaction, il, disposed, null);
         }
 
         #region IDbConnection Members
@@ -77,7 +78,7 @@ namespace DynamORM
         /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
         public IDbTransaction BeginTransaction()
         {
-            return BeginTransaction(null, null);
+            return BeginTransaction(null, null, null);
         }
 
         /// <summary>Begins a database transaction with the specified
@@ -86,7 +87,16 @@ namespace DynamORM
         /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
         public IDbTransaction BeginTransaction(IsolationLevel il)
         {
-            return BeginTransaction(il, null);
+            return BeginTransaction(il, null, null);
+        }
+
+        /// <summary>Begins a database transaction with the specified
+        /// <see cref="System.Data.IsolationLevel"/> value.</summary>
+        /// <param name="custom">Custom parameter describing transaction options.</param>
+        /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
+        public IDbTransaction BeginTransaction(object custom)
+        {
+            return BeginTransaction(null, custom, null);
         }
 
         /// <summary>Changes the current database for an open Connection object.</summary>

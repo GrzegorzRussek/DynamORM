@@ -28,6 +28,7 @@
 
 using System;
 using System.Data;
+using System.Linq;
 using DynamORM.Helpers;
 
 namespace DynamORM
@@ -47,7 +48,8 @@ namespace DynamORM
         /// <param name="singleTransaction">Are we using single transaction mode? I so... act correctly.</param>
         /// <param name="il">One of the <see cref="System.Data.IsolationLevel"/> values.</param>
         /// <param name="disposed">This action is invoked when transaction is disposed.</param>
-        internal DynamicTransaction(DynamicDatabase db, DynamicConnection con, bool singleTransaction, IsolationLevel? il, Action disposed)
+        /// <param name="customParams">Pass custom transaction parameters.</param>
+        internal DynamicTransaction(DynamicDatabase db, DynamicConnection con, bool singleTransaction, IsolationLevel? il, Action disposed, object customParams)
         {
             _db = db;
             _con = con;
@@ -62,8 +64,19 @@ namespace DynamORM
                     _operational = false;
                 else
                 {
-                    _db.TransactionPool[_con.Connection]
-                        .Push(il.HasValue ? _con.Connection.BeginTransaction(il.Value) : _con.Connection.BeginTransaction());
+                    if (customParams != null)
+                    {
+                        var mi = _con.Connection.GetType().GetMethods().Where(m => m.GetParameters().Count() == 1 && m.GetParameters().First().ParameterType == customParams.GetType()).FirstOrDefault();
+                        if (mi != null)
+                            _db.TransactionPool[_con.Connection].Push((IDbTransaction)mi.Invoke(_con.Connection, new object[] { customParams, }));
+                        else
+                            throw new MissingMethodException(string.Format("Method 'BeginTransaction' accepting parameter of type '{0}' in '{1}' not found.",
+                                customParams.GetType().FullName, _con.Connection.GetType().FullName));
+                    }
+                    else
+                        _db.TransactionPool[_con.Connection]
+                            .Push(il.HasValue ? _con.Connection.BeginTransaction(il.Value) : _con.Connection.BeginTransaction());
+
                     _db.PoolStamp = DateTime.Now.Ticks;
                     _operational = true;
                 }

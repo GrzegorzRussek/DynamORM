@@ -805,11 +805,12 @@ namespace DynamORM
 
         /// <summary>Begins a database transaction.</summary>
         /// <param name="il">One of the <see cref="System.Data.IsolationLevel"/> values.</param>
+        /// <param name="custom">Custom parameter describing transaction options.</param>
         /// <param name="disposed">This action is invoked when transaction is disposed.</param>
         /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
-        internal DynamicTransaction BeginTransaction(IsolationLevel? il, Action disposed)
+        internal DynamicTransaction BeginTransaction(IsolationLevel? il, object custom, Action disposed)
         {
-            return new DynamicTransaction(_db, this, _singleTransaction, il, disposed);
+            return new DynamicTransaction(_db, this, _singleTransaction, il, disposed, null);
         }
 
         #region IDbConnection Members
@@ -825,7 +826,7 @@ namespace DynamORM
         /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
         public IDbTransaction BeginTransaction()
         {
-            return BeginTransaction(null, null);
+            return BeginTransaction(null, null, null);
         }
 
         /// <summary>Begins a database transaction with the specified
@@ -834,7 +835,16 @@ namespace DynamORM
         /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
         public IDbTransaction BeginTransaction(IsolationLevel il)
         {
-            return BeginTransaction(il, null);
+            return BeginTransaction(il, null, null);
+        }
+
+        /// <summary>Begins a database transaction with the specified
+        /// <see cref="System.Data.IsolationLevel"/> value.</summary>
+        /// <param name="custom">Custom parameter describing transaction options.</param>
+        /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
+        public IDbTransaction BeginTransaction(object custom)
+        {
+            return BeginTransaction(null, custom, null);
         }
 
         /// <summary>Changes the current database for an open Connection object.</summary>
@@ -1733,6 +1743,31 @@ namespace DynamORM
 
         #region Schema
 
+        /// <summary>Builds query cache if necessary and returns it.</summary>
+        /// <param name="builder">The builder containing query to read schema from.</param>
+        /// <returns>Query schema.</returns>
+        public Dictionary<string, DynamicSchemaColumn> GetQuerySchema(IDynamicSelectQueryBuilder builder)
+        {
+            using (var con = Open())
+            using (var cmd = con.CreateCommand().SetCommand(builder))
+                return ReadSchema(cmd)
+                    .Distinct()
+                    .ToDictionary(k => k.Name.ToLower(), k => k);
+        }
+
+        /// <summary>Builds query cache if necessary and returns it.</summary>
+        /// <param name="sql">Sql query from which read schema.</param>
+        /// <param name="args">Sql query argumants.</param>
+        /// <returns>Query schema.</returns>
+        public Dictionary<string, DynamicSchemaColumn> GetQuerySchema(string sql, params object[] args)
+        {
+            using (var con = Open())
+            using (var cmd = con.CreateCommand().SetCommand(sql, args))
+                return ReadSchema(cmd)
+                    .Distinct()
+                    .ToDictionary(k => k.Name.ToLower(), k => k);
+        }
+
         /// <summary>Builds table cache if necessary and returns it.</summary>
         /// <param name="table">Name of table for which build schema.</param>
         /// <param name="owner">Owner of table for which build schema.</param>
@@ -1790,29 +1825,35 @@ namespace DynamORM
         protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(string table, string owner)
         {
             using (var con = Open())
-            using (var cmd = con.CreateCommand())
-            {
-                using (var rdr = cmd
-                    .SetCommand(string.Format("SELECT * FROM {0}{1} WHERE 1 = 0",
-                        !string.IsNullOrEmpty(owner) ? string.Format("{0}.", DecorateName(owner)) : string.Empty,
-                        DecorateName(table)))
-                    .ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
-                    foreach (DataRow col in rdr.GetSchemaTable().Rows)
-                    {
-                        var c = col.RowToDynamicUpper();
+            using (var cmd = con.CreateCommand()
+                .SetCommand(string.Format("SELECT * FROM {0}{1} WHERE 1 = 0",
+                    !string.IsNullOrEmpty(owner) ? string.Format("{0}.", DecorateName(owner)) : string.Empty,
+                    DecorateName(table))))
+                return ReadSchema(cmd);
+        }
 
-                        yield return new DynamicSchemaColumn
-                        {
-                            Name = c.COLUMNNAME,
-                            Type = DynamicExtensions.TypeMap.TryGetNullable((Type)c.DATATYPE) ?? DbType.String,
-                            IsKey = c.ISKEY ?? false,
-                            IsUnique = c.ISUNIQUE ?? false,
-                            Size = (int)(c.COLUMNSIZE ?? 0),
-                            Precision = (byte)(c.NUMERICPRECISION ?? 0),
-                            Scale = (byte)(c.NUMERICSCALE ?? 0)
-                        };
-                    }
-            }
+        /// <summary>Get schema describing objects from reader.</summary>
+        /// <param name="cmd">Command containing query to execute.</param>
+        /// <returns>List of <see cref="DynamicSchemaColumn"/> objects .
+        /// If your database doesn't get those values in upper case (like most of the databases) you should override this method.</returns>
+        protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(IDbCommand cmd)
+        {
+            using (var rdr = cmd.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
+                foreach (DataRow col in rdr.GetSchemaTable().Rows)
+                {
+                    var c = col.RowToDynamicUpper();
+
+                    yield return new DynamicSchemaColumn
+                    {
+                        Name = c.COLUMNNAME,
+                        Type = DynamicExtensions.TypeMap.TryGetNullable((Type)c.DATATYPE) ?? DbType.String,
+                        IsKey = c.ISKEY ?? false,
+                        IsUnique = c.ISUNIQUE ?? false,
+                        Size = (int)(c.COLUMNSIZE ?? 0),
+                        Precision = (byte)(c.NUMERICPRECISION ?? 0),
+                        Scale = (byte)(c.NUMERICSCALE ?? 0)
+                    };
+                }
         }
 
         private Dictionary<string, DynamicSchemaColumn> BuildAndCacheSchema(string tableName, DynamicTypeMap mapper, string owner = null)
@@ -1832,6 +1873,7 @@ namespace DynamORM
             if (databaseSchemaSupport && !Schema.ContainsKey(tableName.ToLower()))
             {
                 schema = ReadSchema(tableName, owner)
+                    .Distinct()
                     .ToDictionary(k => k.Name.ToLower(), k => k);
 
                 Schema[tableName.ToLower()] = schema;
@@ -2110,7 +2152,47 @@ namespace DynamORM
         {
             _tempConn = Open() as DynamicConnection;
 
-            return _tempConn.BeginTransaction(null, () =>
+            return _tempConn.BeginTransaction(null, null, () =>
+            {
+                var t = TransactionPool.TryGetValue(_tempConn.Connection);
+
+                if (t == null | t.Count == 0)
+                {
+                    _tempConn.Dispose();
+                    _tempConn = null;
+                }
+            });
+        }
+
+        /// <summary>Begins a database transaction with the specified
+        /// <see cref="System.Data.IsolationLevel"/> value.</summary>
+        /// <param name="il">One of the <see cref="System.Data.IsolationLevel"/> values.</param>
+        /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
+        public IDbTransaction BeginTransaction(IsolationLevel il)
+        {
+            _tempConn = Open() as DynamicConnection;
+
+            return _tempConn.BeginTransaction(il, null, () =>
+            {
+                var t = TransactionPool.TryGetValue(_tempConn.Connection);
+
+                if (t == null | t.Count == 0)
+                {
+                    _tempConn.Dispose();
+                    _tempConn = null;
+                }
+            });
+        }
+
+        /// <summary>Begins a database transaction with the specified
+        /// <see cref="System.Data.IsolationLevel"/> value.</summary>
+        /// <param name="custom">Custom parameter describing transaction options.</param>
+        /// <returns>Returns <see cref="DynamicTransaction"/> representation.</returns>
+        public IDbTransaction BeginTransaction(object custom)
+        {
+            _tempConn = Open() as DynamicConnection;
+
+            return _tempConn.BeginTransaction(null, custom, () =>
             {
                 var t = TransactionPool.TryGetValue(_tempConn.Connection);
 
@@ -4658,7 +4740,8 @@ namespace DynamORM
         /// <param name="singleTransaction">Are we using single transaction mode? I so... act correctly.</param>
         /// <param name="il">One of the <see cref="System.Data.IsolationLevel"/> values.</param>
         /// <param name="disposed">This action is invoked when transaction is disposed.</param>
-        internal DynamicTransaction(DynamicDatabase db, DynamicConnection con, bool singleTransaction, IsolationLevel? il, Action disposed)
+        /// <param name="customParams">Pass custom transaction parameters.</param>
+        internal DynamicTransaction(DynamicDatabase db, DynamicConnection con, bool singleTransaction, IsolationLevel? il, Action disposed, object customParams)
         {
             _db = db;
             _con = con;
@@ -4673,8 +4756,19 @@ namespace DynamORM
                     _operational = false;
                 else
                 {
-                    _db.TransactionPool[_con.Connection]
-                        .Push(il.HasValue ? _con.Connection.BeginTransaction(il.Value) : _con.Connection.BeginTransaction());
+                    if (customParams != null)
+                    {
+                        var mi = _con.Connection.GetType().GetMethods().Where(m => m.GetParameters().Count() == 1 && m.GetParameters().First().ParameterType == customParams.GetType()).FirstOrDefault();
+                        if (mi != null)
+                            _db.TransactionPool[_con.Connection].Push((IDbTransaction)mi.Invoke(_con.Connection, new object[] { customParams, }));
+                        else
+                            throw new MissingMethodException(string.Format("Method 'BeginTransaction' accepting parameter of type '{0}' in '{1}' not found.",
+                                customParams.GetType().FullName, _con.Connection.GetType().FullName));
+                    }
+                    else
+                        _db.TransactionPool[_con.Connection]
+                            .Push(il.HasValue ? _con.Connection.BeginTransaction(il.Value) : _con.Connection.BeginTransaction());
+
                     _db.PoolStamp = DateTime.Now.Ticks;
                     _operational = true;
                 }
