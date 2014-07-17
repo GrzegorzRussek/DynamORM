@@ -598,6 +598,34 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>
+        /// Tests select aggregate field with alias (Sum).
+        /// </summary>
+        [Test]
+        public void TestSelectAggregateField4()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.c))
+                .Select(u => u.Sum(u("\"UserName\"")).As(u.Name));
+
+            Assert.AreEqual("SELECT Sum(\"UserName\") AS \"Name\" FROM \"dbo\".\"Users\" AS c", cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests select aggregate field with alias (Sum).
+        /// </summary>
+        [Test]
+        public void TestSelectAggregateField5()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.c))
+                .Select(u => u(u.Sum(u("\"UserName\"")), " + 1").As(u.Name));
+
+            Assert.AreEqual("SELECT Sum(\"UserName\") + 1 AS \"Name\" FROM \"dbo\".\"Users\" AS c", cmd.CommandText());
+        }
+
+        /// <summary>
         /// Tests select from anonymous type.
         /// </summary>
         [Test]

@@ -426,6 +426,7 @@ namespace DynamORM.Builders.Implementation
 
                 _from = string.IsNullOrEmpty(_from) ? sb.ToString() : string.Format("{0}, {1}", _from, sb.ToString());
             }
+
             return index;
         }
 
@@ -875,6 +876,7 @@ namespace DynamORM.Builders.Implementation
                 if (!anon)
                     ParseSelectAddColumn(main, alias, all);
             }
+
             return index;
         }
 
@@ -947,6 +949,7 @@ namespace DynamORM.Builders.Implementation
                 else
                     _groupby = string.Format("{0}, {1}", _groupby, main);
             }
+
             return index;
         }
 
@@ -1075,6 +1078,7 @@ namespace DynamORM.Builders.Implementation
                 else
                     _orderby = string.Format("{0}, {1}", _orderby, main);
             }
+
             return index;
         }
 

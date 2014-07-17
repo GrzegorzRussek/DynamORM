@@ -1078,8 +1078,7 @@ namespace DynamORM
         /// <returns>Returns <c>true</c> if it does.</returns>
         public static bool IsGenericEnumerable(this Type type)
         {
-            return type.IsGenericType &&
-               typeof(IEnumerable<>).IsAssignableFrom(type.GetGenericTypeDefinition());
+            return type.IsGenericType && type.GetInterfaces().Any(t => t.GetGenericTypeDefinition() == typeof(IEnumerable<>));
         }
 
         /// <summary>Check if type implements IEnumerable&lt;&gt; interface.</summary>
@@ -1115,7 +1114,7 @@ namespace DynamORM
                 return type.GetElementType().IsValueType;
             else
             {
-                if (type.IsGenericType)
+                if (type.IsGenericType && type.GetInterfaces().Any(t => t.GetGenericTypeDefinition() == typeof(IEnumerable<>)))
                 {
                     Type[] gt = type.GetGenericArguments();
 
@@ -1124,6 +1123,30 @@ namespace DynamORM
             }
 
             return false;
+        }
+
+        /// <summary>Gets <see cref="System.Data.DbType"/> corresponding to the
+        /// provided <see cref="System.Type"/>.</summary>
+        /// <param name="t">The type to be converted.</param>
+        /// <returns>Returns <see cref="System.Data.DbType"/> corresponding to the
+        /// provided <see cref="System.Type"/>.</returns>
+        public static DbType ToDbType(this Type t)
+        {
+            return TypeMap.TryGetNullable(t) ?? DbType.Object;
+        }
+
+        /// <summary>Gets <see cref="System.Type"/> corresponding to the
+        /// provided <see cref="System.Data.DbType"/>.</summary>
+        /// <param name="dbt">The type to be converted.</param>
+        /// <returns>Returns <see cref="System.Type"/> corresponding to the
+        /// provided <see cref="System.Data.DbType"/>.</returns>
+        public static Type ToType(this DbType dbt)
+        {
+            foreach (var tdbt in TypeMap)
+                if (tdbt.Value == dbt)
+                    return tdbt.Key;
+
+            return typeof(object);
         }
 
         #endregion Type extensions
@@ -1176,6 +1199,23 @@ namespace DynamORM
         }
 
         #endregion IDictionary extensions
+
+        #region IDataReader extensions
+
+        /// <summary>Gets the <see cref="System.Data.DbType"/> information corresponding
+        /// to the type of <see cref="System.Object"/> that would be returned from
+        /// <see cref="System.Data.IDataRecord.GetValue(System.Int32)"/>.</summary>
+        /// <param name="r">The data reader.</param>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>The <see cref="System.Data.DbType"/> information corresponding to the
+        /// type of <see cref="System.Object"/> that would be returned from
+        /// <see cref="System.Data.IDataRecord.GetValue(System.Int32)"/>.</returns>
+        public static DbType GetFieldDbType(this IDataReader r, int i)
+        {
+            return TypeMap.TryGetNullable(r.GetFieldType(i)) ?? DbType.String;
+        }
+
+        #endregion IDataReader extensions
 
         #region Mapper extensions
 

@@ -59,12 +59,18 @@ namespace DynamORM.Helpers.Dynamics
             _proxy = proxiedObject;
             _type = typeof(T);
 
-            _properties = _type.GetProperties()
+            var members = GetAllMembers(_type);
+
+            _properties = members
+                .Where(x => x is PropertyInfo)
                 .ToDictionary(
                     k => k.Name,
-                    v => new DynamicPropertyInvoker(v, null));
+                    v => new DynamicPropertyInvoker((PropertyInfo)v, null));
 
-            _methods = _type.GetMethods()
+            _methods = members
+                .Where(x => x is MethodInfo)
+                .Cast<MethodInfo>()
+                .Where(m => !((m.Name.StartsWith("set_") && m.ReturnType == typeof(void)) || m.Name.StartsWith("get_")))
                 .Where(m => !m.IsStatic && !m.IsGenericMethod)
                 .ToDictionary(
                     k => k,
@@ -265,6 +271,46 @@ namespace DynamORM.Helpers.Dynamics
         private object[] CompleteArguments(ParameterInfo[] parameters, object[] arguments)
         {
             return arguments.Concat(parameters.Skip(arguments.Length).Select(p => p.DefaultValue)).ToArray();
+        }
+
+        private IEnumerable<MemberInfo> GetAllMembers(Type type)
+        {
+            if (type.IsInterface)
+            {
+                var members = new List<MemberInfo>();
+
+                var considered = new List<Type>();
+                var queue = new Queue<Type>();
+
+                considered.Add(type);
+                queue.Enqueue(type);
+
+                while (queue.Count > 0)
+                {
+                    var subType = queue.Dequeue();
+                    foreach (var subInterface in subType.GetInterfaces())
+                    {
+                        if (considered.Contains(subInterface)) continue;
+
+                        considered.Add(subInterface);
+                        queue.Enqueue(subInterface);
+                    }
+
+                    var typeProperties = subType.GetMembers(
+                        BindingFlags.FlattenHierarchy
+                        | BindingFlags.Public
+                        | BindingFlags.Instance);
+
+                    var newPropertyInfos = typeProperties
+                        .Where(x => !members.Contains(x));
+
+                    members.InsertRange(0, newPropertyInfos);
+                }
+
+                return members;
+            }
+
+            return type.GetMembers(BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance);
         }
     }
 }

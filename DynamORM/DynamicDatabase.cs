@@ -873,8 +873,8 @@ namespace DynamORM
         }
 
         /// <summary>Builds query cache if necessary and returns it.</summary>
-        /// <param name="sql">Sql query from which read schema.</param>
-        /// <param name="args">Sql query argumants.</param>
+        /// <param name="sql">SQL query from which read schema.</param>
+        /// <param name="args">SQL query arguments.</param>
         /// <returns>Query schema.</returns>
         public Dictionary<string, DynamicSchemaColumn> GetQuerySchema(string sql, params object[] args)
         {
@@ -934,6 +934,43 @@ namespace DynamORM
             return schema;
         }
 
+        /// <summary>Clears the schema from cache.</summary>
+        /// <remarks>Use this method to refresh table information.</remarks>
+        /// <param name="table">Name of table for which clear schema.</param>
+        /// <param name="owner">Owner of table for which clear schema.</param>
+        public void ClearSchema(string table = null, string owner = null)
+        {
+            lock (SyncLock)
+                if (Schema.ContainsKey(table.ToLower()))
+                    Schema.Remove(table.ToLower());
+        }
+
+        /// <summary>Clears the schema from cache.</summary>
+        /// <remarks>Use this method to refresh table information.</remarks>
+        /// <typeparam name="T">Type of table for which clear schema.</typeparam>
+        public void ClearSchema<T>()
+        {
+            ClearSchema(typeof(T));
+        }
+
+        /// <summary>Clears the schema from cache.</summary>
+        /// <remarks>Use this method to refresh table information.</remarks>
+        /// <param name="table">Type of table for which clear schema.</param>
+        public void ClearSchema(Type table)
+        {
+            lock (SyncLock)
+                if (Schema.ContainsKey(table.FullName))
+                    Schema.Remove(table.FullName);
+        }
+
+        /// <summary>Clears the all schemas from cache.</summary>
+        /// <remarks>Use this method to refresh all table information.</remarks>
+        public void ClearSchema()
+        {
+            lock (SyncLock)
+                Schema.Clear();
+        }
+
         /// <summary>Get schema describing objects from reader.</summary>
         /// <param name="table">Table from which extract column info.</param>
         /// <param name="owner">Owner of table from which extract column info.</param>
@@ -946,7 +983,7 @@ namespace DynamORM
                 .SetCommand(string.Format("SELECT * FROM {0}{1} WHERE 1 = 0",
                     !string.IsNullOrEmpty(owner) ? string.Format("{0}.", DecorateName(owner)) : string.Empty,
                     DecorateName(table))))
-                return ReadSchema(cmd);
+                return ReadSchema(cmd).ToList();
         }
 
         /// <summary>Get schema describing objects from reader.</summary>

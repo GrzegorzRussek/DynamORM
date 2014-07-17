@@ -61,12 +61,12 @@ namespace DynamORM.Mapper
         /// <remarks>Used when overriding schema.</remarks>
         public byte? Scale { get; set; }
 
-        /// <summary>Gets or sets a value indicating whether this kolumn is no allowed to be inserted.</summary>
-        /// <remarks>This is only a suggesstion to automated mapping.</remarks>
+        /// <summary>Gets or sets a value indicating whether this column is no allowed to be inserted.</summary>
+        /// <remarks>This is only a suggestion to automated mapping.</remarks>
         public bool IsNoInsert { get; set; }
 
-        /// <summary>Gets or sets a value indicating whether this kolumn is no allowed to be updated.</summary>
-        /// <remarks>This is only a suggesstion to automated mapping.</remarks>
+        /// <summary>Gets or sets a value indicating whether this column is no allowed to be updated.</summary>
+        /// <remarks>This is only a suggestion to automated mapping.</remarks>
         public bool IsNoUpdate { get; set; }
 
         #region Constructors
