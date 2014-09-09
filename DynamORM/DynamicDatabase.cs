@@ -1187,6 +1187,13 @@ namespace DynamORM
             sb.AppendFormat(_parameterFormat, parameter.ToString().Replace(" ", "_"));
         }
 
+        /// <summary>Dumps the command into console output.</summary>
+        /// <param name="cmd">The command to dump.</param>
+        public virtual void DumpCommand(IDbCommand cmd)
+        {
+            cmd.Dump(Console.Out);
+        }
+
         #endregion Decorators
 
         #region Connection

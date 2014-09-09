@@ -816,7 +816,16 @@ namespace DynamORM
         /// <returns>Returns instance of builder on which action is set.</returns>
         public static T CreateTemporaryParameterAction<T>(this T b, Action<IParameter> a) where T : IDynamicQueryBuilder
         {
-            b.OnCreateTemporaryParameter = a;
+            if (a == null)
+                b.OnCreateTemporaryParameter = null;
+            else
+            {
+                if (b.OnCreateTemporaryParameter == null)
+                    b.OnCreateTemporaryParameter = new List<Action<IParameter>>();
+
+                b.OnCreateTemporaryParameter.Add(a);
+            }
+
             return b;
         }
 
@@ -827,7 +836,16 @@ namespace DynamORM
         /// <returns>Returns instance of builder on which action is set.</returns>
         public static T CreateParameterAction<T>(this T b, Action<IParameter, IDbDataParameter> a) where T : IDynamicQueryBuilder
         {
-            b.OnCreateParameter = a;
+            if (a == null)
+                b.OnCreateParameter = null;
+            else
+            {
+                if (b.OnCreateParameter == null)
+                    b.OnCreateParameter = new List<Action<IParameter, IDbDataParameter>>();
+
+                b.OnCreateParameter.Add(a);
+            }
+
             return b;
         }
 

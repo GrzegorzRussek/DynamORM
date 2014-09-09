@@ -181,7 +181,7 @@ namespace DynamORM.Builders.Implementation
 
                     DynamicSchemaColumn? col = GetColumnFromSchema(node.Name);
                     main = Database.DecorateName(node.Name);
-                    value = Parse(node.Value, pars: Parameters, nulls: true, columnSchema: col);
+                    value = Parse(node.Value, ref col, pars: Parameters, nulls: true);
 
                     str = string.Format("{0} = {1}", main, value);
                     _columns = _columns == null ? str : string.Format("{0}, {1}", _columns, str);
@@ -237,7 +237,7 @@ namespace DynamORM.Builders.Implementation
                 DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
 
                 string main = FixObjectName(column.ColumnName, onlyColumn: true);
-                string value = Parse(column.Value, pars: Parameters, nulls: true, columnSchema: col);
+                string value = Parse(column.Value, ref col, pars: Parameters, nulls: true);
 
                 var str = string.Format("{0} = {1}", main, value);
                 _columns = _columns == null ? str : string.Format("{0}, {1}", _columns, str);

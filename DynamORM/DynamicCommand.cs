@@ -89,7 +89,10 @@ namespace DynamORM
                 ////_poolStamp = _db.PoolStamp;
             }
 
-            return _db.DumpCommands ? _command.Dump(Console.Out) : _command;
+            if (_db.DumpCommands)
+                _db.DumpCommand(_command);
+
+            return _command;
         }
 
         #region IDbCommand Members

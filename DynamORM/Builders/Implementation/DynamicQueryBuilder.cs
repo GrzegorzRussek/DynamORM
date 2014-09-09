@@ -217,13 +217,13 @@ namespace DynamORM.Builders.Implementation
         /// <summary>Gets or sets a value indicating whether add virtual parameters.</summary>
         public bool VirtualMode { get; set; }
 
-        /// <summary>Gets or sets the on create temporary parameter action.</summary>
+        /// <summary>Gets or sets the on create temporary parameter actions.</summary>
         /// <remarks>This is exposed to allow setting schema of column.</remarks>
-        public Action<IParameter> OnCreateTemporaryParameter { get; set; }
+        public List<Action<IParameter>> OnCreateTemporaryParameter { get; set; }
 
-        /// <summary>Gets or sets the on create real parameter action.</summary>
+        /// <summary>Gets or sets the on create real parameter actions.</summary>
         /// <remarks>This is exposed to allow modification of parameter.</remarks>
-        public Action<IParameter, IDbDataParameter> OnCreateParameter { get; set; }
+        public List<Action<IParameter, IDbDataParameter>> OnCreateParameter { get; set; }
 
         /// <summary>Gets a value indicating whether database supports standard schema.</summary>
         public bool SupportSchema { get; private set; }
@@ -262,7 +262,7 @@ namespace DynamORM.Builders.Implementation
                         (p as Parameter).Ordinal = command.Parameters.Count - 1;
 
                         if (OnCreateParameter != null)
-                            OnCreateParameter(p, param);
+                            OnCreateParameter.ForEach(x => x(p, param));
 
                         return param.ParameterName;
                     }, s);
@@ -284,11 +284,32 @@ namespace DynamORM.Builders.Implementation
         /// database. If false and the value is null, then an exception is thrown.</param>
         /// <param name="decorate">If set to <c>true</c> decorate element.</param>
         /// <param name="isMultiPart">If set parse argument as alias. This is workaround for AS method.</param>
-        /// <param name="columnSchema">This parameter is used to determine type of parameter used in query.</param>
         /// <returns>A string containing the result of the parsing, along with the parameters extracted in the
         /// <paramref name="pars" /> instance if such is given.</returns>
         /// <exception cref="System.ArgumentNullException">Null nodes are not accepted.</exception>
-        internal virtual string Parse(object node, IDictionary<string, IParameter> pars = null, bool rawstr = false, bool nulls = false, bool decorate = true, bool isMultiPart = true, DynamicSchemaColumn? columnSchema = null)
+        internal virtual string Parse(object node, IDictionary<string, IParameter> pars = null, bool rawstr = false, bool nulls = false, bool decorate = true, bool isMultiPart = true)
+        {
+            DynamicSchemaColumn? c = null;
+
+            return Parse(node, ref c, pars, rawstr, nulls, decorate, isMultiPart);
+        }
+
+        /// <summary>Parses the arbitrary object given and translates it into a string with the appropriate
+        /// syntax for the database this parser is specific to.</summary>
+        /// <param name="node">The object to parse and translate. It can be any arbitrary object, including null values (if
+        /// permitted) and dynamic lambda expressions.</param>
+        /// <param name="columnSchema">This parameter is used to determine type of parameter used in query.</param>
+        /// <param name="pars">If not null, the parameters' list where to store the parameters extracted by the parsing.</param>
+        /// <param name="rawstr">If true, literal (raw) string are allowed. If false and the node is a literal then, as a
+        /// security measure, an exception is thrown.</param>
+        /// <param name="nulls">True to accept null values and translate them into the appropriate syntax accepted by the
+        /// database. If false and the value is null, then an exception is thrown.</param>
+        /// <param name="decorate">If set to <c>true</c> decorate element.</param>
+        /// <param name="isMultiPart">If set parse argument as alias. This is workaround for AS method.</param>
+        /// <returns>A string containing the result of the parsing, along with the parameters extracted in the
+        /// <paramref name="pars" /> instance if such is given.</returns>
+        /// <exception cref="System.ArgumentNullException">Null nodes are not accepted.</exception>
+        internal virtual string Parse(object node, ref DynamicSchemaColumn? columnSchema, IDictionary<string, IParameter> pars = null, bool rawstr = false, bool nulls = false, bool decorate = true, bool isMultiPart = true)
         {
             // Null nodes are accepted or not depending upon the "nulls" flag...
             if (node == null)
@@ -296,38 +317,38 @@ namespace DynamORM.Builders.Implementation
                 if (!nulls)
                     throw new ArgumentNullException("node", "Null nodes are not accepted.");
 
-                return Dispatch(node, pars, decorate, columnSchema: columnSchema);
+                return Dispatch(node, ref columnSchema, pars, decorate);
             }
 
             // Nodes that are strings are parametrized or not depending the "rawstr" flag...
             if (node is string)
             {
                 if (rawstr) return (string)node;
-                else return Dispatch(node, pars, decorate, columnSchema: columnSchema);
+                else return Dispatch(node, ref columnSchema, pars, decorate);
             }
 
             // If node is a delegate, parse it to create the logical tree...
             if (node is Delegate)
             {
                 node = DynamicParser.Parse((Delegate)node).Result;
-                return Parse(node, pars, rawstr, decorate: decorate, columnSchema: columnSchema); // Intercept containers as in (x => "string")
+                return Parse(node, ref columnSchema, pars, rawstr, decorate: decorate); // Intercept containers as in (x => "string")
             }
 
-            return Dispatch(node, pars, decorate, isMultiPart, columnSchema);
+            return Dispatch(node, ref columnSchema, pars, decorate, isMultiPart);
         }
 
-        private string Dispatch(object node, IDictionary<string, IParameter> pars = null, bool decorate = true, bool isMultiPart = true, DynamicSchemaColumn? columnSchema = null)
+        private string Dispatch(object node, ref DynamicSchemaColumn? columnSchema, IDictionary<string, IParameter> pars = null, bool decorate = true, bool isMultiPart = true)
         {
             if (node != null)
             {
                 if (node is DynamicQueryBuilder) return ParseCommand((DynamicQueryBuilder)node, pars);
                 else if (node is DynamicParser.Node.Argument) return ParseArgument((DynamicParser.Node.Argument)node, isMultiPart);
-                else if (node is DynamicParser.Node.GetMember) return ParseGetMember((DynamicParser.Node.GetMember)node, pars, decorate, isMultiPart, columnSchema);
-                else if (node is DynamicParser.Node.SetMember) return ParseSetMember((DynamicParser.Node.SetMember)node, pars, decorate, isMultiPart, columnSchema);
+                else if (node is DynamicParser.Node.GetMember) return ParseGetMember((DynamicParser.Node.GetMember)node, ref columnSchema, pars, decorate, isMultiPart);
+                else if (node is DynamicParser.Node.SetMember) return ParseSetMember((DynamicParser.Node.SetMember)node, ref columnSchema, pars, decorate, isMultiPart);
                 else if (node is DynamicParser.Node.Unary) return ParseUnary((DynamicParser.Node.Unary)node, pars);
                 else if (node is DynamicParser.Node.Binary) return ParseBinary((DynamicParser.Node.Binary)node, pars);
                 else if (node is DynamicParser.Node.Method) return ParseMethod((DynamicParser.Node.Method)node, pars);
-                else if (node is DynamicParser.Node.Invoke) return ParseInvoke((DynamicParser.Node.Invoke)node, pars);
+                else if (node is DynamicParser.Node.Invoke) return ParseInvoke((DynamicParser.Node.Invoke)node, ref columnSchema, pars);
                 else if (node is DynamicParser.Node.Convert) return ParseConvert((DynamicParser.Node.Convert)node, pars);
             }
 
@@ -359,7 +380,7 @@ namespace DynamORM.Builders.Implementation
             return null;
         }
 
-        protected virtual string ParseGetMember(DynamicParser.Node.GetMember node, IDictionary<string, IParameter> pars = null, bool decorate = true, bool isMultiPart = true, DynamicSchemaColumn? columnSchema = null)
+        protected virtual string ParseGetMember(DynamicParser.Node.GetMember node, ref DynamicSchemaColumn? columnSchema, IDictionary<string, IParameter> pars = null, bool decorate = true, bool isMultiPart = true)
         {
             if (node.Host is DynamicParser.Node.Argument && IsTableAlias(node.Name))
             {
@@ -394,7 +415,7 @@ namespace DynamORM.Builders.Implementation
             return name;
         }
 
-        protected virtual string ParseSetMember(DynamicParser.Node.SetMember node, IDictionary<string, IParameter> pars = null, bool decorate = true, bool isMultiPart = true, DynamicSchemaColumn? columnSchema = null)
+        protected virtual string ParseSetMember(DynamicParser.Node.SetMember node, ref DynamicSchemaColumn? columnSchema, IDictionary<string, IParameter> pars = null, bool decorate = true, bool isMultiPart = true)
         {
             if (node.Host is DynamicParser.Node.Argument && IsTableAlias(node.Name))
             {
@@ -423,7 +444,7 @@ namespace DynamORM.Builders.Implementation
 
             columnSchema = GetColumnFromSchema(name);
 
-            string value = Parse(node.Value, pars, nulls: true, columnSchema: columnSchema);
+            string value = Parse(node.Value, ref columnSchema, pars, nulls: true);
             return string.Format("{0} = ({1})", name, value);
         }
 
@@ -474,8 +495,8 @@ namespace DynamORM.Builders.Implementation
             }
 
             DynamicSchemaColumn? columnSchema = null;
-            string left = Parse(node.Left, pars, columnSchema: columnSchema); // Not nulls: left is assumed to be an object
-            string right = Parse(node.Right, pars, nulls: true, columnSchema: columnSchema);
+            string left = Parse(node.Left, ref columnSchema, pars); // Not nulls: left is assumed to be an object
+            string right = Parse(node.Right, ref columnSchema, pars, nulls: true);
             return string.Format("({0} {1} {2})", left, op, right);
         }
 
@@ -624,7 +645,7 @@ namespace DynamORM.Builders.Implementation
             return sb.ToString();
         }
 
-        protected virtual string ParseInvoke(DynamicParser.Node.Invoke node, IDictionary<string, IParameter> pars = null)
+        protected virtual string ParseInvoke(DynamicParser.Node.Invoke node, ref DynamicSchemaColumn? columnSchema, IDictionary<string, IParameter> pars = null)
         {
             // This is used as an especial syntax to merely concatenate its arguments. It is used as a way to extend the supported syntax without the need of treating all the possible cases...
             if (node.Arguments == null || node.Arguments.Length == 0)
@@ -634,9 +655,14 @@ namespace DynamORM.Builders.Implementation
             foreach (object arg in node.Arguments)
             {
                 if (arg is string)
+                {
                     sb.Append((string)arg);
+
+                    if (node.Arguments.Length == 1 && !columnSchema.HasValue)
+                        columnSchema = GetColumnFromSchema((string)arg);
+                }
                 else
-                    sb.Append(Parse(arg, pars, rawstr: true, nulls: true));
+                    sb.Append(Parse(arg, ref columnSchema, pars, rawstr: true, nulls: true));
             }
 
             return sb.ToString();
@@ -671,7 +697,7 @@ namespace DynamORM.Builders.Implementation
 
                 // If we are adding parameter we inform external sources about this.
                 if (OnCreateTemporaryParameter != null)
-                    OnCreateTemporaryParameter(par);
+                    OnCreateTemporaryParameter.ForEach(x => x(par));
 
                 pars.Add(par.Name, par);
 
@@ -748,8 +774,8 @@ namespace DynamORM.Builders.Implementation
         internal DynamicSchemaColumn? GetColumnFromSchema(string colName, DynamicTypeMap mapper = null, string table = null)
         {
             // This is tricky and will not always work unfortunetly.
-            if (colName.ContainsAny(StringExtensions.InvalidMultipartMemberChars))
-                return null;
+            ////if (colName.ContainsAny(StringExtensions.InvalidMultipartMemberChars))
+            ////    return null;
 
             // First we need to get real column name and it's owner if exist.
             var parts = colName.Split('.')

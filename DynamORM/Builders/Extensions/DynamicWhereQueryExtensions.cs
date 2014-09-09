@@ -113,6 +113,17 @@ namespace DynamORM.Builders.Extensions
             if (column.VirtualColumn.HasValue)
                 builder.VirtualMode = column.VirtualColumn.Value;
 
+            Action<IParameter> modParam = (p) =>
+            {
+                if (column.Schema.HasValue)
+                    p.Schema = column.Schema;
+
+                if (!p.Schema.HasValue)
+                    p.Schema = column.Schema ?? builder.GetColumnFromSchema(column.ColumnName);
+            };
+
+            builder.CreateTemporaryParameterAction(modParam);
+
             // It's kind of uglu, but... well it works.
             if (column.Or)
                 switch (column.Operator)
@@ -145,6 +156,7 @@ namespace DynamORM.Builders.Extensions
                     case DynamicColumn.CompareOperator.Between: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).Between(column.Value)); break;
                 }
 
+            builder.OnCreateTemporaryParameter.Remove(modParam);
             builder.VirtualMode = virt;
 
             return builder;

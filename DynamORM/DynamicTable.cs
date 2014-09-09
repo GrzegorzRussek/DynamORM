@@ -351,7 +351,8 @@ namespace DynamORM
             using (var con = Database.Open())
             using (var cmd = con.CreateCommand())
             using (var rdr = cmd
-                .SetCommand(sql, args)
+                .SetCommand(sql)
+                .AddParameters(Database, args)
                 .ExecuteReader())
                 while (rdr.Read())
                 {

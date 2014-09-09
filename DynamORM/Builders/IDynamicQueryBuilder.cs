@@ -63,12 +63,12 @@ namespace DynamORM.Builders
         /// <remarks>This method must be override by derived classes.</remarks>
         string CommandText();
 
-        /// <summary>Gets or sets the on create temporary parameter action.</summary>
+        /// <summary>Gets or sets the on create temporary parameter actions.</summary>
         /// <remarks>This is exposed to allow setting schema of column.</remarks>
-        Action<IParameter> OnCreateTemporaryParameter { get; set; }
+        List<Action<IParameter>> OnCreateTemporaryParameter { get; set; }
 
-        /// <summary>Gets or sets the on create real parameter action.</summary>
+        /// <summary>Gets or sets the on create real parameter actions.</summary>
         /// <remarks>This is exposed to allow modification of parameter.</remarks>
-        Action<IParameter, IDbDataParameter> OnCreateParameter { get; set; }
+        List<Action<IParameter, IDbDataParameter>> OnCreateParameter { get; set; }
     }
 }
