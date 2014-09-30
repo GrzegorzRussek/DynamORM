@@ -347,7 +347,7 @@ namespace DynamORM.Builders.Implementation
                 else if (node is DynamicParser.Node.SetMember) return ParseSetMember((DynamicParser.Node.SetMember)node, ref columnSchema, pars, decorate, isMultiPart);
                 else if (node is DynamicParser.Node.Unary) return ParseUnary((DynamicParser.Node.Unary)node, pars);
                 else if (node is DynamicParser.Node.Binary) return ParseBinary((DynamicParser.Node.Binary)node, pars);
-                else if (node is DynamicParser.Node.Method) return ParseMethod((DynamicParser.Node.Method)node, pars);
+                else if (node is DynamicParser.Node.Method) return ParseMethod((DynamicParser.Node.Method)node, ref columnSchema, pars);
                 else if (node is DynamicParser.Node.Invoke) return ParseInvoke((DynamicParser.Node.Invoke)node, ref columnSchema, pars);
                 else if (node is DynamicParser.Node.Convert) return ParseConvert((DynamicParser.Node.Convert)node, pars);
             }
@@ -500,10 +500,10 @@ namespace DynamORM.Builders.Implementation
             return string.Format("({0} {1} {2})", left, op, right);
         }
 
-        protected virtual string ParseMethod(DynamicParser.Node.Method node, IDictionary<string, IParameter> pars = null)
+        protected virtual string ParseMethod(DynamicParser.Node.Method node, ref DynamicSchemaColumn? columnSchema, IDictionary<string, IParameter> pars = null)
         {
             string method = node.Name.ToUpper();
-            string parent = node.Host == null ? null : Parse(node.Host, pars: pars);
+            string parent = node.Host == null ? null : Parse(node.Host, ref columnSchema, pars: pars);
             string item = null;
 
             // Root-level methods...
@@ -513,7 +513,7 @@ namespace DynamORM.Builders.Implementation
                 {
                     case "NOT":
                         if (node.Arguments == null || node.Arguments.Length != 1) throw new ArgumentNullException("NOT method expects one argument: " + node.Arguments.Sketch());
-                        item = Parse(node.Arguments[0], pars: pars);
+                        item = Parse(node.Arguments[0], ref columnSchema, pars: pars);
                         return string.Format("(NOT {0})", item);
                 }
             }
@@ -546,7 +546,7 @@ namespace DynamORM.Builders.Implementation
                                     throw new ArgumentException("BETWEEN method expects single argument to be enumerable of exactly two elements: " + node.Arguments.Sketch());
                             }
 
-                            return string.Format("{0} BETWEEN {1} AND {2}", parent, Parse(arguments[0], pars: pars), Parse(arguments[1], pars: pars));
+                            return string.Format("{0} BETWEEN {1} AND {2}", parent, Parse(arguments[0], ref columnSchema, pars: pars), Parse(arguments[1], ref columnSchema, pars: pars));
                         }
 
                     case "IN":
@@ -576,13 +576,13 @@ namespace DynamORM.Builders.Implementation
                                             else
                                                 firstParam = false;
 
-                                            sbin.Append(Parse(val, pars: pars));
+                                            sbin.Append(Parse(val, ref columnSchema, pars: pars));
                                         }
                                     else
-                                        sbin.Append(Parse(arg, pars: pars));
+                                        sbin.Append(Parse(arg, ref columnSchema, pars: pars));
                                 }
                                 else
-                                    sbin.Append(Parse(arg, pars: pars));
+                                    sbin.Append(Parse(arg, ref columnSchema, pars: pars));
 
                                 firstParam = false;
                             }
@@ -594,13 +594,13 @@ namespace DynamORM.Builders.Implementation
                         if (node.Arguments == null || node.Arguments.Length != 1)
                             throw new ArgumentException("LIKE method expects one argument: " + node.Arguments.Sketch());
 
-                        return string.Format("{0} LIKE {1}", parent, Parse(node.Arguments[0], pars: pars));
+                        return string.Format("{0} LIKE {1}", parent, Parse(node.Arguments[0], ref columnSchema, pars: pars));
 
                     case "NOTLIKE":
                         if (node.Arguments == null || node.Arguments.Length != 1)
                             throw new ArgumentException("NOT LIKE method expects one argument: " + node.Arguments.Sketch());
 
-                        return string.Format("{0} NOT LIKE {1}", parent, Parse(node.Arguments[0], pars: pars));
+                        return string.Format("{0} NOT LIKE {1}", parent, Parse(node.Arguments[0], ref columnSchema, pars: pars));
 
                     case "AS":
                         if (node.Arguments == null || node.Arguments.Length != 1)
@@ -617,7 +617,7 @@ namespace DynamORM.Builders.Implementation
                         if (node.Arguments == null || node.Arguments.Length == 0)
                             return "COUNT(*)";
 
-                        return string.Format("COUNT({0})", Parse(node.Arguments[0], pars: Parameters, nulls: true));
+                        return string.Format("COUNT({0})", Parse(node.Arguments[0], ref columnSchema, pars: Parameters, nulls: true));
                 }
             }
 
@@ -637,7 +637,7 @@ namespace DynamORM.Builders.Implementation
                     else
                         first = false;
 
-                    sb.Append(Parse(argument, pars, nulls: true)); // We don't accept raw strings here!!!
+                    sb.Append(Parse(argument, ref columnSchema, pars, nulls: true)); // We don't accept raw strings here!!!
                 }
             }
 
