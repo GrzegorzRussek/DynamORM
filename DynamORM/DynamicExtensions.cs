@@ -731,6 +731,16 @@ namespace DynamORM
 
         #endregion Generic Execution
 
+        /// <summary>Dump command into string.</summary>
+        /// <param name="command">Command to dump.</param>
+        /// <returns>Returns dumped <see cref="System.Data.IDbCommand"/> instance in string form.</returns>
+        public static string DumpToString(this IDbCommand command)
+        {
+            var sb = new StringBuilder();
+            command.Dump(sb);
+            return sb.ToString();
+        }
+
         /// <summary>Dump command into text writer.</summary>
         /// <param name="command">Command to dump.</param>
         /// <param name="buider">Builder to which write output.</param>

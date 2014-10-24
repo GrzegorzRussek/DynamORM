@@ -3027,6 +3027,16 @@ namespace DynamORM
 
         #endregion Generic Execution
 
+        /// <summary>Dump command into string.</summary>
+        /// <param name="command">Command to dump.</param>
+        /// <returns>Returns dumped <see cref="System.Data.IDbCommand"/> instance in string form.</returns>
+        public static string DumpToString(this IDbCommand command)
+        {
+            var sb = new StringBuilder();
+            command.Dump(sb);
+            return sb.ToString();
+        }
+
         /// <summary>Dump command into text writer.</summary>
         /// <param name="command">Command to dump.</param>
         /// <param name="buider">Builder to which write output.</param>
@@ -3705,21 +3715,12 @@ namespace DynamORM
     /// <summary>Dynamic query exception.</summary>
     public class DynamicQueryException : Exception, ISerializable
     {
-        /// <summary>Gets the dumped command which failed.</summary>
-        public string Command { get; private set; }
-
         /// <summary>Initializes a new instance of the
         /// <see cref="DynamicQueryException"/> class.</summary>
         /// <param name="command">The command which failed.</param>
         public DynamicQueryException(IDbCommand command = null)
-            : base("Error executing command.")
+            : base(string.Format("Error executing command.{0}{1}", Environment.NewLine, command != null ? command.DumpToString() : string.Empty))
         {
-            if (command != null)
-            {
-                var sb = new StringBuilder();
-                command.Dump(sb);
-                Command = sb.ToString();
-            }
         }
 
         /// <summary>Initializes a new instance of the
@@ -3727,9 +3728,8 @@ namespace DynamORM
         /// <param name="message">The message.</param>
         /// <param name="command">The command which failed.</param>
         public DynamicQueryException(string message, IDbCommand command = null)
-            : base(message)
+            : base(string.Format("{0}{1}{2}", message, Environment.NewLine, command != null ? command.DumpToString() : string.Empty))
         {
-            SetCommand(command);
         }
 
         /// <summary>Initializes a new instance of the
@@ -3737,9 +3737,8 @@ namespace DynamORM
         /// <param name="innerException">The inner exception.</param>
         /// <param name="command">The command which failed.</param>
         public DynamicQueryException(Exception innerException, IDbCommand command = null)
-            : base("Error executing command.", innerException)
+            : base(string.Format("Error executing command.{0}{1}", Environment.NewLine, command != null ? command.DumpToString() : string.Empty), innerException)
         {
-            SetCommand(command);
         }
 
         /// <summary>Initializes a new instance of the
@@ -3748,9 +3747,8 @@ namespace DynamORM
         /// <param name="innerException">The inner exception.</param>
         /// <param name="command">The command which failed.</param>
         public DynamicQueryException(string message, Exception innerException, IDbCommand command = null)
-            : base(message, innerException)
+            : base(string.Format("{0}{1}{2}", message, Environment.NewLine, command != null ? command.DumpToString() : string.Empty), innerException)
         {
-            SetCommand(command);
         }
 
         /// <summary>Initializes a new instance of the
@@ -3762,7 +3760,6 @@ namespace DynamORM
         public DynamicQueryException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
-            Command = info.GetString("Command");
         }
 
         /// <summary>When overridden in a derived class, sets the
@@ -3779,19 +3776,6 @@ namespace DynamORM
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             base.GetObjectData(info, context);
-
-            if (!string.IsNullOrEmpty(Command))
-                info.AddValue("Command", Command);
-        }
-
-        private void SetCommand(IDbCommand command)
-        {
-            if (command != null && (!(command is DynamicCommand) || ((command is DynamicCommand) && !(command as DynamicCommand).IsDisposed)))
-            {
-                var sb = new StringBuilder();
-                command.Dump(sb);
-                Command = sb.ToString();
-            }
         }
     }
 
@@ -10168,7 +10152,7 @@ namespace DynamORM
                     {
                         var prop = _properties.TryGetValue(binder.Name);
 
-                        if (prop != null && prop.Set != null)
+                        if (prop != null && prop.Setter != null)
                         {
                             prop.Set(_proxy, value);
                             return true;
@@ -10505,7 +10489,7 @@ namespace DynamORM
             public Func<object, object> Get { get; private set; }
 
             /// <summary>Gets value setter.</summary>
-            public Action<object, object> Set { get; private set; }
+            public Action<object, object> Setter { get; private set; }
 
             /// <summary>Gets name of property.</summary>
             public string Name { get; private set; }
@@ -10534,7 +10518,7 @@ namespace DynamORM
                     Get = CreateGetter(property);
 
                 if (property.CanWrite)
-                    Set = CreateSetter(property);
+                    Setter = CreateSetter(property);
             }
 
             private Func<object, object> CreateGetter(PropertyInfo property)
@@ -10567,6 +10551,48 @@ namespace DynamORM
                             property.Name),
                         Expression.Convert(valueParm, property.PropertyType)),
                         objParm, valueParm).Compile();
+            }
+
+            /// <summary>Sets the specified value to destination object.</summary>
+            /// <param name="dest">The destination object.</param>
+            /// <param name="val">The value.</param>
+            public void Set(object dest, object val)
+            {
+                Type type = Nullable.GetUnderlyingType(Type) ?? Type;
+                bool nullable = Type.IsGenericType && Type.GetGenericTypeDefinition() == typeof(Nullable<>);
+
+                try
+                {
+                    if (val == null && type.IsValueType)
+                    {
+                        if (nullable)
+                            Setter(dest, null);
+                        else
+                            Setter(dest, Activator.CreateInstance(Type));
+                    }
+                    else if ((val == null && !type.IsValueType) || (val != null && type == val.GetType()))
+                        Setter(dest, val);
+                    else if (type.IsEnum && val.GetType().IsValueType)
+                        Setter(dest, Enum.ToObject(type, val));
+                    else if (type.IsEnum)
+                        Setter(dest, Enum.Parse(type, val.ToString()));
+                    else if (Type == typeof(string) && val.GetType() == typeof(Guid))
+                        Setter(dest, val.ToString());
+                    else if (Type == typeof(Guid) && val.GetType() == typeof(string))
+                    {
+                        Guid g;
+                        Setter(dest, Guid.TryParse((string)val, out g) ? g : Guid.Empty);
+                    }
+                    else
+                        Setter(dest, Convert.ChangeType(val, type));
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidCastException(
+                        string.Format("Error trying to convert value '{0}' of type '{1}' to value of type '{2}{3}' in object of type '{4}'",
+                            val.ToString(), val.GetType(), type.FullName, nullable ? "(NULLABLE)" : string.Empty, dest.GetType().FullName),
+                        ex);
+                }
             }
 
             #region Type command cache
@@ -10677,7 +10703,7 @@ namespace DynamORM
                 foreach (var item in source.ToDictionary())
                 {
                     if (ColumnsMap.TryGetValue(item.Key.ToLower(), out dpi) && item.Value != null)
-                        if (dpi.Set != null)
+                        if (dpi.Setter != null)
                             dpi.Set(destination, item.Value);
                 }
 

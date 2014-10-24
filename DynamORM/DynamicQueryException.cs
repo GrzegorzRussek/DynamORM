@@ -29,28 +29,18 @@
 using System;
 using System.Data;
 using System.Runtime.Serialization;
-using System.Text;
 
 namespace DynamORM
 {
     /// <summary>Dynamic query exception.</summary>
     public class DynamicQueryException : Exception, ISerializable
     {
-        /// <summary>Gets the dumped command which failed.</summary>
-        public string Command { get; private set; }
-
         /// <summary>Initializes a new instance of the
         /// <see cref="DynamicQueryException"/> class.</summary>
         /// <param name="command">The command which failed.</param>
         public DynamicQueryException(IDbCommand command = null)
-            : base("Error executing command.")
+            : base(string.Format("Error executing command.{0}{1}", Environment.NewLine, command != null ? command.DumpToString() : string.Empty))
         {
-            if (command != null)
-            {
-                var sb = new StringBuilder();
-                command.Dump(sb);
-                Command = sb.ToString();
-            }
         }
 
         /// <summary>Initializes a new instance of the
@@ -58,9 +48,8 @@ namespace DynamORM
         /// <param name="message">The message.</param>
         /// <param name="command">The command which failed.</param>
         public DynamicQueryException(string message, IDbCommand command = null)
-            : base(message)
+            : base(string.Format("{0}{1}{2}", message, Environment.NewLine, command != null ? command.DumpToString() : string.Empty))
         {
-            SetCommand(command);
         }
 
         /// <summary>Initializes a new instance of the
@@ -68,9 +57,8 @@ namespace DynamORM
         /// <param name="innerException">The inner exception.</param>
         /// <param name="command">The command which failed.</param>
         public DynamicQueryException(Exception innerException, IDbCommand command = null)
-            : base("Error executing command.", innerException)
+            : base(string.Format("Error executing command.{0}{1}", Environment.NewLine, command != null ? command.DumpToString() : string.Empty), innerException)
         {
-            SetCommand(command);
         }
 
         /// <summary>Initializes a new instance of the
@@ -79,9 +67,8 @@ namespace DynamORM
         /// <param name="innerException">The inner exception.</param>
         /// <param name="command">The command which failed.</param>
         public DynamicQueryException(string message, Exception innerException, IDbCommand command = null)
-            : base(message, innerException)
+            : base(string.Format("{0}{1}{2}", message, Environment.NewLine, command != null ? command.DumpToString() : string.Empty), innerException)
         {
-            SetCommand(command);
         }
 
         /// <summary>Initializes a new instance of the
@@ -93,7 +80,6 @@ namespace DynamORM
         public DynamicQueryException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
-            Command = info.GetString("Command");
         }
 
         /// <summary>When overridden in a derived class, sets the
@@ -110,19 +96,6 @@ namespace DynamORM
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             base.GetObjectData(info, context);
-
-            if (!string.IsNullOrEmpty(Command))
-                info.AddValue("Command", Command);
-        }
-
-        private void SetCommand(IDbCommand command)
-        {
-            if (command != null && (!(command is DynamicCommand) || ((command is DynamicCommand) && !(command as DynamicCommand).IsDisposed)))
-            {
-                var sb = new StringBuilder();
-                command.Dump(sb);
-                Command = sb.ToString();
-            }
         }
     }
 }

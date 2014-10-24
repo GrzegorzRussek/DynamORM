@@ -182,7 +182,7 @@ namespace DynamORM.Helpers.Dynamics
             {
                 var prop = _properties.TryGetValue(binder.Name);
 
-                if (prop != null && prop.Set != null)
+                if (prop != null && prop.Setter != null)
                 {
                     prop.Set(_proxy, value);
                     return true;

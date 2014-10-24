@@ -52,7 +52,7 @@ namespace DynamORM.Mapper
         public Func<object, object> Get { get; private set; }
 
         /// <summary>Gets value setter.</summary>
-        public Action<object, object> Set { get; private set; }
+        public Action<object, object> Setter { get; private set; }
 
         /// <summary>Gets name of property.</summary>
         public string Name { get; private set; }
@@ -81,7 +81,7 @@ namespace DynamORM.Mapper
                 Get = CreateGetter(property);
 
             if (property.CanWrite)
-                Set = CreateSetter(property);
+                Setter = CreateSetter(property);
         }
 
         private Func<object, object> CreateGetter(PropertyInfo property)
@@ -114,6 +114,48 @@ namespace DynamORM.Mapper
                         property.Name),
                     Expression.Convert(valueParm, property.PropertyType)),
                     objParm, valueParm).Compile();
+        }
+
+        /// <summary>Sets the specified value to destination object.</summary>
+        /// <param name="dest">The destination object.</param>
+        /// <param name="val">The value.</param>
+        public void Set(object dest, object val)
+        {
+            Type type = Nullable.GetUnderlyingType(Type) ?? Type;
+            bool nullable = Type.IsGenericType && Type.GetGenericTypeDefinition() == typeof(Nullable<>);
+
+            try
+            {
+                if (val == null && type.IsValueType)
+                {
+                    if (nullable)
+                        Setter(dest, null);
+                    else
+                        Setter(dest, Activator.CreateInstance(Type));
+                }
+                else if ((val == null && !type.IsValueType) || (val != null && type == val.GetType()))
+                    Setter(dest, val);
+                else if (type.IsEnum && val.GetType().IsValueType)
+                    Setter(dest, Enum.ToObject(type, val));
+                else if (type.IsEnum)
+                    Setter(dest, Enum.Parse(type, val.ToString()));
+                else if (Type == typeof(string) && val.GetType() == typeof(Guid))
+                    Setter(dest, val.ToString());
+                else if (Type == typeof(Guid) && val.GetType() == typeof(string))
+                {
+                    Guid g;
+                    Setter(dest, Guid.TryParse((string)val, out g) ? g : Guid.Empty);
+                }
+                else
+                    Setter(dest, Convert.ChangeType(val, type));
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidCastException(
+                    string.Format("Error trying to convert value '{0}' of type '{1}' to value of type '{2}{3}' in object of type '{4}'",
+                        val.ToString(), val.GetType(), type.FullName, nullable ? "(NULLABLE)" : string.Empty, dest.GetType().FullName),
+                    ex);
+            }
         }
 
         #region Type command cache

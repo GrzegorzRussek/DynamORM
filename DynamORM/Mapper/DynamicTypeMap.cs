@@ -129,7 +129,7 @@ namespace DynamORM.Mapper
             foreach (var item in source.ToDictionary())
             {
                 if (ColumnsMap.TryGetValue(item.Key.ToLower(), out dpi) && item.Value != null)
-                    if (dpi.Set != null)
+                    if (dpi.Setter != null)
                         dpi.Set(destination, item.Value);
             }
 
