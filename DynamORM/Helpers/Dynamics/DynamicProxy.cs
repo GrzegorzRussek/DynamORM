@@ -67,7 +67,9 @@ namespace DynamORM.Helpers.Dynamics
                     k => k.Value.Name,
                     v => v.Value);
 
-            _methods = GetAllMembers(_type)
+            _methods = mapper.MethodsMap;
+                
+                /*GetAllMembers(_type)
                 .Where(x => x is MethodInfo)
                 .Cast<MethodInfo>()
                 .Where(m => !((m.Name.StartsWith("set_") && m.ReturnType == typeof(void)) || m.Name.StartsWith("get_")))
@@ -84,7 +86,7 @@ namespace DynamORM.Helpers.Dynamics
                         {
                             return null;
                         }
-                    });
+                    });*/
         }
 
         /// <summary>Provides implementation for type conversion operations.
@@ -236,7 +238,7 @@ namespace DynamORM.Helpers.Dynamics
 
             if (d != null)
             {
-                result = d.DynamicInvoke(CompleteArguments(mi.GetParameters().ToArray(), args));
+                result = d.DynamicInvoke(CompleteArguments(mi.GetParameters().ToArray(), args).ToArray());
 
                 if (d.Method.ReturnType == _type && result is T)
                     result = new DynamicProxy<T>((T)result);
@@ -245,7 +247,7 @@ namespace DynamORM.Helpers.Dynamics
             }
             else if (mi != null)
             {
-                result = mi.Invoke(_proxy, CompleteArguments(mi.GetParameters().ToArray(), args));
+                result = mi.Invoke(_proxy, CompleteArguments(mi.GetParameters().ToArray(), args).Skip(1).ToArray());
 
                 if (mi.ReturnType == _type && result is T)
                     result = new DynamicProxy<T>((T)result);
@@ -268,9 +270,9 @@ namespace DynamORM.Helpers.Dynamics
             return true;
         }
 
-        private object[] CompleteArguments(ParameterInfo[] parameters, object[] arguments)
+        private IEnumerable<object> CompleteArguments(ParameterInfo[] parameters, object[] arguments)
         {
-            return arguments.Concat(parameters.Skip(arguments.Length).Select(p => p.DefaultValue)).ToArray();
+            return new object[] { _proxy }.Union(arguments.Concat(parameters.Skip(arguments.Length).Select(p => p.DefaultValue)));
         }
 
         private IEnumerable<MemberInfo> GetAllMembers(Type type)
@@ -320,7 +322,6 @@ namespace DynamORM.Helpers.Dynamics
             object res;
             TryInvokeMethod("Dispose", out res, new object[] { });
 
-            _methods.Clear();
             _properties.Clear();
 
             _methods = null;

@@ -37,6 +37,8 @@ namespace DynamORM.Mapper
     /// <summary>Represents type columnMap.</summary>
     public class DynamicTypeMap
     {
+        private Dictionary<MethodInfo, Delegate> _methods = null;
+
         /// <summary>Gets mapper destination type creator.</summary>
         public Type Type { get; private set; }
 
@@ -49,6 +51,17 @@ namespace DynamORM.Mapper
         /// <summary>Gets map of columns to properties.</summary>
         /// <remarks>Key: Column name (lower), Value: <see cref="DynamicPropertyInvoker"/>.</remarks>
         public Dictionary<string, DynamicPropertyInvoker> ColumnsMap { get; private set; }
+
+        /// <summary>Gets map of methods to open instance delegates.</summary>
+        public Dictionary<MethodInfo, Delegate> MethodsMap
+        {
+            get
+            {
+                if (_methods == null)
+                    _methods = CreateMethodToDelegateMap();
+                return _methods;
+            }
+        }
 
         /// <summary>Gets map of properties to column.</summary>
         /// <remarks>Key: Property name, Value: Column name.</remarks>
@@ -70,6 +83,29 @@ namespace DynamORM.Mapper
 
             Creator = CreateCreator();
             CreateColumnAndPropertyMap();
+        }
+
+        private Dictionary<MethodInfo, Delegate> CreateMethodToDelegateMap()
+        {
+            return GetAllMembers(Type)
+                .Where(x => x is MethodInfo)
+                .Cast<MethodInfo>()
+                .Where(m => !((m.Name.StartsWith("set_") && m.ReturnType == typeof(void)) || m.Name.StartsWith("get_")))
+                .Where(m => !m.IsStatic && !m.IsGenericMethod)
+                .ToDictionary(
+                    k => k,
+                    v =>
+                    {
+                        try
+                        {
+                            return Delegate.CreateDelegate(Expression.GetDelegateType(new Type[] { v.DeclaringType }.Union(v.GetParameters().Select(t => t.ParameterType).Concat(new[] { v.ReflectedType })).ToArray()), v);
+                            ////return Delegate.CreateDelegate(Expression.GetDelegateType(v.GetParameters().Select(t => t.ParameterType).Concat(new[] { v.ReflectedType }).ToArray()), _proxy, v.Name);
+                        }
+                        catch (ArgumentException)
+                        {
+                            return null;
+                        }
+                    });
         }
 
         private void CreateColumnAndPropertyMap()
