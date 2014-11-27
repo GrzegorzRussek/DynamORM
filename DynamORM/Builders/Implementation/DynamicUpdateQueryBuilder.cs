@@ -165,7 +165,11 @@ namespace DynamORM.Builders.Implementation
                 index++;
                 if (f == null)
                     throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
-                var result = DynamicParser.Parse(f).Result;
+
+                object result = null;
+
+                using (var p = DynamicParser.Parse(f))
+                    result = p.Result;
 
                 if (result == null)
                     throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
@@ -318,5 +322,18 @@ namespace DynamORM.Builders.Implementation
         }
 
         #endregion Where
+
+        #region IExtendedDisposable
+
+        /// <summary>Performs application-defined tasks associated with
+        /// freeing, releasing, or resetting unmanaged resources.</summary>
+        public override void Dispose()
+        {
+            base.Dispose();
+
+            _columns = null;
+        }
+
+        #endregion IExtendedDisposable
     }
 }

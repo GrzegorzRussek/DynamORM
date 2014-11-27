@@ -1298,5 +1298,18 @@ namespace DynamORM.Builders.Implementation
         }
 
         #endregion Helpers
+
+        #region IExtendedDisposable
+
+        /// <summary>Performs application-defined tasks associated with
+        /// freeing, releasing, or resetting unmanaged resources.</summary>
+        public override void Dispose()
+        {
+            base.Dispose();
+
+            _select = _from = _join = _groupby = _orderby = null;
+        }
+
+        #endregion IExtendedDisposable
     }
 }

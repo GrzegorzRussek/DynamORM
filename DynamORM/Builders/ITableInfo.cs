@@ -27,11 +27,12 @@
 */
 
 using System.Collections.Generic;
+using DynamORM.Helpers;
 
 namespace DynamORM.Builders
 {
     /// <summary>Interface describing table information.</summary>
-    public interface ITableInfo
+    public interface ITableInfo : IExtendedDisposable
     {
         /// <summary>Gets table owner name.</summary>
         string Owner { get; }

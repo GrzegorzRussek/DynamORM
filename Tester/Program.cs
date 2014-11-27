@@ -1,55 +1,67 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using DynamORM;
 using DynamORM.Mapper;
 
 namespace Tester
 {
     internal class Program
     {
-        [Table(Name = "dist_Distances")]
-        public class Distance
+        [Table(Name = "mom_Sessions")]
+        internal class Session
         {
             [Column(IsKey = true)]
-            public Guid StartAddress_Id { get; set; }
-
-            [Column(IsKey = true)]
-            public Guid EndAddress_Id { get; set; }
-
-            [Column(IsKey = true)]
-            public int VehicleType { get; set; }
+            public virtual Guid ms_id { get; set; }
 
             [Column]
-            public int PostcodeDistanceInSecs { get; set; }
+            public virtual Guid ms_mus_id { get; set; }
 
             [Column]
-            public decimal PostcodeDistanceInKms { get; set; }
+            public virtual long ms_last_activity { get; set; }
 
             [Column]
-            public int IsDepotDistance { get; set; }
+            public virtual int ms_type { get; set; }
+
+            [Column]
+            public virtual string ms_desc { get; set; }
+
+            [Ignore]
+            public virtual string ms_did { get; set; }
+        }
+
+        private static DynamORM.DynamicDatabase GetORM()
+        {
+            return new DynamORM.DynamicDatabase(System.Data.SqlClient.SqlClientFactory.Instance,
+                "packet size=4096;User Id=sa;Password=sa123;data source=192.168.1.9,1433;initial catalog=MOM_SIERPC_WMS_TEST;",
+                DynamORM.DynamicDatabaseOptions.SingleConnection | DynamORM.DynamicDatabaseOptions.SingleTransaction |
+                DynamORM.DynamicDatabaseOptions.SupportSchema | DynamORM.DynamicDatabaseOptions.SupportTop);
         }
 
         private static void Main(string[] args)
         {
-            string conns = string.Format("Server={0};Port={1};Userid={2};Password={3};Database={4};Protocol=3;SSL=false;Pooling=true;MinPoolSize=1;MaxPoolSize=20;Encoding=UNICODE;Timeout=15;",
-                "192.168.1.6", 5432, "ted", "ted123", "TED_Altom");
-
-            using (var db = new DynamicDatabase(Npgsql.NpgsqlFactory.Instance, conns, DynamORM.DynamicDatabaseOptions.SupportSchema | DynamORM.DynamicDatabaseOptions.SupportLimitOffset))
+            Console.Out.WriteLine("Press ENTER to launch bombardment... or q and ENTER to quit.");
+            while (Console.In.ReadLine() != "q")
             {
-                var s = db.GetSchema<Distance>();
-                Console.Out.WriteLine(s.Count);
+                Console.Out.WriteLine("Bombardment...");
+                using (var db = GetORM())
+                    for (int i = 0; i < 1000; i++)
+                    {
+                        //var session = db.From(x => x.mom_Sessions.As(x.s))
+                        //    .Where(s => s.ms_id == Guid.Empty && s.ms_mus_id == Guid.Empty)
+                        //    .Execute<Session>()
+                        //    .FirstOrDefault();
+                        //var session = db.From(x => x.mom_Sessions.As(x.s))
+                        //    .Where(s => s.ms_id == Guid.Empty && s.ms_mus_id == Guid.Empty)
+                        //    .Execute()
+                        //    .FirstOrDefault();
 
-                DynamicTypeMap mapper = DynamORM.Mapper.DynamicMapperCache.GetMapper<Distance>();
-                using (var con = db.Open())
-                using (var cmd = con.CreateCommand())
-                {
-                    Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
+                        db.Delete(x => x.mom_Sessions)
+                            .Where(s => s.ms_id == Guid.Empty && s.ms_mus_id == Guid.Empty)
+                            .Execute();
 
-                    db.Insert<Distance>(new Distance[] { });
+                        //var session = (db.Table().Query("SELECT * FROM mom_Sessions WHERE ms_id = @0 AND ms_mus_id = @1", Guid.Empty, Guid.Empty)
+                        //    as IEnumerable<dynamic>).FirstOrDefault();
+                    }
 
-                    //db.PrepareBatchInsert<Distance>(mapper, cmd, parameters);
-                }
+                Console.Out.WriteLine("Done.");
             }
         }
     }

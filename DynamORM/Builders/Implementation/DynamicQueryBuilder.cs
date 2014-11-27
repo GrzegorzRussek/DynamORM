@@ -66,6 +66,7 @@ namespace DynamORM.Builders.Implementation
             /// </summary>
             internal TableInfo()
             {
+                IsDisposed = false;
             }
 
             /// <summary>
@@ -76,6 +77,7 @@ namespace DynamORM.Builders.Implementation
             /// <param name="alias">The table alias.</param>
             /// <param name="owner">The table owner.</param>
             public TableInfo(DynamicDatabase db, string name, string alias = null, string owner = null)
+                : this()
             {
                 Name = name;
                 Alias = alias;
@@ -93,6 +95,7 @@ namespace DynamORM.Builders.Implementation
             /// <param name="alias">The table alias.</param>
             /// <param name="owner">The table owner.</param>
             public TableInfo(DynamicDatabase db, Type type, string alias = null, string owner = null)
+                : this()
             {
                 var mapper = DynamicMapperCache.GetMapper(type);
 
@@ -116,6 +119,20 @@ namespace DynamORM.Builders.Implementation
 
             /// <summary>Gets or sets table schema.</summary>
             public Dictionary<string, DynamicSchemaColumn> Schema { get; internal set; }
+
+            /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+            public bool IsDisposed { get; private set; }
+
+            /// <summary>Performs application-defined tasks associated with
+            /// freeing, releasing, or resetting unmanaged resources.</summary>
+            public virtual void Dispose()
+            {
+                IsDisposed = true;
+
+                Schema.Clear();
+                Owner = Name = Alias = null;
+                Schema = null;
+            }
         }
 
         /// <summary>Generic based table information.</summary>
@@ -141,6 +158,13 @@ namespace DynamORM.Builders.Implementation
         /// <summary>Interface describing parameter info.</summary>
         internal class Parameter : IParameter
         {
+            /// <summary>Initializes a new instance of the
+            /// <see cref="Parameter"/> class.</summary>
+            public Parameter()
+            {
+                IsDisposed = false;
+            }
+
             /// <summary>Gets or sets the parameter position in command.</summary>
             /// <remarks>Available after filling the command.</remarks>
             public int Ordinal { get; internal set; }
@@ -159,6 +183,19 @@ namespace DynamORM.Builders.Implementation
 
             /// <summary>Gets or sets the parameter schema information.</summary>
             public DynamicSchemaColumn? Schema { get; set; }
+
+            /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+            public bool IsDisposed { get; private set; }
+
+            /// <summary>Performs application-defined tasks associated with
+            /// freeing, releasing, or resetting unmanaged resources.</summary>
+            public virtual void Dispose()
+            {
+                IsDisposed = true;
+
+                Name = null;
+                Schema = null;
+            }
         }
 
         #endregion Parameter
@@ -171,6 +208,7 @@ namespace DynamORM.Builders.Implementation
         /// <param name="db">The database.</param>
         public DynamicQueryBuilder(DynamicDatabase db)
         {
+            IsDisposed = false;
             VirtualMode = false;
             Tables = new List<ITableInfo>();
             Parameters = new Dictionary<string, IParameter>();
@@ -179,6 +217,9 @@ namespace DynamORM.Builders.Implementation
             OpenBracketsCount = 0;
 
             Database = db;
+            if (Database != null)
+                Database.AddToCache(this);
+
             SupportSchema = (db.Options & DynamicDatabaseOptions.SupportSchema) == DynamicDatabaseOptions.SupportSchema;
         }
 
@@ -330,7 +371,9 @@ namespace DynamORM.Builders.Implementation
             // If node is a delegate, parse it to create the logical tree...
             if (node is Delegate)
             {
-                node = DynamicParser.Parse((Delegate)node).Result;
+                using (var p = DynamicParser.Parse((Delegate)node))
+                    node = p.Result;
+
                 return Parse(node, ref columnSchema, pars, rawstr, decorate: decorate); // Intercept containers as in (x => "string")
             }
 
@@ -813,5 +856,43 @@ namespace DynamORM.Builders.Implementation
         }
 
         #endregion Helpers
+
+        #region IExtendedDisposable
+
+        /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+        public bool IsDisposed { get; private set; }
+
+        /// <summary>Performs application-defined tasks associated with
+        /// freeing, releasing, or resetting unmanaged resources.</summary>
+        public virtual void Dispose()
+        {
+            IsDisposed = true;
+
+            if (Database != null)
+                Database.RemoveFromCache(this);
+
+            if (Parameters != null)
+            {
+                foreach (var p in Parameters)
+                    p.Value.Dispose();
+
+                Parameters.Clear();
+                Parameters = null;
+            }
+
+            if (Tables != null)
+            {
+                foreach (var t in Tables)
+                    t.Dispose();
+
+                Tables.Clear();
+                Tables = null;
+            }
+
+            WhereCondition = null;
+            Database = null;
+        }
+
+        #endregion IExtendedDisposable
     }
 }

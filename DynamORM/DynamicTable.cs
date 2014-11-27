@@ -289,7 +289,7 @@ namespace DynamORM
             Dictionary<string, DynamicSchemaColumn> schema = null;
 
             schema = Database.GetSchema(TableType) ??
-                Database.GetSchema(TableName);
+                Database.GetSchema(TableName, OwnerName);
 
             #region Fill currrent table schema
 
@@ -674,7 +674,7 @@ namespace DynamORM
                 HandleTypeArgument<DynamicInsertQueryBuilder>(null, info, ref types, builder, 0);
 
             if (!string.IsNullOrEmpty(this.TableName) && builder.Tables.Count == 0)
-                builder.Table(this.TableName, this.Schema);
+                builder.Table(string.IsNullOrEmpty(this.OwnerName) ? this.TableName : string.Format("{0}.{1}", this.OwnerName, this.TableName), this.Schema);
 
             // loop the named args - see if we have order, columns and constraints
             if (info.ArgumentNames.Count > 0)
@@ -721,7 +721,7 @@ namespace DynamORM
                 HandleTypeArgument<DynamicUpdateQueryBuilder>(null, info, ref types, builder, 0);
 
             if (!string.IsNullOrEmpty(this.TableName) && builder.Tables.Count == 0)
-                builder.Table(this.TableName, this.Schema);
+                builder.Table(string.IsNullOrEmpty(this.OwnerName) ? this.TableName : string.Format("{0}.{1}", this.OwnerName, this.TableName), this.Schema);
 
             // loop the named args - see if we have order, columns and constraints
             if (info.ArgumentNames.Count > 0)
@@ -776,7 +776,7 @@ namespace DynamORM
                 HandleTypeArgument<DynamicDeleteQueryBuilder>(null, info, ref types, builder, 0);
 
             if (!string.IsNullOrEmpty(this.TableName) && builder.Tables.Count == 0)
-                builder.Table(this.TableName, this.Schema);
+                builder.Table(string.IsNullOrEmpty(this.OwnerName) ? this.TableName : string.Format("{0}.{1}", this.OwnerName, this.TableName), this.Schema);
 
             // loop the named args - see if we have order, columns and constraints
             if (info.ArgumentNames.Count > 0)
@@ -828,7 +828,7 @@ namespace DynamORM
                 HandleTypeArgument<DynamicSelectQueryBuilder>(null, info, ref types, builder, 0);
 
             if (!string.IsNullOrEmpty(this.TableName) && builder.Tables.Count == 0)
-                builder.From(x => this.TableName);
+                builder.From(x => string.IsNullOrEmpty(this.OwnerName) ? this.TableName : string.Format("{0}.{1}", this.OwnerName, this.TableName));
 
             // loop the named args - see if we have order, columns and constraints
             if (info.ArgumentNames.Count > 0)

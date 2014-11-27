@@ -94,6 +94,9 @@ namespace DynamORM
         /// <summary>Gets schema columns cache.</summary>
         internal Dictionary<string, Dictionary<string, DynamicSchemaColumn>> Schema { get; private set; }
 
+        /// <summary>Gets active builders that weren't disposed.</summary>
+        internal List<IDynamicQueryBuilder> RemainingBuilders { get; private set; }
+
 #if !DYNAMORM_OMMIT_OLDSYNTAX
 
         /// <summary>Gets tables cache for this database instance.</summary>
@@ -164,6 +167,7 @@ namespace DynamORM
             TransactionPool = new Dictionary<IDbConnection, Stack<IDbTransaction>>();
             CommandsPool = new Dictionary<IDbConnection, List<IDbCommand>>();
             Schema = new Dictionary<string, Dictionary<string, DynamicSchemaColumn>>();
+            RemainingBuilders = new List<IDynamicQueryBuilder>();
 #if !DYNAMORM_OMMIT_OLDSYNTAX
             TablesCache = new Dictionary<string, DynamicTable>();
 #endif
@@ -247,6 +251,22 @@ namespace DynamORM
 #endif
 
         #endregion Table
+
+        /// <summary>Adds cached builder.</summary>
+        /// <param name="builder">New dynamic builder.</param>
+        internal void AddToCache(IDynamicQueryBuilder builder)
+        {
+            lock (SyncLock)
+                RemainingBuilders.Add(builder);
+        }
+
+        /// <summary>Removes cached builder.</summary>
+        /// <param name="builder">Disposed dynamic builder.</param>
+        internal void RemoveFromCache(IDynamicQueryBuilder builder)
+        {
+            lock (SyncLock)
+                RemainingBuilders.Remove(builder);
+        }
 
         #region From/Insert/Update/Delete
 
@@ -960,7 +980,11 @@ namespace DynamORM
         {
             lock (SyncLock)
                 if (Schema.ContainsKey(table.FullName))
+                {
+                    if (Schema[table.FullName] != null)
+                        Schema[table.FullName].Clear();
                     Schema.Remove(table.FullName);
+                }
         }
 
         /// <summary>Clears the all schemas from cache.</summary>
@@ -968,7 +992,13 @@ namespace DynamORM
         public void ClearSchema()
         {
             lock (SyncLock)
+            {
+                foreach (var s in Schema)
+                    if (s.Value != null)
+                        s.Value.Clear();
+
                 Schema.Clear();
+            }
         }
 
         /// <summary>Get schema describing objects from reader.</summary>
@@ -1015,8 +1045,12 @@ namespace DynamORM
             Dictionary<string, DynamicSchemaColumn> schema = null;
 
             if (mapper != null)
+            {
                 tableName = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
                     mapper.Type.Name : mapper.Table.Name;
+                owner = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Owner) ?
+                    null : mapper.Table.Owner;
+            }
 
             bool databaseSchemaSupport = !string.IsNullOrEmpty(tableName) &&
                 (Options & DynamicDatabaseOptions.SupportSchema) == DynamicDatabaseOptions.SupportSchema;
@@ -1285,6 +1319,7 @@ namespace DynamORM
 
                 // Dispose the corpse
                 connection.Dispose();
+                connection = null;
             }
         }
 
@@ -1378,6 +1413,8 @@ namespace DynamORM
             TablesCache.Clear();
 
             tables.ForEach(t => t.Dispose());
+            tables.Clear();
+            tables = null;
 #endif
 
             foreach (var con in TransactionPool)
@@ -1389,6 +1426,8 @@ namespace DynamORM
                     tmp.ForEach(cmd => cmd.Dispose());
 
                     CommandsPool[con.Key].Clear();
+                    tmp.Clear();
+                    CommandsPool[con.Key] = tmp = null;
                 }
 
                 // Rollback remaining transactions
@@ -1407,12 +1446,22 @@ namespace DynamORM
                 con.Key.Dispose();
             }
 
+            while (RemainingBuilders.Count > 0)
+                RemainingBuilders.First().Dispose();
+
             // Clear pools
             lock (SyncLock)
             {
                 TransactionPool.Clear();
                 CommandsPool.Clear();
+                RemainingBuilders.Clear();
+
+                TransactionPool = null;
+                CommandsPool = null;
+                RemainingBuilders = null;
             }
+
+            ClearSchema();
 
             IsDisposed = true;
         }

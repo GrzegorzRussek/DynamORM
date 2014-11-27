@@ -28,7 +28,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace DynamORM.Mapper
 {
@@ -76,7 +78,7 @@ namespace DynamORM.Mapper
             var propertyMap = new Dictionary<string, string>();
             var ignored = new List<string>();
 
-            foreach (var pi in Type.GetProperties())
+            foreach (var pi in GetAllMembers(Type).Where(x => x is PropertyInfo).Cast<PropertyInfo>())
             {
                 ColumnAttribute attr = null;
 
@@ -134,6 +136,46 @@ namespace DynamORM.Mapper
             }
 
             return destination;
+        }
+
+        private IEnumerable<MemberInfo> GetAllMembers(Type type)
+        {
+            if (type.IsInterface)
+            {
+                var members = new List<MemberInfo>();
+
+                var considered = new List<Type>();
+                var queue = new Queue<Type>();
+
+                considered.Add(type);
+                queue.Enqueue(type);
+
+                while (queue.Count > 0)
+                {
+                    var subType = queue.Dequeue();
+                    foreach (var subInterface in subType.GetInterfaces())
+                    {
+                        if (considered.Contains(subInterface)) continue;
+
+                        considered.Add(subInterface);
+                        queue.Enqueue(subInterface);
+                    }
+
+                    var typeProperties = subType.GetMembers(
+                        BindingFlags.FlattenHierarchy
+                        | BindingFlags.Public
+                        | BindingFlags.Instance);
+
+                    var newPropertyInfos = typeProperties
+                        .Where(x => !members.Contains(x));
+
+                    members.InsertRange(0, newPropertyInfos);
+                }
+
+                return members;
+            }
+
+            return type.GetMembers(BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance);
         }
 
         #region Type command cache

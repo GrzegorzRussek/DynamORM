@@ -54,6 +54,8 @@ namespace DynamORM.Helpers.Dynamics
         [Serializable]
         public class Node : IDynamicMetaObjectProvider, IExtendedDisposable, ISerializable
         {
+            private DynamicParser _parser = null;
+
             #region MetaNode
 
             /// <summary>
@@ -763,6 +765,23 @@ namespace DynamORM.Helpers.Dynamics
 
                     return string.Format("({0} {1} {2})", Host.Sketch(), Operation, Right.Sketch());
                 }
+
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                public override void Dispose()
+                {
+                    base.Dispose();
+
+                    if (Right != null && Right is Node)
+                    {
+                        Node n = (Node)Right;
+
+                        if (!n.IsDisposed)
+                            n.Dispose();
+
+                        Right = null;
+                    }
+                }
             }
 
             #endregion Binary
@@ -889,7 +908,16 @@ namespace DynamORM.Helpers.Dynamics
             public Node Host { get; internal set; }
 
             /// <summary>Gets reference to the parser.</summary>
-            public DynamicParser Parser { get; internal set; }
+            public DynamicParser Parser
+            {
+                get { return _parser; }
+                internal set
+                {
+                    _parser = value;
+                    if (_parser != null)
+                        _parser._allNodes.Add(this);
+                }
+            }
 
             /// <summary>
             /// Initializes a new instance of the <see cref="Node"/> class.
@@ -982,12 +1010,18 @@ namespace DynamORM.Helpers.Dynamics
             /// <summary>Gets a value indicating whether this instance is disposed.</summary>
             public bool IsDisposed { get; private set; }
 
-            /// <summary>
-            /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-            /// </summary>
-            public void Dispose()
+            /// <summary>Performs application-defined tasks associated with
+            /// freeing, releasing, or resetting unmanaged resources.</summary>
+            public virtual void Dispose()
             {
                 IsDisposed = true;
+
+                if (Host != null && !Host.IsDisposed)
+                    Host.Dispose();
+
+                Host = null;
+
+                Parser = null;
             }
 
             #endregion Implementation of IExtendedDisposable
@@ -1017,6 +1051,7 @@ namespace DynamORM.Helpers.Dynamics
         #region Data
 
         private List<Node.Argument> _arguments = new List<Node.Argument>();
+        private List<Node> _allNodes = new List<Node>();
         private object _uncertainResult;
 
         #endregion Data
@@ -1129,6 +1164,34 @@ namespace DynamORM.Helpers.Dynamics
         public void Dispose()
         {
             IsDisposed = true;
+
+            if (_uncertainResult != null && _uncertainResult is Node)
+            {
+                ((Node)_uncertainResult).Dispose();
+                _uncertainResult = null;
+            }
+
+            if (Last != null && !Last.IsDisposed)
+            {
+                Last.Dispose();
+                Last = null;
+            }
+
+            if (_arguments != null)
+            {
+                _arguments.ForEach(x => { if (!x.IsDisposed) x.Dispose(); });
+
+                _arguments.Clear();
+                _arguments = null;
+            }
+
+            if (_allNodes != null)
+            {
+                _allNodes.ForEach(x => { if (!x.IsDisposed) x.Dispose(); });
+
+                _allNodes.Clear();
+                _allNodes = null;
+            }
         }
 
         #endregion Implementation of IExtendedDisposable

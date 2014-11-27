@@ -26,10 +26,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+using DynamORM.Helpers;
+
 namespace DynamORM.Builders
 {
     /// <summary>Interface describing parameter info.</summary>
-    public interface IParameter
+    public interface IParameter : IExtendedDisposable
     {
         /// <summary>Gets the parameter position in command.</summary>
         /// <remarks>Available after filling the command.</remarks>

@@ -29,12 +29,13 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using DynamORM.Helpers;
 
 namespace DynamORM.Builders
 {
     /// <summary>Dynamic query builder base interface.</summary>
     /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
-    public interface IDynamicQueryBuilder
+    public interface IDynamicQueryBuilder : IExtendedDisposable
     {
         /// <summary>Gets <see cref="DynamicDatabase"/> instance.</summary>
         DynamicDatabase Database { get; }

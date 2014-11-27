@@ -39,7 +39,7 @@ namespace DynamORM.Helpers.Dynamics
     /// <summary>Class that allows to use interfaces as dynamic objects.</summary>
     /// <typeparam name="T">Type of class to proxy.</typeparam>
     /// <remarks>This is temporary solution. Which allows to use builders as a dynamic type.</remarks>
-    public class DynamicProxy<T> : DynamicObject
+    public class DynamicProxy<T> : DynamicObject, IDisposable
     {
         private T _proxy;
         private Type _type;
@@ -59,15 +59,15 @@ namespace DynamORM.Helpers.Dynamics
             _proxy = proxiedObject;
             _type = typeof(T);
 
-            var members = GetAllMembers(_type);
+            var mapper = Mapper.DynamicMapperCache.GetMapper<T>();
 
-            _properties = members
-                .Where(x => x is PropertyInfo)
+            _properties = mapper
+                .ColumnsMap
                 .ToDictionary(
-                    k => k.Name,
-                    v => new DynamicPropertyInvoker((PropertyInfo)v, null));
+                    k => k.Value.Name,
+                    v => v.Value);
 
-            _methods = members
+            _methods = GetAllMembers(_type)
                 .Where(x => x is MethodInfo)
                 .Cast<MethodInfo>()
                 .Where(m => !((m.Name.StartsWith("set_") && m.ReturnType == typeof(void)) || m.Name.StartsWith("get_")))
@@ -311,6 +311,22 @@ namespace DynamORM.Helpers.Dynamics
             }
 
             return type.GetMembers(BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance);
+        }
+
+        /// <summary>Performs application-defined tasks associated with
+        /// freeing, releasing, or resetting unmanaged resources.</summary>
+        public void Dispose()
+        {
+            object res;
+            TryInvokeMethod("Dispose", out res, new object[] { });
+
+            _methods.Clear();
+            _properties.Clear();
+
+            _methods = null;
+            _properties = null;
+            _type = null;
+            _proxy = default(T);
         }
     }
 }
