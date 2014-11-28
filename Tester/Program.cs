@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using DynamORM.Mapper;
 
 namespace Tester
@@ -41,28 +42,34 @@ namespace Tester
             while (Console.In.ReadLine() != "q")
             {
                 Console.Out.WriteLine("Bombardment...");
-                using (var db = GetORM())
-                    for (int i = 0; i < 1000; i++)
-                    {
-                        //var session = db.From(x => x.mom_Sessions.As(x.s))
-                        //    .Where(s => s.ms_id == Guid.Empty && s.ms_mus_id == Guid.Empty)
-                        //    .Execute<Session>()
-                        //    .FirstOrDefault();
-                        //var session = db.From(x => x.mom_Sessions.As(x.s))
-                        //    .Where(s => s.ms_id == Guid.Empty && s.ms_mus_id == Guid.Empty)
-                        //    .Execute()
-                        //    .FirstOrDefault();
-
-                        db.Delete(x => x.mom_Sessions)
-                            .Where(s => s.ms_id == Guid.Empty && s.ms_mus_id == Guid.Empty)
-                            .Execute();
-
-                        //var session = (db.Table().Query("SELECT * FROM mom_Sessions WHERE ms_id = @0 AND ms_mus_id = @1", Guid.Empty, Guid.Empty)
-                        //    as IEnumerable<dynamic>).FirstOrDefault();
-                    }
+                BombsAway();
 
                 Console.Out.WriteLine("Done.");
             }
+        }
+
+        private static void BombsAway()
+        {
+            for (int i = 0; i < 1000; i++)
+                using (var db = GetORM())
+                {
+                    //var session = db.From(x => x.mom_Sessions.As(x.s))
+                    //    .Where(s => s.ms_id == Guid.Empty && s.ms_mus_id == Guid.Empty)
+                    //    .Execute<Session>()
+                    //    .FirstOrDefault();
+                    var session = db.From(x => x.mom_Sessions.As(x.s))
+                        .Where(s => s.ms_id == Guid.Empty && s.ms_mus_id == Guid.Empty)
+                        .Execute()
+                        .FirstOrDefault();
+
+                    //db.Table("mom_Sessions").Delete()
+                    //    .Where("ms_id", Guid.Empty)
+                    //    .Where("ms_mus_id", Guid.Empty)
+                    //    .Execute();
+
+                    //var session = (db.Table().Query("SELECT * FROM mom_Sessions WHERE ms_id = @0 AND ms_mus_id = @1", Guid.Empty, Guid.Empty)
+                    //    as IEnumerable<dynamic>).FirstOrDefault();
+                }
         }
     }
 }

@@ -773,7 +773,10 @@ namespace DynamORM
 
                 IsDisposed = true;
 
+                _command.Parameters.Clear();
+
                 _command.Dispose();
+                _command = null;
             }
         }
 
@@ -980,6 +983,9 @@ namespace DynamORM
         /// <summary>Gets schema columns cache.</summary>
         internal Dictionary<string, Dictionary<string, DynamicSchemaColumn>> Schema { get; private set; }
 
+        /// <summary>Gets active builders that weren't disposed.</summary>
+        internal List<IDynamicQueryBuilder> RemainingBuilders { get; private set; }
+
 #if !DYNAMORM_OMMIT_OLDSYNTAX
 
         /// <summary>Gets tables cache for this database instance.</summary>
@@ -1050,6 +1056,7 @@ namespace DynamORM
             TransactionPool = new Dictionary<IDbConnection, Stack<IDbTransaction>>();
             CommandsPool = new Dictionary<IDbConnection, List<IDbCommand>>();
             Schema = new Dictionary<string, Dictionary<string, DynamicSchemaColumn>>();
+            RemainingBuilders = new List<IDynamicQueryBuilder>();
 #if !DYNAMORM_OMMIT_OLDSYNTAX
             TablesCache = new Dictionary<string, DynamicTable>();
 #endif
@@ -1133,6 +1140,22 @@ namespace DynamORM
 #endif
 
         #endregion Table
+
+        /// <summary>Adds cached builder.</summary>
+        /// <param name="builder">New dynamic builder.</param>
+        internal void AddToCache(IDynamicQueryBuilder builder)
+        {
+            lock (SyncLock)
+                RemainingBuilders.Add(builder);
+        }
+
+        /// <summary>Removes cached builder.</summary>
+        /// <param name="builder">Disposed dynamic builder.</param>
+        internal void RemoveFromCache(IDynamicQueryBuilder builder)
+        {
+            lock (SyncLock)
+                RemainingBuilders.Remove(builder);
+        }
 
         #region From/Insert/Update/Delete
 
@@ -1846,7 +1869,11 @@ namespace DynamORM
         {
             lock (SyncLock)
                 if (Schema.ContainsKey(table.FullName))
+                {
+                    if (Schema[table.FullName] != null)
+                        Schema[table.FullName].Clear();
                     Schema.Remove(table.FullName);
+                }
         }
 
         /// <summary>Clears the all schemas from cache.</summary>
@@ -1854,7 +1881,13 @@ namespace DynamORM
         public void ClearSchema()
         {
             lock (SyncLock)
+            {
+                foreach (var s in Schema)
+                    if (s.Value != null)
+                        s.Value.Clear();
+
                 Schema.Clear();
+            }
         }
 
         /// <summary>Get schema describing objects from reader.</summary>
@@ -2175,6 +2208,7 @@ namespace DynamORM
 
                 // Dispose the corpse
                 connection.Dispose();
+                connection = null;
             }
         }
 
@@ -2268,6 +2302,8 @@ namespace DynamORM
             TablesCache.Clear();
 
             tables.ForEach(t => t.Dispose());
+            tables.Clear();
+            tables = null;
 #endif
 
             foreach (var con in TransactionPool)
@@ -2279,6 +2315,8 @@ namespace DynamORM
                     tmp.ForEach(cmd => cmd.Dispose());
 
                     CommandsPool[con.Key].Clear();
+                    tmp.Clear();
+                    CommandsPool[con.Key] = tmp = null;
                 }
 
                 // Rollback remaining transactions
@@ -2297,12 +2335,22 @@ namespace DynamORM
                 con.Key.Dispose();
             }
 
+            while (RemainingBuilders.Count > 0)
+                RemainingBuilders.First().Dispose();
+
             // Clear pools
             lock (SyncLock)
             {
                 TransactionPool.Clear();
                 CommandsPool.Clear();
+                RemainingBuilders.Clear();
+
+                TransactionPool = null;
+                CommandsPool = null;
+                RemainingBuilders = null;
             }
+
+            ClearSchema();
 
             IsDisposed = true;
         }
@@ -5025,7 +5073,7 @@ namespace DynamORM
 
         /// <summary>Dynamic query builder base interface.</summary>
         /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
-        public interface IDynamicQueryBuilder
+        public interface IDynamicQueryBuilder : IExtendedDisposable
         {
             /// <summary>Gets <see cref="DynamicDatabase"/> instance.</summary>
             DynamicDatabase Database { get; }
@@ -5357,7 +5405,7 @@ namespace DynamORM
         }
 
         /// <summary>Interface describing parameter info.</summary>
-        public interface IParameter
+        public interface IParameter : IExtendedDisposable
         {
             /// <summary>Gets the parameter position in command.</summary>
             /// <remarks>Available after filling the command.</remarks>
@@ -5380,7 +5428,7 @@ namespace DynamORM
         }
 
         /// <summary>Interface describing table information.</summary>
-        public interface ITableInfo
+        public interface ITableInfo : IExtendedDisposable
         {
             /// <summary>Gets table owner name.</summary>
             string Owner { get; }
@@ -5988,6 +6036,19 @@ namespace DynamORM
                 }
 
                 #endregion Insert
+
+                #region IExtendedDisposable
+
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                public override void Dispose()
+                {
+                    base.Dispose();
+
+                    _columns = _values = null;
+                }
+
+                #endregion IExtendedDisposable
             }
 
             /// <summary>Base query builder for insert/update/delete statements.</summary>
@@ -6054,6 +6115,7 @@ namespace DynamORM
                     /// </summary>
                     internal TableInfo()
                     {
+                        IsDisposed = false;
                     }
 
                     /// <summary>
@@ -6064,6 +6126,7 @@ namespace DynamORM
                     /// <param name="alias">The table alias.</param>
                     /// <param name="owner">The table owner.</param>
                     public TableInfo(DynamicDatabase db, string name, string alias = null, string owner = null)
+                        : this()
                     {
                         Name = name;
                         Alias = alias;
@@ -6081,6 +6144,7 @@ namespace DynamORM
                     /// <param name="alias">The table alias.</param>
                     /// <param name="owner">The table owner.</param>
                     public TableInfo(DynamicDatabase db, Type type, string alias = null, string owner = null)
+                        : this()
                     {
                         var mapper = DynamicMapperCache.GetMapper(type);
 
@@ -6104,6 +6168,20 @@ namespace DynamORM
 
                     /// <summary>Gets or sets table schema.</summary>
                     public Dictionary<string, DynamicSchemaColumn> Schema { get; internal set; }
+
+                    /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+                    public bool IsDisposed { get; private set; }
+
+                    /// <summary>Performs application-defined tasks associated with
+                    /// freeing, releasing, or resetting unmanaged resources.</summary>
+                    public virtual void Dispose()
+                    {
+                        IsDisposed = true;
+
+                        Schema.Clear();
+                        Owner = Name = Alias = null;
+                        Schema = null;
+                    }
                 }
 
                 /// <summary>Generic based table information.</summary>
@@ -6129,6 +6207,13 @@ namespace DynamORM
                 /// <summary>Interface describing parameter info.</summary>
                 internal class Parameter : IParameter
                 {
+                    /// <summary>Initializes a new instance of the
+                    /// <see cref="Parameter"/> class.</summary>
+                    public Parameter()
+                    {
+                        IsDisposed = false;
+                    }
+
                     /// <summary>Gets or sets the parameter position in command.</summary>
                     /// <remarks>Available after filling the command.</remarks>
                     public int Ordinal { get; internal set; }
@@ -6147,6 +6232,19 @@ namespace DynamORM
 
                     /// <summary>Gets or sets the parameter schema information.</summary>
                     public DynamicSchemaColumn? Schema { get; set; }
+
+                    /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+                    public bool IsDisposed { get; private set; }
+
+                    /// <summary>Performs application-defined tasks associated with
+                    /// freeing, releasing, or resetting unmanaged resources.</summary>
+                    public virtual void Dispose()
+                    {
+                        IsDisposed = true;
+
+                        Name = null;
+                        Schema = null;
+                    }
                 }
 
                 #endregion Parameter
@@ -6159,6 +6257,7 @@ namespace DynamORM
                 /// <param name="db">The database.</param>
                 public DynamicQueryBuilder(DynamicDatabase db)
                 {
+                    IsDisposed = false;
                     VirtualMode = false;
                     Tables = new List<ITableInfo>();
                     Parameters = new Dictionary<string, IParameter>();
@@ -6167,6 +6266,9 @@ namespace DynamORM
                     OpenBracketsCount = 0;
 
                     Database = db;
+                    if (Database != null)
+                        Database.AddToCache(this);
+
                     SupportSchema = (db.Options & DynamicDatabaseOptions.SupportSchema) == DynamicDatabaseOptions.SupportSchema;
                 }
 
@@ -6318,7 +6420,9 @@ namespace DynamORM
                     // If node is a delegate, parse it to create the logical tree...
                     if (node is Delegate)
                     {
-                        node = DynamicParser.Parse((Delegate)node).Result;
+                        using (var p = DynamicParser.Parse((Delegate)node))
+                            node = p.Result;
+
                         return Parse(node, ref columnSchema, pars, rawstr, decorate: decorate); // Intercept containers as in (x => "string")
                     }
 
@@ -6801,6 +6905,44 @@ namespace DynamORM
                 }
 
                 #endregion Helpers
+
+                #region IExtendedDisposable
+
+                /// <summary>Gets a value indicating whether this instance is disposed.</summary>
+                public bool IsDisposed { get; private set; }
+
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                public virtual void Dispose()
+                {
+                    IsDisposed = true;
+
+                    if (Database != null)
+                        Database.RemoveFromCache(this);
+
+                    if (Parameters != null)
+                    {
+                        foreach (var p in Parameters)
+                            p.Value.Dispose();
+
+                        Parameters.Clear();
+                        Parameters = null;
+                    }
+
+                    if (Tables != null)
+                    {
+                        foreach (var t in Tables)
+                            t.Dispose();
+
+                        Tables.Clear();
+                        Tables = null;
+                    }
+
+                    WhereCondition = null;
+                    Database = null;
+                }
+
+                #endregion IExtendedDisposable
             }
 
             /// <summary>Implementation of dynamic select query builder.</summary>
@@ -8060,6 +8202,19 @@ namespace DynamORM
                 }
 
                 #endregion Helpers
+
+                #region IExtendedDisposable
+
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                public override void Dispose()
+                {
+                    base.Dispose();
+
+                    _select = _from = _join = _groupby = _orderby = null;
+                }
+
+                #endregion IExtendedDisposable
             }
 
             /// <summary>Update query builder.</summary>
@@ -8190,7 +8345,11 @@ namespace DynamORM
                         index++;
                         if (f == null)
                             throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
-                        var result = DynamicParser.Parse(f).Result;
+
+                        object result = null;
+
+                        using (var p = DynamicParser.Parse(f))
+                            result = p.Result;
 
                         if (result == null)
                             throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
@@ -8343,6 +8502,19 @@ namespace DynamORM
                 }
 
                 #endregion Where
+
+                #region IExtendedDisposable
+
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                public override void Dispose()
+                {
+                    base.Dispose();
+
+                    _columns = null;
+                }
+
+                #endregion IExtendedDisposable
             }
         }
     }
@@ -8930,6 +9102,8 @@ namespace DynamORM
                 [Serializable]
                 public class Node : IDynamicMetaObjectProvider, IExtendedDisposable, ISerializable
                 {
+                    private DynamicParser _parser = null;
+
                     #region MetaNode
 
                     /// <summary>
@@ -9639,6 +9813,23 @@ namespace DynamORM
 
                             return string.Format("({0} {1} {2})", Host.Sketch(), Operation, Right.Sketch());
                         }
+
+                        /// <summary>Performs application-defined tasks associated with
+                        /// freeing, releasing, or resetting unmanaged resources.</summary>
+                        public override void Dispose()
+                        {
+                            base.Dispose();
+
+                            if (Right != null && Right is Node)
+                            {
+                                Node n = (Node)Right;
+
+                                if (!n.IsDisposed)
+                                    n.Dispose();
+
+                                Right = null;
+                            }
+                        }
                     }
 
                     #endregion Binary
@@ -9765,7 +9956,16 @@ namespace DynamORM
                     public Node Host { get; internal set; }
 
                     /// <summary>Gets reference to the parser.</summary>
-                    public DynamicParser Parser { get; internal set; }
+                    public DynamicParser Parser
+                    {
+                        get { return _parser; }
+                        internal set
+                        {
+                            _parser = value;
+                            if (_parser != null)
+                                _parser._allNodes.Add(this);
+                        }
+                    }
 
                     /// <summary>
                     /// Initializes a new instance of the <see cref="Node"/> class.
@@ -9858,12 +10058,18 @@ namespace DynamORM
                     /// <summary>Gets a value indicating whether this instance is disposed.</summary>
                     public bool IsDisposed { get; private set; }
 
-                    /// <summary>
-                    /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-                    /// </summary>
-                    public void Dispose()
+                    /// <summary>Performs application-defined tasks associated with
+                    /// freeing, releasing, or resetting unmanaged resources.</summary>
+                    public virtual void Dispose()
                     {
                         IsDisposed = true;
+
+                        if (Host != null && !Host.IsDisposed)
+                            Host.Dispose();
+
+                        Host = null;
+
+                        Parser = null;
                     }
 
                     #endregion Implementation of IExtendedDisposable
@@ -9893,6 +10099,7 @@ namespace DynamORM
                 #region Data
 
                 private List<Node.Argument> _arguments = new List<Node.Argument>();
+                private List<Node> _allNodes = new List<Node>();
                 private object _uncertainResult;
 
                 #endregion Data
@@ -10005,6 +10212,34 @@ namespace DynamORM
                 public void Dispose()
                 {
                     IsDisposed = true;
+
+                    if (_uncertainResult != null && _uncertainResult is Node)
+                    {
+                        ((Node)_uncertainResult).Dispose();
+                        _uncertainResult = null;
+                    }
+
+                    if (Last != null && !Last.IsDisposed)
+                    {
+                        Last.Dispose();
+                        Last = null;
+                    }
+
+                    if (_arguments != null)
+                    {
+                        _arguments.ForEach(x => { if (!x.IsDisposed) x.Dispose(); });
+
+                        _arguments.Clear();
+                        _arguments = null;
+                    }
+
+                    if (_allNodes != null)
+                    {
+                        _allNodes.ForEach(x => { if (!x.IsDisposed) x.Dispose(); });
+
+                        _allNodes.Clear();
+                        _allNodes = null;
+                    }
                 }
 
                 #endregion Implementation of IExtendedDisposable
@@ -10013,7 +10248,7 @@ namespace DynamORM
             /// <summary>Class that allows to use interfaces as dynamic objects.</summary>
             /// <typeparam name="T">Type of class to proxy.</typeparam>
             /// <remarks>This is temporary solution. Which allows to use builders as a dynamic type.</remarks>
-            public class DynamicProxy<T> : DynamicObject
+            public class DynamicProxy<T> : DynamicObject, IDisposable
             {
                 private T _proxy;
                 private Type _type;
@@ -10033,15 +10268,15 @@ namespace DynamORM
                     _proxy = proxiedObject;
                     _type = typeof(T);
 
-                    var members = GetAllMembers(_type);
+                    var mapper = Mapper.DynamicMapperCache.GetMapper<T>();
 
-                    _properties = members
-                        .Where(x => x is PropertyInfo)
+                    _properties = mapper
+                        .ColumnsMap
                         .ToDictionary(
-                            k => k.Name,
-                            v => new DynamicPropertyInvoker((PropertyInfo)v, null));
+                            k => k.Value.Name,
+                            v => v.Value);
 
-                    _methods = members
+                    _methods = GetAllMembers(_type)
                         .Where(x => x is MethodInfo)
                         .Cast<MethodInfo>()
                         .Where(m => !((m.Name.StartsWith("set_") && m.ReturnType == typeof(void)) || m.Name.StartsWith("get_")))
@@ -10285,6 +10520,21 @@ namespace DynamORM
                     }
 
                     return type.GetMembers(BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance);
+                }
+
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                public void Dispose()
+                {
+                    object res;
+                    TryInvokeMethod("Dispose", out res, new object[] { });
+
+                    _properties.Clear();
+
+                    _methods = null;
+                    _properties = null;
+                    _type = null;
+                    _proxy = default(T);
                 }
             }
         }
@@ -10654,7 +10904,7 @@ namespace DynamORM
                 var propertyMap = new Dictionary<string, string>();
                 var ignored = new List<string>();
 
-                foreach (var pi in Type.GetProperties())
+                foreach (var pi in GetAllMembers(Type).Where(x => x is PropertyInfo).Cast<PropertyInfo>())
                 {
                     ColumnAttribute attr = null;
 
@@ -10712,6 +10962,46 @@ namespace DynamORM
                 }
 
                 return destination;
+            }
+
+            private IEnumerable<MemberInfo> GetAllMembers(Type type)
+            {
+                if (type.IsInterface)
+                {
+                    var members = new List<MemberInfo>();
+
+                    var considered = new List<Type>();
+                    var queue = new Queue<Type>();
+
+                    considered.Add(type);
+                    queue.Enqueue(type);
+
+                    while (queue.Count > 0)
+                    {
+                        var subType = queue.Dequeue();
+                        foreach (var subInterface in subType.GetInterfaces())
+                        {
+                            if (considered.Contains(subInterface)) continue;
+
+                            considered.Add(subInterface);
+                            queue.Enqueue(subInterface);
+                        }
+
+                        var typeProperties = subType.GetMembers(
+                            BindingFlags.FlattenHierarchy
+                            | BindingFlags.Public
+                            | BindingFlags.Instance);
+
+                        var newPropertyInfos = typeProperties
+                            .Where(x => !members.Contains(x));
+
+                        members.InsertRange(0, newPropertyInfos);
+                    }
+
+                    return members;
+                }
+
+                return type.GetMembers(BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.Instance);
             }
 
             #region Type command cache
