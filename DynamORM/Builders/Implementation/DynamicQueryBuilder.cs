@@ -821,9 +821,9 @@ namespace DynamORM.Builders.Implementation
             ////    return null;
 
             // First we need to get real column name and it's owner if exist.
-            var parts = colName.Split('.')
-                .Select(c => Database.StripName(c))
-                .ToArray();
+            var parts = colName.Split('.');
+            for (int i = 0; i < parts.Length; i++)
+                parts[i] = Database.StripName(parts[i]);
 
             var columnName = parts.Last();
 

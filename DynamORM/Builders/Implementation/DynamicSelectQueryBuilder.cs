@@ -898,7 +898,11 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicSelectQueryBuilder SelectColumn(params string[] columns)
         {
-            return SelectColumn(columns.Select(c => DynamicColumn.ParseSelectColumn(c)).ToArray());
+            var cols = new DynamicColumn[columns.Count];
+            for (int i = 0; i < columns.Length; i++)
+                cols[i] = DynamicColumn.ParseSelectColumn(columns[i]);
+
+            return SelectColumn(cols);
         }
 
         #endregion Select
@@ -919,8 +923,11 @@ namespace DynamORM.Builders.Implementation
             int index = GroupByFunc(-1, fn);
 
             if (func != null)
-                foreach (var f in func)
+                for (int i = 0; i < func.Length; i++)
+                {
+                    var f = func[i];
                     index = GroupByFunc(index, f);
+                }
 
             return this;
         }
@@ -958,8 +965,11 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicSelectQueryBuilder GroupByColumn(params DynamicColumn[] columns)
         {
-            foreach (var col in columns)
+            for (int i = 0; i < columns.Length; i++)
+            {
+                var col = columns[i];
                 GroupBy(x => col.ToSQLGroupByColumn(Database));
+            }
 
             return this;
         }
@@ -995,8 +1005,11 @@ namespace DynamORM.Builders.Implementation
             int index = OrderByFunc(-1, fn);
 
             if (func != null)
-                foreach (var f in func)
+                for (int i = 0; i < func.Length; i++)
+                {
+                    var f = func[i];
                     index = OrderByFunc(index, f);
+                }
 
             return this;
         }
@@ -1087,8 +1100,11 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicSelectQueryBuilder OrderByColumn(params DynamicColumn[] columns)
         {
-            foreach (var col in columns)
+            for (int i = 0; i < columns.Length; i++)
+            {
+                var col = columns[i];
                 OrderBy(x => col.ToSQLOrderByColumn(Database));
+            }
 
             return this;
         }

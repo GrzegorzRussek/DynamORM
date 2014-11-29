@@ -77,7 +77,7 @@ namespace Tester
         {
             string test_str = string.Empty;
 
-            for (int y = 0; y < 10; y++)
+            /*for (int y = 0; y < 10; y++)
             {
                 string val = null;
                 for (int i = 0; i < 1000; i++)
@@ -119,7 +119,7 @@ namespace Tester
                 GC.Collect();
 
                 Console.Out.WriteLine("Expr: [ExpandoObject as Dict], Mem: {0}", GC.GetTotalMemory(true));
-            }
+            }*/
 
             /*for (int y = 0; y < 10; y++)
             {
@@ -148,7 +148,7 @@ namespace Tester
                 
             //using (var db = GetORM())
             {
-                for (int y = 0; y < 10; y++)
+                for (int y = 0; y < 5; y++)
                 {
                     using (var db = GetORM())
                         for (int i = 0; i < 1000; i++)
@@ -160,7 +160,7 @@ namespace Tester
                     Console.Out.WriteLine("Expr: [db.Table(\"Test\").Scalar(\"SELECT id FROM Test;\")] = {0}, Mem: {1}", test_str, GC.GetTotalMemory(true));
                 }
 
-                for (int y = 0; y < 10; y++)
+                for (int y = 0; y < 5; y++)
                 {
                     using (var db = GetORM())
                         for (int i = 0; i < 1000; i++)
@@ -172,7 +172,7 @@ namespace Tester
                     Console.Out.WriteLine("Expr: [db.Table(\"Test\").Scalar(columns: \"id\")] = {0}, Mem: {1}", test_str, GC.GetTotalMemory(true));
                 }
 
-                for (int y = 0; y < 10; y++)
+                for (int y = 0; y < 5; y++)
                 {
                     using (var db = GetORM())
                         for (int i = 0; i < 1000; i++)
@@ -184,7 +184,7 @@ namespace Tester
                     Console.Out.WriteLine("Expr: [db.From(x => x.Test.As(x.t)).Where(t => t.id == 1).ToList().First().val] = {0}, Mem: {1}", test_str, GC.GetTotalMemory(true));
                 }
 
-                for (int y = 0; y < 10; y++)
+                for (int y = 0; y < 5; y++)
                 {
                     using (var db = GetORM())
                         for (int i = 0; i < 1000; i++)

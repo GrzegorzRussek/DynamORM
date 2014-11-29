@@ -52,7 +52,7 @@ namespace DynamORM.Helpers.Dynamics
         /// a method of that argument.
         /// </summary>
         [Serializable]
-        public class Node : IDynamicMetaObjectProvider, IExtendedDisposable, ISerializable
+        public class Node : IDynamicMetaObjectProvider, IFinalizerDisposable, ISerializable
         {
             private DynamicParser _parser = null;
 
@@ -76,17 +76,16 @@ namespace DynamORM.Helpers.Dynamics
                 }
 
                 // Func was cool but caused memory leaks
-                private DynamicMetaObject GetBinder(Node newNode)
+                private DynamicMetaObject GetBinder(Node node)
                 {
                     var o = (Node)this.Value;
-                    o.Parser.Last = newNode;
-
-                    newNode.Parser = o.Parser;
+                    node.Parser = o.Parser;
+                    o.Parser.Last = node;
 
                     var p = Expression.Variable(typeof(Node), "ret");
-                    var exp = Expression.Block(new ParameterExpression[] { p }, Expression.Assign(p, Expression.Constant(newNode)));
+                    var exp = Expression.Block(new ParameterExpression[] { p }, Expression.Assign(p, Expression.Constant(node)));
 
-                    return new MetaNode(exp, this.Restrictions, newNode);
+                    return new MetaNode(exp, this.Restrictions, node);
                 }
 
                 /// <summary>
@@ -124,7 +123,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindGetIndex(GetIndexBinder binder, DynamicMetaObject[] indexes)
                 {
-                    return GetBinder(new GetIndex((Node)this.Value, indexes.Select(m => m.Value).ToArray()));
+                    return GetBinder(new GetIndex((Node)this.Value, MetaList2List(indexes)));
                 }
 
                 /// <summary>
@@ -138,7 +137,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindSetIndex(SetIndexBinder binder, DynamicMetaObject[] indexes, DynamicMetaObject value)
                 {
-                    return GetBinder(new SetIndex((Node)this.Value, indexes.Select(m => m.Value).ToArray(), value.Value));
+                    return GetBinder(new SetIndex((Node)this.Value, MetaList2List(indexes), value.Value));
                 }
 
                 /// <summary>
@@ -151,7 +150,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindInvoke(InvokeBinder binder, DynamicMetaObject[] args)
                 {
-                    return GetBinder(new Invoke((Node)this.Value, args.Select(m => m.Value).ToArray()));
+                    return GetBinder(new Invoke((Node)this.Value, MetaList2List(args)));
                 }
 
                 /// <summary>
@@ -164,7 +163,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindInvokeMember(InvokeMemberBinder binder, DynamicMetaObject[] args)
                 {
-                    return GetBinder(new Method((Node)this.Value, binder.Name, args.Select(m => m.Value).ToArray()));
+                    return GetBinder(new Method((Node)this.Value, binder.Name, MetaList2List(args)));
                 }
 
                 /// <summary>
@@ -257,6 +256,17 @@ namespace DynamORM.Helpers.Dynamics
                         Expression.Assign(p, Expression.Constant(ret, binder.ReturnType))); // specifying binder.ReturnType
 
                     return new MetaNode(exp, this.Restrictions, node);
+                }
+
+                private static object[] MetaList2List(DynamicMetaObject[] metaObjects)
+                {
+                    if (metaObjects == null) return null;
+
+                    object[] list = new object[metaObjects.Length];
+                    for (int i = 0; i < metaObjects.Length; i++)
+                        list[i] = metaObjects[i].Value;
+
+                    return list;
                 }
             }
 
@@ -770,16 +780,17 @@ namespace DynamORM.Helpers.Dynamics
 
                 /// <summary>Performs application-defined tasks associated with
                 /// freeing, releasing, or resetting unmanaged resources.</summary>
-                public override void Dispose()
+                /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+                public override void Dispose(bool disposing)
                 {
-                    base.Dispose();
+                    base.Dispose(disposing);
 
-                    if (Right != null && Right is Node)
+                    if (disposing && Right != null && Right is Node)
                     {
                         Node n = (Node)Right;
 
                         if (!n.IsDisposed)
-                            n.Dispose();
+                            n.Dispose(disposing);
 
                         Right = null;
                     }
@@ -1007,7 +1018,15 @@ namespace DynamORM.Helpers.Dynamics
 
             #endregion Implementation of IDynamicMetaObjectProvider
 
-            #region Implementation of IExtendedDisposable
+            #region Implementation of IFinalizerDisposable
+
+            /// <summary>Releases unmanaged resources and performs other cleanup operations before 
+            /// the <see cref="DynamORM.Helpers.Dynamics.DynamicParser.Node"/> is reclaimed by 
+            /// garbage collection.</summary>
+            ~Node()
+            {
+                Dispose(false);
+            }
 
             /// <summary>Gets a value indicating whether this instance is disposed.</summary>
             public bool IsDisposed { get; private set; }
@@ -1016,17 +1035,29 @@ namespace DynamORM.Helpers.Dynamics
             /// freeing, releasing, or resetting unmanaged resources.</summary>
             public virtual void Dispose()
             {
-                IsDisposed = true;
-
-                if (Host != null && !Host.IsDisposed)
-                    Host.Dispose();
-
-                Host = null;
-
-                Parser = null;
+                Dispose(true);
+                GC.SuppressFinalize(this);
             }
 
-            #endregion Implementation of IExtendedDisposable
+            /// <summary>Performs application-defined tasks associated with
+            /// freeing, releasing, or resetting unmanaged resources.</summary>
+            /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+            public virtual void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    IsDisposed = true;
+
+                    if (Host != null && !Host.IsDisposed)
+                        Host.Dispose();
+
+                    Host = null;
+
+                    Parser = null;
+                }
+            }
+
+            #endregion Implementation of IFinalizerDisposable
 
             #region Implementation of ISerializable
 
@@ -1104,10 +1135,17 @@ namespace DynamORM.Helpers.Dynamics
 
         private DynamicParser(Delegate f)
         {
-            foreach (var p in f.Method.GetParameters())
+            // I know this can be almost a one liner
+            // but it causes memory leaks when so.
+            var pars = f.Method.GetParameters();
+            foreach (var p in pars)
             {
-                if (p.GetCustomAttributes(typeof(DynamicAttribute), true).Any())
-                    this._arguments.Add(new Node.Argument(p.Name) { Parser = this });
+                var attrs = p.GetCustomAttributes(typeof(DynamicAttribute), true).Length;
+                if (attrs != 0)
+                {
+                    var par = new Node.Argument(p.Name) { Parser = this };
+                    this._arguments.Add(par);
+                }
                 else
                     throw new ArgumentException(string.Format("Argument '{0}' must be dynamic.", p.Name));
             }
