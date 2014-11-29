@@ -75,16 +75,18 @@ namespace DynamORM.Helpers.Dynamics
                 {
                 }
 
-                private DynamicMetaObject GetBinder(Func<Node, Node> newNodeFunc)
+                // Func was cool but caused memory leaks
+                private DynamicMetaObject GetBinder(Node newNode)
                 {
                     var o = (Node)this.Value;
-                    var node = newNodeFunc(o);
-                    o.Parser.Last = node;
+                    o.Parser.Last = newNode;
+
+                    newNode.Parser = o.Parser;
 
                     var p = Expression.Variable(typeof(Node), "ret");
-                    var exp = Expression.Block(new ParameterExpression[] { p }, Expression.Assign(p, Expression.Constant(node)));
+                    var exp = Expression.Block(new ParameterExpression[] { p }, Expression.Assign(p, Expression.Constant(newNode)));
 
-                    return new MetaNode(exp, this.Restrictions, node);
+                    return new MetaNode(exp, this.Restrictions, newNode);
                 }
 
                 /// <summary>
@@ -96,7 +98,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindGetMember(GetMemberBinder binder)
                 {
-                    return GetBinder(x => new GetMember(x, binder.Name) { Parser = x.Parser });
+                    return GetBinder(new GetMember((Node)this.Value, binder.Name));
                 }
 
                 /// <summary>
@@ -109,7 +111,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindSetMember(SetMemberBinder binder, DynamicMetaObject value)
                 {
-                    return GetBinder(x => new SetMember(x, binder.Name, value.Value) { Parser = x.Parser });
+                    return GetBinder(new SetMember((Node)this.Value, binder.Name, value.Value));
                 }
 
                 /// <summary>
@@ -122,7 +124,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindGetIndex(GetIndexBinder binder, DynamicMetaObject[] indexes)
                 {
-                    return GetBinder(x => new GetIndex(x, indexes.Select(m => m.Value).ToArray()) { Parser = x.Parser });
+                    return GetBinder(new GetIndex((Node)this.Value, indexes.Select(m => m.Value).ToArray()));
                 }
 
                 /// <summary>
@@ -136,7 +138,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindSetIndex(SetIndexBinder binder, DynamicMetaObject[] indexes, DynamicMetaObject value)
                 {
-                    return GetBinder(x => new SetIndex(x, indexes.Select(m => m.Value).ToArray(), value.Value) { Parser = x.Parser });
+                    return GetBinder(new SetIndex((Node)this.Value, indexes.Select(m => m.Value).ToArray(), value.Value));
                 }
 
                 /// <summary>
@@ -149,7 +151,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindInvoke(InvokeBinder binder, DynamicMetaObject[] args)
                 {
-                    return GetBinder(x => new Invoke(x, args.Select(m => m.Value).ToArray()) { Parser = x.Parser });
+                    return GetBinder(new Invoke((Node)this.Value, args.Select(m => m.Value).ToArray()));
                 }
 
                 /// <summary>
@@ -162,7 +164,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindInvokeMember(InvokeMemberBinder binder, DynamicMetaObject[] args)
                 {
-                    return GetBinder(x => new Method(x, binder.Name, args.Select(m => m.Value).ToArray()) { Parser = x.Parser });
+                    return GetBinder(new Method((Node)this.Value, binder.Name, args.Select(m => m.Value).ToArray()));
                 }
 
                 /// <summary>
@@ -175,7 +177,7 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindBinaryOperation(BinaryOperationBinder binder, DynamicMetaObject arg)
                 {
-                    return GetBinder(x => new Binary(x, binder.Operation, arg.Value) { Parser = x.Parser });
+                    return GetBinder(new Binary((Node)this.Value, binder.Operation, arg.Value));
                 }
 
                 /// <summary>

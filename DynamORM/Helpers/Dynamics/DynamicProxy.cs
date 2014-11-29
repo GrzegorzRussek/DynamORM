@@ -78,6 +78,7 @@ namespace DynamORM.Helpers.Dynamics
                     {
                         try
                         {
+                            // TODO: MAke this work... open instance delegate would be nice
                             return Delegate.CreateDelegate(Expression.GetDelegateType(v.GetParameters().Select(t => t.ParameterType).Concat(new[] { v.ReflectedType }).ToArray()), _proxy, v.Name);
                         }
                         catch (ArgumentException)

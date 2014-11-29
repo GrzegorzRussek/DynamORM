@@ -63,7 +63,7 @@ Global
 		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
-		StartupItem = AmalgamationTool\AmalgamationTool.csproj
+		StartupItem = Tester\Tester.csproj
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

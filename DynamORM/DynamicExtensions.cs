@@ -819,6 +819,15 @@ namespace DynamORM
             return b.Execute().ToList();
         }
 
+        /// <summary>Turns an <see cref="IDynamicSelectQueryBuilder"/> to a Dynamic list of things with specified type.</summary>
+        /// <typeparam name="T">Type of object to map on.</typeparam>
+        /// <param name="b">Ready to execute builder.</param>
+        /// <returns>List of things.</returns>
+        public static List<T> ToList<T>(this IDynamicSelectQueryBuilder b) where T : class
+        {
+            return b.Execute<T>().ToList();
+        }
+
         /// <summary>Sets the on create temporary parameter action.</summary>
         /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
         /// <param name="b">The builder on which set delegate.</param>
@@ -941,22 +950,27 @@ namespace DynamORM
             return result;
         }
 
-        /// <summary>Turns an <see cref="IDynamicSelectQueryBuilder"/> to a Dynamic list of things with specified type.</summary>
-        /// <typeparam name="T">Type of object to map on.</typeparam>
-        /// <param name="b">Ready to execute builder.</param>
-        /// <returns>List of things.</returns>
-        public static List<T> ToList<T>(this IDynamicSelectQueryBuilder b) where T : class
-        {
-            return b.Execute<T>().ToList();
-        }
-
         /// <summary>Turns the dictionary into an ExpandoObject.</summary>
         /// <param name="d">Dictionary to convert.</param>
         /// <returns>Converted dictionary.</returns>
         public static dynamic ToDynamic(this IDictionary<string, object> d)
         {
+            var result = new DynamicExpando();
+            var dict = (IDictionary<string, object>)result;
+
+            foreach (var prop in d)
+                dict.Add(prop.Key, prop.Value);
+
+            return result;
+        }
+
+        /// <summary>Turns the dictionary into an ExpandoObject.</summary>
+        /// <param name="d">Dictionary to convert.</param>
+        /// <returns>Converted dictionary.</returns>
+        public static dynamic ToExpando(this IDictionary<string, object> d)
+        {
             var result = new ExpandoObject();
-            var dict = result as IDictionary<string, object>;
+            var dict = (IDictionary<string, object>)result;
 
             foreach (var prop in d)
                 dict.Add(prop.Key, prop.Value);
@@ -969,12 +983,61 @@ namespace DynamORM
         /// <returns>Converted object.</returns>
         public static dynamic ToDynamic(this object o)
         {
-            var result = new ExpandoObject();
-            var dict = result as IDictionary<string, object>;
             var ot = o.GetType();
 
-            if (ot == typeof(ExpandoObject))
+            if (ot == typeof(ExpandoObject) || ot == typeof(DynamicExpando))
                 return o;
+
+            var result = new DynamicExpando();
+            var dict = (IDictionary<string, object>)result;
+
+            if (o is IDictionary<string, object>)
+                ((IDictionary<string, object>)o)
+                    .ToList()
+                    .ForEach(kvp => dict.Add(kvp.Key, kvp.Value));
+            else if (ot == typeof(NameValueCollection) || ot.IsSubclassOf(typeof(NameValueCollection)))
+            {
+                var nameValue = (NameValueCollection)o;
+                nameValue.Cast<string>()
+                    .Select(key => new KeyValuePair<string, object>(key, nameValue[key]))
+                    .ToList()
+                    .ForEach(i => dict.Add(i));
+            }
+            else
+            {
+                var mapper = DynamicMapperCache.GetMapper(ot);
+
+                if (mapper != null)
+                {
+                    foreach (var item in mapper.ColumnsMap.Values)
+                        if (item.Get != null)
+                            dict.Add(item.Name, item.Get(o));
+                }
+                else
+                {
+                    var props = ot.GetProperties();
+
+                    foreach (var item in props)
+                        if (item.CanRead)
+                            dict.Add(item.Name, item.GetValue(o, null));
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>Turns the object into an ExpandoObject.</summary>
+        /// <param name="o">Object to convert.</param>
+        /// <returns>Converted object.</returns>
+        public static dynamic ToExpando(this object o)
+        {
+            var ot = o.GetType();
+
+            if (ot == typeof(ExpandoObject) || ot == typeof(DynamicExpando))
+                return o;
+
+            var result = new ExpandoObject();
+            var dict = (IDictionary<string, object>)result;
 
             if (o is IDictionary<string, object>)
                 ((IDictionary<string, object>)o)
@@ -1016,13 +1079,27 @@ namespace DynamORM
         /// <returns>Generated dynamic object.</returns>
         public static dynamic RowToDynamic(this DataRow r)
         {
-            dynamic e = new ExpandoObject();
-            var d = e as IDictionary<string, object>;
+            dynamic e = new DynamicExpando();
 
             int len = r.Table.Columns.Count;
 
             for (int i = 0; i < len; i++)
-                d.Add(r.Table.Columns[i].ColumnName, r.IsNull(i) ? null : r[i]);
+                ((IDictionary<string, object>)e).Add(r.Table.Columns[i].ColumnName, r.IsNull(i) ? null : r[i]);
+
+            return e;
+        }
+
+        /// <summary>Convert data row row into dynamic object.</summary>
+        /// <param name="r">DataRow from which read.</param>
+        /// <returns>Generated dynamic object.</returns>
+        public static dynamic RowToExpando(this DataRow r)
+        {
+            dynamic e = new ExpandoObject();
+
+            int len = r.Table.Columns.Count;
+
+            for (int i = 0; i < len; i++)
+                ((IDictionary<string, object>)e).Add(r.Table.Columns[i].ColumnName, r.IsNull(i) ? null : r[i]);
 
             return e;
         }
@@ -1032,13 +1109,40 @@ namespace DynamORM
         /// <returns>Generated dynamic object.</returns>
         public static dynamic RowToDynamicUpper(this DataRow r)
         {
-            dynamic e = new ExpandoObject();
-            var d = e as IDictionary<string, object>;
+            dynamic e = new DynamicExpando();
 
             int len = r.Table.Columns.Count;
 
             for (int i = 0; i < len; i++)
-                d.Add(r.Table.Columns[i].ColumnName.ToUpper(), r.IsNull(i) ? null : r[i]);
+                ((IDictionary<string, object>)e).Add(r.Table.Columns[i].ColumnName.ToUpper(), r.IsNull(i) ? null : r[i]);
+
+            return e;
+        }
+
+        /// <summary>Convert data row row into dynamic object (upper case key).</summary>
+        /// <param name="r">DataRow from which read.</param>
+        /// <returns>Generated dynamic object.</returns>
+        public static dynamic RowToExpandoUpper(this DataRow r)
+        {
+            // ERROR: Memory leak
+            dynamic e = new ExpandoObject();
+
+            int len = r.Table.Columns.Count;
+
+            for (int i = 0; i < len; i++)
+                ((IDictionary<string, object>)e).Add(r.Table.Columns[i].ColumnName.ToUpper(), r.IsNull(i) ? null : r[i]);
+
+            return e;
+        }
+
+        internal static Dictionary<string, object> RowToDynamicUpperDict(this DataRow r)
+        {
+            dynamic e = new Dictionary<string, object>();
+
+            int len = r.Table.Columns.Count;
+
+            for (int i = 0; i < len; i++)
+                e.Add(r.Table.Columns[i].ColumnName.ToUpper(), r.IsNull(i) ? null : r[i]);
 
             return e;
         }
@@ -1048,20 +1152,43 @@ namespace DynamORM
         /// <returns>Generated dynamic object.</returns>
         public static dynamic RowToDynamic(this IDataReader r)
         {
+            dynamic e = new DynamicExpando();
+            var d = e as IDictionary<string, object>;
+
+            int c = r.FieldCount;
+            for (int i = 0; i < c; i++)
+                try
+            {
+                d.Add(r.GetName(i), r.IsDBNull(i) ? null : r[i]);
+            }
+            catch (ArgumentException argex)
+            {
+                throw new ArgumentException(
+                    string.Format("Field '{0}' is defined more than once in a query.", r.GetName(i)), "Column name or alias", argex);
+            }
+
+            return e;
+        }
+
+        /// <summary>Convert reader row into dynamic object.</summary>
+        /// <param name="r">Reader from which read.</param>
+        /// <returns>Generated dynamic object.</returns>
+        public static dynamic RowToExpando(this IDataReader r)
+        {
             dynamic e = new ExpandoObject();
             var d = e as IDictionary<string, object>;
 
             int c = r.FieldCount;
             for (int i = 0; i < c; i++)
                 try
-                {
-                    d.Add(r.GetName(i), r.IsDBNull(i) ? null : r[i]);
-                }
-                catch (ArgumentException argex)
-                {
-                    throw new ArgumentException(
-                        string.Format("Field '{0}' is defined more than once in a query.", r.GetName(i)), "Column name or alias", argex);
-                }
+            {
+                d.Add(r.GetName(i), r.IsDBNull(i) ? null : r[i]);
+            }
+            catch (ArgumentException argex)
+            {
+                throw new ArgumentException(
+                    string.Format("Field '{0}' is defined more than once in a query.", r.GetName(i)), "Column name or alias", argex);
+            }
 
             return e;
         }

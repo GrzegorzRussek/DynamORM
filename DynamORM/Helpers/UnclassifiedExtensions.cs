@@ -27,6 +27,7 @@
 */
 
 using System;
+using System.Collections.Generic;
 
 namespace DynamORM.Helpers
 {
@@ -70,6 +71,20 @@ namespace DynamORM.Helpers
             // Old if to avoid recurency.
             return obj != null && obj != DBNull.Value ?
                 func(obj) : elseFunc != null ? elseFunc() : default(R);
+        }
+
+        /// <summary>Simple distinct by selector extension.</summary>
+        /// <returns>The enumerator of elements distinct by specified selector.</returns>
+        /// <param name="source">Source collection.</param>
+        /// <param name="keySelector">Distinct key selector.</param>
+        /// <typeparam name="R">The enumerable element type parameter.</typeparam>
+        /// <typeparam name="T">The selector type parameter.</typeparam>
+        public static IEnumerable<R> DistinctBy<R, T>(this IEnumerable<R> source, Func<R, T> keySelector)
+        {
+            HashSet<T> seenKeys = new HashSet<T>();
+            foreach (R element in source)
+                if (seenKeys.Add(keySelector(element)))
+                    yield return element;
         }
     }
 }

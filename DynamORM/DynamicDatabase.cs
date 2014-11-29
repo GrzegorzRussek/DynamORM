@@ -1006,14 +1006,15 @@ namespace DynamORM
         /// <param name="owner">Owner of table from which extract column info.</param>
         /// <returns>List of <see cref="DynamicSchemaColumn"/> objects .
         /// If your database doesn't get those values in upper case (like most of the databases) you should override this method.</returns>
-        protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(string table, string owner)
+        protected virtual IList<DynamicSchemaColumn> ReadSchema(string table, string owner)
         {
             using (var con = Open())
             using (var cmd = con.CreateCommand()
                 .SetCommand(string.Format("SELECT * FROM {0}{1} WHERE 1 = 0",
                     !string.IsNullOrEmpty(owner) ? string.Format("{0}.", DecorateName(owner)) : string.Empty,
                     DecorateName(table))))
-                return ReadSchema(cmd).ToList();
+                return ReadSchema(cmd)
+                    .ToList();
         }
 
         /// <summary>Get schema describing objects from reader.</summary>
@@ -1023,7 +1024,8 @@ namespace DynamORM
         protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(IDbCommand cmd)
         {
             using (var rdr = cmd.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
-                foreach (DataRow col in rdr.GetSchemaTable().Rows)
+            using (var st = rdr.GetSchemaTable())
+                foreach (DataRow col in st.Rows)
                 {
                     var c = col.RowToDynamicUpper();
 
@@ -1061,7 +1063,8 @@ namespace DynamORM
             if (databaseSchemaSupport && !Schema.ContainsKey(tableName.ToLower()))
             {
                 schema = ReadSchema(tableName, owner)
-                    .Distinct()
+                    .Where(x => x.Name != null)
+                    .DistinctBy(x => x.Name)
                     .ToDictionary(k => k.Name.ToLower(), k => k);
 
                 Schema[tableName.ToLower()] = schema;
