@@ -456,9 +456,8 @@ namespace DynamORM
 
         /// <summary>Execute stored procedure.</summary>
         /// <param name="procName">Name of stored procedure to execute.</param>
-        /// <param name="args">Arguments (parameters) in form of expando object.</param>
         /// <returns>Number of affected rows.</returns>
-        public virtual int Procedure(string procName, ExpandoObject args = null)
+        public virtual int Procedure(string procName)
         {
             if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
                 throw new InvalidOperationException("Database connection desn't support stored procedures.");
@@ -467,7 +466,64 @@ namespace DynamORM
             using (var cmd = con.CreateCommand())
             {
                 return cmd
-                    .SetCommand(CommandType.StoredProcedure, procName).AddParameters(Database, args)
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <param name="args">Arguments (parameters) in form of expando object.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName, params object[] args)
+        {
+            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .AddParameters(Database, args)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <param name="args">Arguments (parameters) in form of expando object.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName, DynamicExpando args)
+        {
+            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .AddParameters(Database, args)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <param name="args">Arguments (parameters) in form of expando object.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName, ExpandoObject args)
+        {
+            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .AddParameters(Database, args)
                     .ExecuteNonQuery();
             }
         }

@@ -33,6 +33,7 @@ using System.Runtime.Serialization;
 namespace DynamORM
 {
     /// <summary>Dynamic query exception.</summary>
+    [Serializable]
     public class DynamicQueryException : Exception, ISerializable
     {
         /// <summary>Initializes a new instance of the

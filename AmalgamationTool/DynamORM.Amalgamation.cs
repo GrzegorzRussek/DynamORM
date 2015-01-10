@@ -1895,14 +1895,15 @@ namespace DynamORM
         /// <param name="owner">Owner of table from which extract column info.</param>
         /// <returns>List of <see cref="DynamicSchemaColumn"/> objects .
         /// If your database doesn't get those values in upper case (like most of the databases) you should override this method.</returns>
-        protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(string table, string owner)
+        protected virtual IList<DynamicSchemaColumn> ReadSchema(string table, string owner)
         {
             using (var con = Open())
             using (var cmd = con.CreateCommand()
                 .SetCommand(string.Format("SELECT * FROM {0}{1} WHERE 1 = 0",
                     !string.IsNullOrEmpty(owner) ? string.Format("{0}.", DecorateName(owner)) : string.Empty,
                     DecorateName(table))))
-                return ReadSchema(cmd).ToList();
+                return ReadSchema(cmd)
+                    .ToList();
         }
 
         /// <summary>Get schema describing objects from reader.</summary>
@@ -1912,7 +1913,8 @@ namespace DynamORM
         protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(IDbCommand cmd)
         {
             using (var rdr = cmd.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
-                foreach (DataRow col in rdr.GetSchemaTable().Rows)
+            using (var st = rdr.GetSchemaTable())
+                foreach (DataRow col in st.Rows)
                 {
                     var c = col.RowToDynamicUpper();
 
@@ -1950,7 +1952,8 @@ namespace DynamORM
             if (databaseSchemaSupport && !Schema.ContainsKey(tableName.ToLower()))
             {
                 schema = ReadSchema(tableName, owner)
-                    .Distinct()
+                    .Where(x => x.Name != null)
+                    .DistinctBy(x => x.Name)
                     .ToDictionary(k => k.Name.ToLower(), k => k);
 
                 Schema[tableName.ToLower()] = schema;
@@ -2391,6 +2394,170 @@ namespace DynamORM
         DumpCommands = 0x01000000,
     }
 
+    /// <summary>Dynamic expando is a simple and temporary class to resolve memory leaks inside ExpandoObject.</summary>
+    public class DynamicExpando : DynamicObject, IDictionary<string, object>, ICollection<KeyValuePair<string, object>>, IEnumerable<KeyValuePair<string, object>>, IEnumerable
+    {
+        /// <summary>Class containing information about last accessed property of dynamic object.</summary>
+        public class PropertyAccess
+        {
+            /// <summary>Enum describing type of access to object.</summary>
+            public enum TypeOfAccess
+            {
+                /// <summary>Get member.</summary>
+                Get,
+
+                /// <summary>Set member.</summary>
+                Set,
+            }
+
+            /// <summary>Gets the type of operation.</summary>
+            public TypeOfAccess Operation { get; internal set; }
+
+            /// <summary>Gets the name of property.</summary>
+            public string Name { get; internal set; }
+
+            /// <summary>Gets the type from binder.</summary>
+            public Type RequestedType { get; internal set; }
+
+            /// <summary>Gets the type of value stored in object.</summary>
+            public Type Type { get; internal set; }
+
+            /// <summary>Gets the value stored in object.</summary>
+            public object Value { get; internal set; }
+        }
+
+        private Dictionary<string, object> _data = new Dictionary<string, object>();
+
+        private PropertyAccess _lastProp = new PropertyAccess();
+
+        /// <summary>Initializes a new instance of the <see cref="DynamicExpando"/> class.</summary>
+        public DynamicExpando()
+        {
+        }
+
+        /// <summary>Gets the last accesses property.</summary>
+        /// <returns>Description of last accessed property.</returns>
+        public PropertyAccess GetLastAccessesProperty()
+        {
+            return _lastProp;
+        }
+
+        /// <summary>Tries to get member value.</summary>
+        /// <returns>Returns <c>true</c>, if get member was tried, <c>false</c> otherwise.</returns>
+        /// <param name="binder">The context binder.</param>
+        /// <param name="result">The invocation result.</param>
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        {
+            result = _data.TryGetValue(binder.Name);
+
+            _lastProp.Operation = PropertyAccess.TypeOfAccess.Get;
+            _lastProp.RequestedType = binder.ReturnType;
+            _lastProp.Name = binder.Name;
+            _lastProp.Value = result;
+            _lastProp.Type = result == null ? typeof(void) : result.GetType();
+
+            return true;
+        }
+
+        /// <summary>Tries to set member.</summary>
+        /// <returns>Returns <c>true</c>, if set member was tried, <c>false</c> otherwise.</returns>
+        /// <param name="binder">The context binder.</param>
+        /// <param name="value">Value which will be set.</param>
+        public override bool TrySetMember(SetMemberBinder binder, object value)
+        {
+            _data[binder.Name] = value;
+
+            _lastProp.Operation = PropertyAccess.TypeOfAccess.Set;
+            _lastProp.RequestedType = binder.ReturnType;
+            _lastProp.Name = binder.Name;
+            _lastProp.Value = value;
+            _lastProp.Type = value == null ? typeof(void) : value.GetType();
+
+            return true;
+        }
+
+        #region IDictionary implementation
+
+        bool IDictionary<string, object>.ContainsKey(string key)
+        {
+            return _data.ContainsKey(key);
+        }
+
+        void IDictionary<string, object>.Add(string key, object value)
+        {
+            _data.Add(key, value);
+        }
+
+        bool IDictionary<string, object>.Remove(string key)
+        {
+            return _data.Remove(key);
+        }
+
+        bool IDictionary<string, object>.TryGetValue(string key, out object value)
+        {
+            return _data.TryGetValue(key, out value);
+        }
+
+        object IDictionary<string, object>.this[string index] { get { return _data[index]; } set { _data[index] = value; } }
+
+        ICollection<string> IDictionary<string, object>.Keys { get { return _data.Keys; } }
+
+        ICollection<object> IDictionary<string, object>.Values { get { return _data.Values; } }
+
+        #endregion IDictionary implementation
+
+        #region ICollection implementation
+
+        void ICollection<KeyValuePair<string, object>>.Add(KeyValuePair<string, object> item)
+        {
+            ((ICollection<KeyValuePair<string, object>>)_data).Add(item);
+        }
+
+        void ICollection<KeyValuePair<string, object>>.Clear()
+        {
+            _data.Clear();
+        }
+
+        bool ICollection<KeyValuePair<string, object>>.Contains(KeyValuePair<string, object> item)
+        {
+            return ((ICollection<KeyValuePair<string, object>>)_data).Contains(item);
+        }
+
+        void ICollection<KeyValuePair<string, object>>.CopyTo(KeyValuePair<string, object>[] array, int arrayIndex)
+        {
+            ((ICollection<KeyValuePair<string, object>>)_data).CopyTo(array, arrayIndex);
+        }
+
+        bool ICollection<KeyValuePair<string, object>>.Remove(KeyValuePair<string, object> item)
+        {
+            return ((ICollection<KeyValuePair<string, object>>)_data).Remove(item);
+        }
+
+        int ICollection<KeyValuePair<string, object>>.Count { get { return _data.Count; } }
+
+        bool ICollection<KeyValuePair<string, object>>.IsReadOnly { get { return ((ICollection<KeyValuePair<string, object>>)_data).IsReadOnly; } }
+
+        #endregion ICollection implementation
+
+        #region IEnumerable implementation
+
+        IEnumerator<KeyValuePair<string, object>> IEnumerable<KeyValuePair<string, object>>.GetEnumerator()
+        {
+            return _data.GetEnumerator();
+        }
+
+        #endregion IEnumerable implementation
+
+        #region IEnumerable implementation
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable)_data).GetEnumerator();
+        }
+
+        #endregion IEnumerable implementation
+    }
+
     /// <summary>Extension to ORM objects.</summary>
     public static class DynamicExtensions
     {
@@ -2577,6 +2744,20 @@ namespace DynamORM
             return cmd;
         }
 
+        /// <summary>Extension method for adding in a bunch of parameters.</summary>
+        /// <param name="cmd">Command to handle.</param>
+        /// <param name="database">Database object required to get proper formatting.</param>
+        /// <param name="args">Items to add in an expando object.</param>
+        /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
+        public static IDbCommand AddParameters(this IDbCommand cmd, DynamicDatabase database, DynamicExpando args)
+        {
+            if (args != null && args.Count() > 0)
+                foreach (var item in args.ToDictionary())
+                    cmd.AddParameter(database, item.Key, item.Value);
+
+            return cmd;
+        }
+
         /// <summary>Extension for adding single parameter determining only type of object.</summary>
         /// <param name="cmd">Command to handle.</param>
         /// <param name="database">Database object required to get proper formatting.</param>
@@ -2606,7 +2787,7 @@ namespace DynamORM
 
                 p.DbType = TypeMap.TryGetNullable(type) ?? DbType.String;
 
-                if (type == typeof(ExpandoObject))
+                if (type == typeof(DynamicExpando) || type == typeof(ExpandoObject))
                     p.Value = ((IDictionary<string, object>)item).Values.FirstOrDefault();
                 else
                     p.Value = item;
@@ -3167,6 +3348,15 @@ namespace DynamORM
             return b.Execute().ToList();
         }
 
+        /// <summary>Turns an <see cref="IDynamicSelectQueryBuilder"/> to a Dynamic list of things with specified type.</summary>
+        /// <typeparam name="T">Type of object to map on.</typeparam>
+        /// <param name="b">Ready to execute builder.</param>
+        /// <returns>List of things.</returns>
+        public static List<T> ToList<T>(this IDynamicSelectQueryBuilder b) where T : class
+        {
+            return b.Execute<T>().ToList();
+        }
+
         /// <summary>Sets the on create temporary parameter action.</summary>
         /// <typeparam name="T">Class implementing <see cref="IDynamicQueryBuilder"/> interface.</typeparam>
         /// <param name="b">The builder on which set delegate.</param>
@@ -3289,22 +3479,27 @@ namespace DynamORM
             return result;
         }
 
-        /// <summary>Turns an <see cref="IDynamicSelectQueryBuilder"/> to a Dynamic list of things with specified type.</summary>
-        /// <typeparam name="T">Type of object to map on.</typeparam>
-        /// <param name="b">Ready to execute builder.</param>
-        /// <returns>List of things.</returns>
-        public static List<T> ToList<T>(this IDynamicSelectQueryBuilder b) where T : class
-        {
-            return b.Execute<T>().ToList();
-        }
-
         /// <summary>Turns the dictionary into an ExpandoObject.</summary>
         /// <param name="d">Dictionary to convert.</param>
         /// <returns>Converted dictionary.</returns>
         public static dynamic ToDynamic(this IDictionary<string, object> d)
         {
+            var result = new DynamicExpando();
+            var dict = (IDictionary<string, object>)result;
+
+            foreach (var prop in d)
+                dict.Add(prop.Key, prop.Value);
+
+            return result;
+        }
+
+        /// <summary>Turns the dictionary into an ExpandoObject.</summary>
+        /// <param name="d">Dictionary to convert.</param>
+        /// <returns>Converted dictionary.</returns>
+        public static dynamic ToExpando(this IDictionary<string, object> d)
+        {
             var result = new ExpandoObject();
-            var dict = result as IDictionary<string, object>;
+            var dict = (IDictionary<string, object>)result;
 
             foreach (var prop in d)
                 dict.Add(prop.Key, prop.Value);
@@ -3317,12 +3512,61 @@ namespace DynamORM
         /// <returns>Converted object.</returns>
         public static dynamic ToDynamic(this object o)
         {
-            var result = new ExpandoObject();
-            var dict = result as IDictionary<string, object>;
             var ot = o.GetType();
 
-            if (ot == typeof(ExpandoObject))
+            if (ot == typeof(DynamicExpando) || ot == typeof(ExpandoObject))
                 return o;
+
+            var result = new DynamicExpando();
+            var dict = (IDictionary<string, object>)result;
+
+            if (o is IDictionary<string, object>)
+                ((IDictionary<string, object>)o)
+                    .ToList()
+                    .ForEach(kvp => dict.Add(kvp.Key, kvp.Value));
+            else if (ot == typeof(NameValueCollection) || ot.IsSubclassOf(typeof(NameValueCollection)))
+            {
+                var nameValue = (NameValueCollection)o;
+                nameValue.Cast<string>()
+                    .Select(key => new KeyValuePair<string, object>(key, nameValue[key]))
+                    .ToList()
+                    .ForEach(i => dict.Add(i));
+            }
+            else
+            {
+                var mapper = DynamicMapperCache.GetMapper(ot);
+
+                if (mapper != null)
+                {
+                    foreach (var item in mapper.ColumnsMap.Values)
+                        if (item.Get != null)
+                            dict.Add(item.Name, item.Get(o));
+                }
+                else
+                {
+                    var props = ot.GetProperties();
+
+                    foreach (var item in props)
+                        if (item.CanRead)
+                            dict.Add(item.Name, item.GetValue(o, null));
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>Turns the object into an ExpandoObject.</summary>
+        /// <param name="o">Object to convert.</param>
+        /// <returns>Converted object.</returns>
+        public static dynamic ToExpando(this object o)
+        {
+            var ot = o.GetType();
+
+            if (ot == typeof(ExpandoObject) || ot == typeof(DynamicExpando))
+                return o;
+
+            var result = new ExpandoObject();
+            var dict = (IDictionary<string, object>)result;
 
             if (o is IDictionary<string, object>)
                 ((IDictionary<string, object>)o)
@@ -3364,13 +3608,27 @@ namespace DynamORM
         /// <returns>Generated dynamic object.</returns>
         public static dynamic RowToDynamic(this DataRow r)
         {
-            dynamic e = new ExpandoObject();
-            var d = e as IDictionary<string, object>;
+            dynamic e = new DynamicExpando();
 
             int len = r.Table.Columns.Count;
 
             for (int i = 0; i < len; i++)
-                d.Add(r.Table.Columns[i].ColumnName, r.IsNull(i) ? null : r[i]);
+                ((IDictionary<string, object>)e).Add(r.Table.Columns[i].ColumnName, r.IsNull(i) ? null : r[i]);
+
+            return e;
+        }
+
+        /// <summary>Convert data row row into dynamic object.</summary>
+        /// <param name="r">DataRow from which read.</param>
+        /// <returns>Generated dynamic object.</returns>
+        public static dynamic RowToExpando(this DataRow r)
+        {
+            dynamic e = new ExpandoObject();
+
+            int len = r.Table.Columns.Count;
+
+            for (int i = 0; i < len; i++)
+                ((IDictionary<string, object>)e).Add(r.Table.Columns[i].ColumnName, r.IsNull(i) ? null : r[i]);
 
             return e;
         }
@@ -3380,13 +3638,40 @@ namespace DynamORM
         /// <returns>Generated dynamic object.</returns>
         public static dynamic RowToDynamicUpper(this DataRow r)
         {
-            dynamic e = new ExpandoObject();
-            var d = e as IDictionary<string, object>;
+            dynamic e = new DynamicExpando();
 
             int len = r.Table.Columns.Count;
 
             for (int i = 0; i < len; i++)
-                d.Add(r.Table.Columns[i].ColumnName.ToUpper(), r.IsNull(i) ? null : r[i]);
+                ((IDictionary<string, object>)e).Add(r.Table.Columns[i].ColumnName.ToUpper(), r.IsNull(i) ? null : r[i]);
+
+            return e;
+        }
+
+        /// <summary>Convert data row row into dynamic object (upper case key).</summary>
+        /// <param name="r">DataRow from which read.</param>
+        /// <returns>Generated dynamic object.</returns>
+        public static dynamic RowToExpandoUpper(this DataRow r)
+        {
+            // ERROR: Memory leak
+            dynamic e = new ExpandoObject();
+
+            int len = r.Table.Columns.Count;
+
+            for (int i = 0; i < len; i++)
+                ((IDictionary<string, object>)e).Add(r.Table.Columns[i].ColumnName.ToUpper(), r.IsNull(i) ? null : r[i]);
+
+            return e;
+        }
+
+        internal static Dictionary<string, object> RowToDynamicUpperDict(this DataRow r)
+        {
+            dynamic e = new Dictionary<string, object>();
+
+            int len = r.Table.Columns.Count;
+
+            for (int i = 0; i < len; i++)
+                e.Add(r.Table.Columns[i].ColumnName.ToUpper(), r.IsNull(i) ? null : r[i]);
 
             return e;
         }
@@ -3395,6 +3680,29 @@ namespace DynamORM
         /// <param name="r">Reader from which read.</param>
         /// <returns>Generated dynamic object.</returns>
         public static dynamic RowToDynamic(this IDataReader r)
+        {
+            dynamic e = new DynamicExpando();
+            var d = e as IDictionary<string, object>;
+
+            int c = r.FieldCount;
+            for (int i = 0; i < c; i++)
+                try
+                {
+                    d.Add(r.GetName(i), r.IsDBNull(i) ? null : r[i]);
+                }
+                catch (ArgumentException argex)
+                {
+                    throw new ArgumentException(
+                        string.Format("Field '{0}' is defined more than once in a query.", r.GetName(i)), "Column name or alias", argex);
+                }
+
+            return e;
+        }
+
+        /// <summary>Convert reader row into dynamic object.</summary>
+        /// <param name="r">Reader from which read.</param>
+        /// <returns>Generated dynamic object.</returns>
+        public static dynamic RowToExpando(this IDataReader r)
         {
             dynamic e = new ExpandoObject();
             var d = e as IDictionary<string, object>;
@@ -3418,6 +3726,14 @@ namespace DynamORM
         /// <param name="o">Object to convert.</param>
         /// <returns>Resulting dictionary.</returns>
         public static IDictionary<string, object> ToDictionary(this ExpandoObject o)
+        {
+            return (IDictionary<string, object>)o;
+        }
+
+        /// <summary>Turns the object into a Dictionary.</summary>
+        /// <param name="o">Object to convert.</param>
+        /// <returns>Resulting dictionary.</returns>
+        public static IDictionary<string, object> ToDictionary(this DynamicExpando o)
         {
             return (IDictionary<string, object>)o;
         }
@@ -3765,6 +4081,7 @@ namespace DynamORM
     }
 
     /// <summary>Dynamic query exception.</summary>
+    [Serializable]
     public class DynamicQueryException : Exception, ISerializable
     {
         /// <summary>Initializes a new instance of the
@@ -4271,9 +4588,8 @@ namespace DynamORM
 
         /// <summary>Execute stored procedure.</summary>
         /// <param name="procName">Name of stored procedure to execute.</param>
-        /// <param name="args">Arguments (parameters) in form of expando object.</param>
         /// <returns>Number of affected rows.</returns>
-        public virtual int Procedure(string procName, ExpandoObject args = null)
+        public virtual int Procedure(string procName)
         {
             if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
                 throw new InvalidOperationException("Database connection desn't support stored procedures.");
@@ -4282,7 +4598,64 @@ namespace DynamORM
             using (var cmd = con.CreateCommand())
             {
                 return cmd
-                    .SetCommand(CommandType.StoredProcedure, procName).AddParameters(Database, args)
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <param name="args">Arguments (parameters) in form of expando object.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName, params object[] args)
+        {
+            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .AddParameters(Database, args)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <param name="args">Arguments (parameters) in form of expando object.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName, DynamicExpando args)
+        {
+            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .AddParameters(Database, args)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <param name="args">Arguments (parameters) in form of expando object.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName, ExpandoObject args)
+        {
+            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+            using (var con = Database.Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .AddParameters(Database, args)
                     .ExecuteNonQuery();
             }
         }
@@ -6870,9 +7243,9 @@ namespace DynamORM
                     ////    return null;
 
                     // First we need to get real column name and it's owner if exist.
-                    var parts = colName.Split('.')
-                        .Select(c => Database.StripName(c))
-                        .ToArray();
+                    var parts = colName.Split('.');
+                    for (int i = 0; i < parts.Length; i++)
+                        parts[i] = Database.StripName(parts[i]);
 
                     var columnName = parts.Last();
 
@@ -7802,7 +8175,11 @@ namespace DynamORM
                 /// <returns>Builder instance.</returns>
                 public virtual IDynamicSelectQueryBuilder SelectColumn(params string[] columns)
                 {
-                    return SelectColumn(columns.Select(c => DynamicColumn.ParseSelectColumn(c)).ToArray());
+                    var cols = new DynamicColumn[columns.Length];
+                    for (int i = 0; i < columns.Length; i++)
+                        cols[i] = DynamicColumn.ParseSelectColumn(columns[i]);
+
+                    return SelectColumn(cols);
                 }
 
                 #endregion Select
@@ -7823,8 +8200,11 @@ namespace DynamORM
                     int index = GroupByFunc(-1, fn);
 
                     if (func != null)
-                        foreach (var f in func)
+                        for (int i = 0; i < func.Length; i++)
+                        {
+                            var f = func[i];
                             index = GroupByFunc(index, f);
+                        }
 
                     return this;
                 }
@@ -7862,8 +8242,11 @@ namespace DynamORM
                 /// <returns>Builder instance.</returns>
                 public virtual IDynamicSelectQueryBuilder GroupByColumn(params DynamicColumn[] columns)
                 {
-                    foreach (var col in columns)
+                    for (int i = 0; i < columns.Length; i++)
+                    {
+                        var col = columns[i];
                         GroupBy(x => col.ToSQLGroupByColumn(Database));
+                    }
 
                     return this;
                 }
@@ -7899,8 +8282,11 @@ namespace DynamORM
                     int index = OrderByFunc(-1, fn);
 
                     if (func != null)
-                        foreach (var f in func)
+                        for (int i = 0; i < func.Length; i++)
+                        {
+                            var f = func[i];
                             index = OrderByFunc(index, f);
+                        }
 
                     return this;
                 }
@@ -7991,8 +8377,11 @@ namespace DynamORM
                 /// <returns>Builder instance.</returns>
                 public virtual IDynamicSelectQueryBuilder OrderByColumn(params DynamicColumn[] columns)
                 {
-                    foreach (var col in columns)
+                    for (int i = 0; i < columns.Length; i++)
+                    {
+                        var col = columns[i];
                         OrderBy(x => col.ToSQLOrderByColumn(Database));
+                    }
 
                     return this;
                 }
@@ -8746,6 +9135,15 @@ namespace DynamORM
             bool IsDisposed { get; }
         }
 
+        /// <summary>Extends <see cref="IExtendedDisposable"/> interface.</summary>
+        public interface IFinalizerDisposable : IExtendedDisposable
+        {
+            /// <summary>Performs application-defined tasks associated with
+            /// freeing, releasing, or resetting unmanaged resources.</summary>
+            /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+            void Dispose(bool disposing);
+        }
+
         /// <summary>Class containing useful string extensions.</summary>
         internal static class StringExtensions
         {
@@ -9084,6 +9482,20 @@ namespace DynamORM
                 return obj != null && obj != DBNull.Value ?
                     func(obj) : elseFunc != null ? elseFunc() : default(R);
             }
+
+            /// <summary>Simple distinct by selector extension.</summary>
+            /// <returns>The enumerator of elements distinct by specified selector.</returns>
+            /// <param name="source">Source collection.</param>
+            /// <param name="keySelector">Distinct key selector.</param>
+            /// <typeparam name="R">The enumerable element type parameter.</typeparam>
+            /// <typeparam name="T">The selector type parameter.</typeparam>
+            public static IEnumerable<R> DistinctBy<R, T>(this IEnumerable<R> source, Func<R, T> keySelector)
+            {
+                HashSet<T> seenKeys = new HashSet<T>();
+                foreach (R element in source)
+                    if (seenKeys.Add(keySelector(element)))
+                        yield return element;
+            }
         }
 
         namespace Dynamics
@@ -9100,7 +9512,7 @@ namespace DynamORM
                 /// a method of that argument.
                 /// </summary>
                 [Serializable]
-                public class Node : IDynamicMetaObjectProvider, IExtendedDisposable, ISerializable
+                public class Node : IDynamicMetaObjectProvider, IFinalizerDisposable, ISerializable
                 {
                     private DynamicParser _parser = null;
 
@@ -9123,10 +9535,11 @@ namespace DynamORM
                         {
                         }
 
-                        private DynamicMetaObject GetBinder(Func<Node, Node> newNodeFunc)
+                        // Func was cool but caused memory leaks
+                        private DynamicMetaObject GetBinder(Node node)
                         {
                             var o = (Node)this.Value;
-                            var node = newNodeFunc(o);
+                            node.Parser = o.Parser;
                             o.Parser.Last = node;
 
                             var p = Expression.Variable(typeof(Node), "ret");
@@ -9144,7 +9557,7 @@ namespace DynamORM
                         /// </returns>
                         public override DynamicMetaObject BindGetMember(GetMemberBinder binder)
                         {
-                            return GetBinder(x => new GetMember(x, binder.Name) { Parser = x.Parser });
+                            return GetBinder(new GetMember((Node)this.Value, binder.Name));
                         }
 
                         /// <summary>
@@ -9157,7 +9570,7 @@ namespace DynamORM
                         /// </returns>
                         public override DynamicMetaObject BindSetMember(SetMemberBinder binder, DynamicMetaObject value)
                         {
-                            return GetBinder(x => new SetMember(x, binder.Name, value.Value) { Parser = x.Parser });
+                            return GetBinder(new SetMember((Node)this.Value, binder.Name, value.Value));
                         }
 
                         /// <summary>
@@ -9170,7 +9583,7 @@ namespace DynamORM
                         /// </returns>
                         public override DynamicMetaObject BindGetIndex(GetIndexBinder binder, DynamicMetaObject[] indexes)
                         {
-                            return GetBinder(x => new GetIndex(x, indexes.Select(m => m.Value).ToArray()) { Parser = x.Parser });
+                            return GetBinder(new GetIndex((Node)this.Value, MetaList2List(indexes)));
                         }
 
                         /// <summary>
@@ -9184,7 +9597,7 @@ namespace DynamORM
                         /// </returns>
                         public override DynamicMetaObject BindSetIndex(SetIndexBinder binder, DynamicMetaObject[] indexes, DynamicMetaObject value)
                         {
-                            return GetBinder(x => new SetIndex(x, indexes.Select(m => m.Value).ToArray(), value.Value) { Parser = x.Parser });
+                            return GetBinder(new SetIndex((Node)this.Value, MetaList2List(indexes), value.Value));
                         }
 
                         /// <summary>
@@ -9197,7 +9610,7 @@ namespace DynamORM
                         /// </returns>
                         public override DynamicMetaObject BindInvoke(InvokeBinder binder, DynamicMetaObject[] args)
                         {
-                            return GetBinder(x => new Invoke(x, args.Select(m => m.Value).ToArray()) { Parser = x.Parser });
+                            return GetBinder(new Invoke((Node)this.Value, MetaList2List(args)));
                         }
 
                         /// <summary>
@@ -9210,7 +9623,7 @@ namespace DynamORM
                         /// </returns>
                         public override DynamicMetaObject BindInvokeMember(InvokeMemberBinder binder, DynamicMetaObject[] args)
                         {
-                            return GetBinder(x => new Method(x, binder.Name, args.Select(m => m.Value).ToArray()) { Parser = x.Parser });
+                            return GetBinder(new Method((Node)this.Value, binder.Name, MetaList2List(args)));
                         }
 
                         /// <summary>
@@ -9223,7 +9636,7 @@ namespace DynamORM
                         /// </returns>
                         public override DynamicMetaObject BindBinaryOperation(BinaryOperationBinder binder, DynamicMetaObject arg)
                         {
-                            return GetBinder(x => new Binary(x, binder.Operation, arg.Value) { Parser = x.Parser });
+                            return GetBinder(new Binary((Node)this.Value, binder.Operation, arg.Value));
                         }
 
                         /// <summary>
@@ -9303,6 +9716,17 @@ namespace DynamORM
                                 Expression.Assign(p, Expression.Constant(ret, binder.ReturnType))); // specifying binder.ReturnType
 
                             return new MetaNode(exp, this.Restrictions, node);
+                        }
+
+                        private static object[] MetaList2List(DynamicMetaObject[] metaObjects)
+                        {
+                            if (metaObjects == null) return null;
+
+                            object[] list = new object[metaObjects.Length];
+                            for (int i = 0; i < metaObjects.Length; i++)
+                                list[i] = metaObjects[i].Value;
+
+                            return list;
                         }
                     }
 
@@ -9816,16 +10240,17 @@ namespace DynamORM
 
                         /// <summary>Performs application-defined tasks associated with
                         /// freeing, releasing, or resetting unmanaged resources.</summary>
-                        public override void Dispose()
+                        /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+                        public override void Dispose(bool disposing)
                         {
-                            base.Dispose();
+                            base.Dispose(disposing);
 
-                            if (Right != null && Right is Node)
+                            if (disposing && Right != null && Right is Node)
                             {
                                 Node n = (Node)Right;
 
                                 if (!n.IsDisposed)
-                                    n.Dispose();
+                                    n.Dispose(disposing);
 
                                 Right = null;
                             }
@@ -10053,7 +10478,13 @@ namespace DynamORM
 
                     #endregion Implementation of IDynamicMetaObjectProvider
 
-                    #region Implementation of IExtendedDisposable
+                    #region Implementation of IFinalizerDisposable
+
+                    /// <summary>Finalizes an instance of the <see cref="Node"/> class.</summary>
+                    ~Node()
+                    {
+                        Dispose(false);
+                    }
 
                     /// <summary>Gets a value indicating whether this instance is disposed.</summary>
                     public bool IsDisposed { get; private set; }
@@ -10062,17 +10493,29 @@ namespace DynamORM
                     /// freeing, releasing, or resetting unmanaged resources.</summary>
                     public virtual void Dispose()
                     {
-                        IsDisposed = true;
-
-                        if (Host != null && !Host.IsDisposed)
-                            Host.Dispose();
-
-                        Host = null;
-
-                        Parser = null;
+                        Dispose(true);
+                        GC.SuppressFinalize(this);
                     }
 
-                    #endregion Implementation of IExtendedDisposable
+                    /// <summary>Performs application-defined tasks associated with
+                    /// freeing, releasing, or resetting unmanaged resources.</summary>
+                    /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+                    public virtual void Dispose(bool disposing)
+                    {
+                        if (disposing)
+                        {
+                            IsDisposed = true;
+
+                            if (Host != null && !Host.IsDisposed)
+                                Host.Dispose();
+
+                            Host = null;
+
+                            Parser = null;
+                        }
+                    }
+
+                    #endregion Implementation of IFinalizerDisposable
 
                     #region Implementation of ISerializable
 
@@ -10150,10 +10593,17 @@ namespace DynamORM
 
                 private DynamicParser(Delegate f)
                 {
-                    foreach (var p in f.Method.GetParameters())
+                    // I know this can be almost a one liner
+                    // but it causes memory leaks when so.
+                    var pars = f.Method.GetParameters();
+                    foreach (var p in pars)
                     {
-                        if (p.GetCustomAttributes(typeof(DynamicAttribute), true).Any())
-                            this._arguments.Add(new Node.Argument(p.Name) { Parser = this });
+                        var attrs = p.GetCustomAttributes(typeof(DynamicAttribute), true).Length;
+                        if (attrs != 0)
+                        {
+                            var par = new Node.Argument(p.Name) { Parser = this };
+                            this._arguments.Add(par);
+                        }
                         else
                             throw new ArgumentException(string.Format("Argument '{0}' must be dynamic.", p.Name));
                     }
@@ -10287,6 +10737,7 @@ namespace DynamORM
                             {
                                 try
                                 {
+                                    // TODO: MAke this work... open instance delegate would be nice
                                     return Delegate.CreateDelegate(Expression.GetDelegateType(v.GetParameters().Select(t => t.ParameterType).Concat(new[] { v.ReflectedType }).ToArray()), _proxy, v.Name);
                                 }
                                 catch (ArgumentException)

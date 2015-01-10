@@ -898,7 +898,7 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicSelectQueryBuilder SelectColumn(params string[] columns)
         {
-            var cols = new DynamicColumn[columns.Count];
+            var cols = new DynamicColumn[columns.Length];
             for (int i = 0; i < columns.Length; i++)
                 cols[i] = DynamicColumn.ParseSelectColumn(columns[i]);
 

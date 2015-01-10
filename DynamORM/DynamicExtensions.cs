@@ -229,6 +229,20 @@ namespace DynamORM
             return cmd;
         }
 
+        /// <summary>Extension method for adding in a bunch of parameters.</summary>
+        /// <param name="cmd">Command to handle.</param>
+        /// <param name="database">Database object required to get proper formatting.</param>
+        /// <param name="args">Items to add in an expando object.</param>
+        /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
+        public static IDbCommand AddParameters(this IDbCommand cmd, DynamicDatabase database, DynamicExpando args)
+        {
+            if (args != null && args.Count() > 0)
+                foreach (var item in args.ToDictionary())
+                    cmd.AddParameter(database, item.Key, item.Value);
+
+            return cmd;
+        }
+
         /// <summary>Extension for adding single parameter determining only type of object.</summary>
         /// <param name="cmd">Command to handle.</param>
         /// <param name="database">Database object required to get proper formatting.</param>
@@ -258,7 +272,7 @@ namespace DynamORM
 
                 p.DbType = TypeMap.TryGetNullable(type) ?? DbType.String;
 
-                if (type == typeof(ExpandoObject))
+                if (type == typeof(DynamicExpando) || type == typeof(ExpandoObject))
                     p.Value = ((IDictionary<string, object>)item).Values.FirstOrDefault();
                 else
                     p.Value = item;
@@ -985,7 +999,7 @@ namespace DynamORM
         {
             var ot = o.GetType();
 
-            if (ot == typeof(ExpandoObject) || ot == typeof(DynamicExpando))
+            if (ot == typeof(DynamicExpando) || ot == typeof(ExpandoObject))
                 return o;
 
             var result = new DynamicExpando();
@@ -1158,14 +1172,14 @@ namespace DynamORM
             int c = r.FieldCount;
             for (int i = 0; i < c; i++)
                 try
-            {
-                d.Add(r.GetName(i), r.IsDBNull(i) ? null : r[i]);
-            }
-            catch (ArgumentException argex)
-            {
-                throw new ArgumentException(
-                    string.Format("Field '{0}' is defined more than once in a query.", r.GetName(i)), "Column name or alias", argex);
-            }
+                {
+                    d.Add(r.GetName(i), r.IsDBNull(i) ? null : r[i]);
+                }
+                catch (ArgumentException argex)
+                {
+                    throw new ArgumentException(
+                        string.Format("Field '{0}' is defined more than once in a query.", r.GetName(i)), "Column name or alias", argex);
+                }
 
             return e;
         }
@@ -1181,14 +1195,14 @@ namespace DynamORM
             int c = r.FieldCount;
             for (int i = 0; i < c; i++)
                 try
-            {
-                d.Add(r.GetName(i), r.IsDBNull(i) ? null : r[i]);
-            }
-            catch (ArgumentException argex)
-            {
-                throw new ArgumentException(
-                    string.Format("Field '{0}' is defined more than once in a query.", r.GetName(i)), "Column name or alias", argex);
-            }
+                {
+                    d.Add(r.GetName(i), r.IsDBNull(i) ? null : r[i]);
+                }
+                catch (ArgumentException argex)
+                {
+                    throw new ArgumentException(
+                        string.Format("Field '{0}' is defined more than once in a query.", r.GetName(i)), "Column name or alias", argex);
+                }
 
             return e;
         }
@@ -1197,6 +1211,14 @@ namespace DynamORM
         /// <param name="o">Object to convert.</param>
         /// <returns>Resulting dictionary.</returns>
         public static IDictionary<string, object> ToDictionary(this ExpandoObject o)
+        {
+            return (IDictionary<string, object>)o;
+        }
+
+        /// <summary>Turns the object into a Dictionary.</summary>
+        /// <param name="o">Object to convert.</param>
+        /// <returns>Resulting dictionary.</returns>
+        public static IDictionary<string, object> ToDictionary(this DynamicExpando o)
         {
             return (IDictionary<string, object>)o;
         }

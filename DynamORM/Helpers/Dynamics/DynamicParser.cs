@@ -32,7 +32,6 @@
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
@@ -1020,9 +1019,7 @@ namespace DynamORM.Helpers.Dynamics
 
             #region Implementation of IFinalizerDisposable
 
-            /// <summary>Releases unmanaged resources and performs other cleanup operations before 
-            /// the <see cref="DynamORM.Helpers.Dynamics.DynamicParser.Node"/> is reclaimed by 
-            /// garbage collection.</summary>
+            /// <summary>Finalizes an instance of the <see cref="Node"/> class.</summary>
             ~Node()
             {
                 Dispose(false);
