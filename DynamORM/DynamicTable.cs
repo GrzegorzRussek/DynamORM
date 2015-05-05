@@ -28,10 +28,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Dynamic;
 using System.Linq;
-using System.Text;
 using DynamORM.Builders;
 using DynamORM.Builders.Extensions;
 using DynamORM.Builders.Implementation;
@@ -348,33 +346,7 @@ namespace DynamORM
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Query(string sql, params object[] args)
         {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            using (var rdr = cmd
-                .SetCommand(sql)
-                .AddParameters(Database, args)
-                .ExecuteReader())
-                while (rdr.Read())
-                {
-                    dynamic val = null;
-
-                    // Work around to avoid yield being in try...catch block:
-                    // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
-                    try
-                    {
-                        val = rdr.RowToDynamic();
-                    }
-                    catch (ArgumentException argex)
-                    {
-                        var sb = new StringBuilder();
-                        cmd.Dump(sb);
-
-                        throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
-                            argex.InnerException.NullOr(a => a, argex));
-                    }
-
-                    yield return val;
-                }
+            return Database.Query(sql, args);
         }
 
         /// <summary>Enumerate the reader and yield the result.</summary>
@@ -382,32 +354,7 @@ namespace DynamORM
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Query(IDynamicQueryBuilder builder)
         {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            using (var rdr = cmd
-                .SetCommand(builder)
-                .ExecuteReader())
-                while (rdr.Read())
-                {
-                    dynamic val = null;
-
-                    // Work around to avoid yield being in try...catch block:
-                    // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
-                    try
-                    {
-                        val = rdr.RowToDynamic();
-                    }
-                    catch (ArgumentException argex)
-                    {
-                        var sb = new StringBuilder();
-                        cmd.Dump(sb);
-
-                        throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
-                            argex.InnerException.NullOr(a => a, argex));
-                    }
-
-                    yield return val;
-                }
+            return Database.Query(builder);
         }
 
         /// <summary>Create new <see cref="DynamicSelectQueryBuilder"/>.</summary>
@@ -431,13 +378,7 @@ namespace DynamORM
         /// <returns>Result of a query.</returns>
         public virtual object Scalar(string sql, params object[] args)
         {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            {
-                return cmd
-                    .SetCommand(sql).AddParameters(Database, args)
-                    .ExecuteScalar();
-            }
+            return Database.Scalar(sql, args);
         }
 
         /// <summary>Returns a single result.</summary>
@@ -445,13 +386,7 @@ namespace DynamORM
         /// <returns>Result of a query.</returns>
         public virtual object Scalar(IDynamicQueryBuilder builder)
         {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            {
-                return cmd
-                    .SetCommand(builder)
-                    .ExecuteScalar();
-            }
+            return Database.Scalar(builder);
         }
 
         /// <summary>Execute stored procedure.</summary>
@@ -459,16 +394,7 @@ namespace DynamORM
         /// <returns>Number of affected rows.</returns>
         public virtual int Procedure(string procName)
         {
-            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
-                throw new InvalidOperationException("Database connection desn't support stored procedures.");
-
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            {
-                return cmd
-                    .SetCommand(CommandType.StoredProcedure, procName)
-                    .ExecuteNonQuery();
-            }
+            return Database.Procedure(procName);
         }
 
         /// <summary>Execute stored procedure.</summary>
@@ -477,17 +403,7 @@ namespace DynamORM
         /// <returns>Number of affected rows.</returns>
         public virtual int Procedure(string procName, params object[] args)
         {
-            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
-                throw new InvalidOperationException("Database connection desn't support stored procedures.");
-
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            {
-                return cmd
-                    .SetCommand(CommandType.StoredProcedure, procName)
-                    .AddParameters(Database, args)
-                    .ExecuteNonQuery();
-            }
+            return Database.Procedure(procName, args);
         }
 
         /// <summary>Execute stored procedure.</summary>
@@ -496,17 +412,7 @@ namespace DynamORM
         /// <returns>Number of affected rows.</returns>
         public virtual int Procedure(string procName, DynamicExpando args)
         {
-            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
-                throw new InvalidOperationException("Database connection desn't support stored procedures.");
-
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            {
-                return cmd
-                    .SetCommand(CommandType.StoredProcedure, procName)
-                    .AddParameters(Database, args)
-                    .ExecuteNonQuery();
-            }
+            return Database.Procedure(procName, args);
         }
 
         /// <summary>Execute stored procedure.</summary>
@@ -515,17 +421,7 @@ namespace DynamORM
         /// <returns>Number of affected rows.</returns>
         public virtual int Procedure(string procName, ExpandoObject args)
         {
-            if ((Database.Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
-                throw new InvalidOperationException("Database connection desn't support stored procedures.");
-
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            {
-                return cmd
-                    .SetCommand(CommandType.StoredProcedure, procName)
-                    .AddParameters(Database, args)
-                    .ExecuteNonQuery();
-            }
+            return Database.Procedure(procName, args);
         }
 
         /// <summary>Execute non query.</summary>
@@ -536,13 +432,7 @@ namespace DynamORM
         /// <returns>Number of affected rows.</returns>
         public virtual int Execute(string sql, params object[] args)
         {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            {
-                return cmd
-                    .SetCommand(sql).AddParameters(Database, args)
-                    .ExecuteNonQuery();
-            }
+            return Database.Execute(sql, args);
         }
 
         /// <summary>Execute non query.</summary>
@@ -550,41 +440,15 @@ namespace DynamORM
         /// <returns>Number of affected rows.</returns>
         public virtual int Execute(IDynamicQueryBuilder builder)
         {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            {
-                return cmd
-                    .SetCommand(builder)
-                    .ExecuteNonQuery();
-            }
+            return Database.Execute(builder);
         }
 
         /// <summary>Execute non query.</summary>
-        /// <param name="builers">Command builders.</param>
+        /// <param name="builders">Command builders.</param>
         /// <returns>Number of affected rows.</returns>
-        public virtual int Execute(IDynamicQueryBuilder[] builers)
+        public virtual int Execute(IDynamicQueryBuilder[] builders)
         {
-            int ret = 0;
-
-            using (var con = Database.Open())
-            {
-                using (var trans = con.BeginTransaction())
-                {
-                    foreach (var builder in builers)
-                    {
-                        using (var cmd = con.CreateCommand())
-                        {
-                            ret += cmd
-                               .SetCommand(builder)
-                               .ExecuteNonQuery();
-                        }
-                    }
-
-                    trans.Commit();
-                }
-            }
-
-            return ret;
+            return Database.Execute(builders);
         }
 
         #endregion Basic Queries

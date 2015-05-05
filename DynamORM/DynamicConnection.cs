@@ -148,7 +148,7 @@ namespace DynamORM
         /// to be used after a connection is opened.</summary>
         public string Database
         {
-            get { throw new NotImplementedException(); }
+            get { return Connection.Database; }
         }
 
         /// <summary>Gets the current state of the connection.</summary>

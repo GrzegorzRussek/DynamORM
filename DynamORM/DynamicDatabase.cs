@@ -30,6 +30,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Dynamic;
 using System.Linq;
 using System.Text;
 using DynamORM.Builders;
@@ -877,6 +878,247 @@ namespace DynamORM
         }
 
         #endregion From/Insert/Update/Delete
+
+        #region Procedure
+
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName)
+        {
+            return Procedure(procName, (DynamicExpando)null);
+        }
+
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <param name="args">Arguments (parameters) in form of expando object.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName, params object[] args)
+        {
+            if ((Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .AddParameters(this, args)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <param name="args">Arguments (parameters) in form of expando object.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName, DynamicExpando args)
+        {
+            if ((Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .AddParameters(this, args)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute stored procedure.</summary>
+        /// <param name="procName">Name of stored procedure to execute.</param>
+        /// <param name="args">Arguments (parameters) in form of expando object.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Procedure(string procName, ExpandoObject args)
+        {
+            if ((Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(CommandType.StoredProcedure, procName)
+                    .AddParameters(this, args)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        #endregion Procedure
+
+        #region Execute
+
+        /// <summary>Execute non query.</summary>
+        /// <param name="sql">SQL query containing numbered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formatted with
+        /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
+        /// <param name="args">Arguments (parameters).</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Execute(string sql, params object[] args)
+        {
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(sql).AddParameters(this, args)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute non query.</summary>
+        /// <param name="builder">Command builder.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Execute(IDynamicQueryBuilder builder)
+        {
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(builder)
+                    .ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>Execute non query.</summary>
+        /// <param name="builders">Command builders.</param>
+        /// <returns>Number of affected rows.</returns>
+        public virtual int Execute(IDynamicQueryBuilder[] builders)
+        {
+            int ret = 0;
+
+            using (var con = Open())
+            {
+                using (var trans = con.BeginTransaction())
+                {
+                    foreach (var builder in builders)
+                    {
+                        using (var cmd = con.CreateCommand())
+                        {
+                            ret += cmd
+                               .SetCommand(builder)
+                               .ExecuteNonQuery();
+                        }
+                    }
+
+                    trans.Commit();
+                }
+            }
+
+            return ret;
+        }
+
+        #endregion Execute
+
+        #region Scalar
+
+        /// <summary>Returns a single result.</summary>
+        /// <param name="sql">SQL query containing numbered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formatted with
+        /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
+        /// <param name="args">Arguments (parameters).</param>
+        /// <returns>Result of a query.</returns>
+        public virtual object Scalar(string sql, params object[] args)
+        {
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(sql).AddParameters(this, args)
+                    .ExecuteScalar();
+            }
+        }
+
+        /// <summary>Returns a single result.</summary>
+        /// <param name="builder">Command builder.</param>
+        /// <returns>Result of a query.</returns>
+        public virtual object Scalar(IDynamicQueryBuilder builder)
+        {
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(builder)
+                    .ExecuteScalar();
+            }
+        }
+
+        #endregion Scalar
+
+        #region Query
+
+        /// <summary>Enumerate the reader and yield the result.</summary>
+        /// <param name="sql">SQL query containing numbered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formatted with
+        /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
+        /// <param name="args">Arguments (parameters).</param>
+        /// <returns>Enumerator of objects expanded from query.</returns>
+        public virtual IEnumerable<dynamic> Query(string sql, params object[] args)
+        {
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            using (var rdr = cmd
+                .SetCommand(sql)
+                .AddParameters(this, args)
+                .ExecuteReader())
+                while (rdr.Read())
+                {
+                    dynamic val = null;
+
+                    // Work around to avoid yield being in try...catch block:
+                    // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
+                    try
+                    {
+                        val = rdr.RowToDynamic();
+                    }
+                    catch (ArgumentException argex)
+                    {
+                        var sb = new StringBuilder();
+                        cmd.Dump(sb);
+
+                        throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
+                            argex.InnerException.NullOr(a => a, argex));
+                    }
+
+                    yield return val;
+                }
+        }
+
+        /// <summary>Enumerate the reader and yield the result.</summary>
+        /// <param name="builder">Command builder.</param>
+        /// <returns>Enumerator of objects expanded from query.</returns>
+        public virtual IEnumerable<dynamic> Query(IDynamicQueryBuilder builder)
+        {
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            using (var rdr = cmd
+                .SetCommand(builder)
+                .ExecuteReader())
+                while (rdr.Read())
+                {
+                    dynamic val = null;
+
+                    // Work around to avoid yield being in try...catch block:
+                    // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
+                    try
+                    {
+                        val = rdr.RowToDynamic();
+                    }
+                    catch (ArgumentException argex)
+                    {
+                        var sb = new StringBuilder();
+                        cmd.Dump(sb);
+
+                        throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
+                            argex.InnerException.NullOr(a => a, argex));
+                    }
+
+                    yield return val;
+                }
+        }
+
+        #endregion Query
 
         #region Schema
 
