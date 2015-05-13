@@ -389,6 +389,32 @@ namespace DynamORM
             return Database.Scalar(builder);
         }
 
+#if !DYNAMORM_OMMIT_GENERICEXECUTION && !DYNAMORM_OMMIT_TRYPARSE
+
+        /// <summary>Returns a single result.</summary>
+        /// <typeparam name="T">What kind of result is expected.</typeparam>
+        /// <param name="sql">SQL query containing numbered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formatted with
+        /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
+        /// <param name="args">Arguments (parameters).</param>
+        /// <returns>Result of a query.</returns>
+        public virtual T ScalarAs<T>(string sql, params object[] args)
+        {
+            return Database.ScalarAs<T>(sql, args);
+        }
+
+        /// <summary>Returns a single result.</summary>
+        /// <typeparam name="T">What kind of result is expected.</typeparam>
+        /// <param name="builder">Command builder.</param>
+        /// <param name="defaultValue">Default value.</param>
+        /// <returns>Result of a query.</returns>
+        public virtual T ScalarAs<T>(IDynamicQueryBuilder builder, T defaultValue = default(T))
+        {
+            return Database.ScalarAs<T>(builder, defaultValue);
+        }
+
+#endif
+
         /// <summary>Execute stored procedure.</summary>
         /// <param name="procName">Name of stored procedure to execute.</param>
         /// <returns>Number of affected rows.</returns>

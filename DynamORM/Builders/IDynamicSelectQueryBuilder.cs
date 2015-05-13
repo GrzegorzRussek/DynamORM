@@ -53,6 +53,16 @@ namespace DynamORM.Builders
         /// <returns>Result of a query.</returns>
         object Scalar();
 
+#if !DYNAMORM_OMMIT_GENERICEXECUTION && !DYNAMORM_OMMIT_TRYPARSE
+
+        /// <summary>Returns a single result.</summary>
+        /// <typeparam name="T">Type to parse to.</typeparam>
+        /// <param name="defaultValue">Default value.</param>
+        /// <returns>Result of a query.</returns>
+        T ScalarAs<T>(T defaultValue = default(T));
+
+#endif
+
         #region From/Join
 
         /// <summary>

@@ -1044,6 +1044,44 @@ namespace DynamORM
             }
         }
 
+#if !DYNAMORM_OMMIT_GENERICEXECUTION && !DYNAMORM_OMMIT_TRYPARSE
+
+        /// <summary>Returns a single result.</summary>
+        /// <typeparam name="T">What kind of result is expected.</typeparam>
+        /// <param name="sql">SQL query containing numbered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formatted with
+        /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
+        /// <param name="args">Arguments (parameters).</param>
+        /// <returns>Result of a query.</returns>
+        public virtual T ScalarAs<T>(string sql, params object[] args)
+        {
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(sql).AddParameters(this, args)
+                    .ExecuteScalarAs<T>();
+            }
+        }
+
+        /// <summary>Returns a single result.</summary>
+        /// <typeparam name="T">What kind of result is expected.</typeparam>
+        /// <param name="builder">Command builder.</param>
+        /// <param name="defaultValue">Default value.</param>
+        /// <returns>Result of a query.</returns>
+        public virtual T ScalarAs<T>(IDynamicQueryBuilder builder, T defaultValue = default(T))
+        {
+            using (var con = Open())
+            using (var cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(builder)
+                    .ExecuteScalarAs<T>(defaultValue);
+            }
+        }
+
+#endif
+
         #endregion Scalar
 
         #region Query

@@ -662,28 +662,40 @@ namespace DynamORM
                 return (T)o;
             else if (o != DBNull.Value && o != null)
             {
-                var method = typeof(T).GetMethod(
-                    "TryParse",
-                    new[]
-                    {
-                        typeof(string),
-                        Type.GetType(string.Format("{0}&", typeof(T).FullName))
-                    });
-
                 if (handler != null)
                     ret = o.ToString().TryParseDefault<T>(defaultValue, handler);
-                else if (method != null)
-                    ret = o.ToString().TryParseDefault<T>(defaultValue, delegate(string v, out T r)
-                    {
-                        r = defaultValue;
-                        return (bool)method.Invoke(null, new object[] { v, r });
-                    });
+                else if (o is IConvertible && typeof(T).GetInterfaces().Any(i => i == typeof(IConvertible)))
+                    ret = (T)Convert.ChangeType(o, typeof(T));
+                else if (typeof(T) == typeof(Guid))
+                {
+                    if (o.GetType() == typeof(byte[]))
+                        ret = (T)(object)new Guid((byte[])o);
+                    else
+                        ret = (T)(object)Guid.Parse(o.ToString());
+                }
                 else if (typeof(T) == typeof(string))
                     ret = (T)(o.ToString() as object);
                 else if (typeof(T) == typeof(object))
                     ret = (T)o;
                 else
-                    throw new InvalidOperationException("Provided type can't be parsed using generic approach.");
+                {
+                    var method = typeof(T).GetMethod(
+                        "TryParse",
+                        new Type[]
+                        {
+                            typeof(string),
+                            Type.GetType(string.Format("{0}&", typeof(T).FullName))
+                        });
+
+                    if (method != null)
+                        ret = o.ToString().TryParseDefault<T>(defaultValue, delegate(string v, out T r)
+                        {
+                            r = defaultValue;
+                            return (bool)method.Invoke(null, new object[] { v, r });
+                        });
+                    else
+                        throw new InvalidOperationException("Provided type can't be parsed using generic approach.");
+                }
             }
 
             return ret;

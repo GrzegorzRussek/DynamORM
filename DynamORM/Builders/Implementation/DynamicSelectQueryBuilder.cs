@@ -146,9 +146,9 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Execute()
         {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            using (var rdr = cmd
+            using (IDbConnection con = Database.Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            using (IDataReader rdr = cmd
                 .SetCommand(this)
                 .ExecuteReader())
                 while (rdr.Read())
@@ -163,7 +163,7 @@ namespace DynamORM.Builders.Implementation
                     }
                     catch (ArgumentException argex)
                     {
-                        var sb = new StringBuilder();
+                        StringBuilder sb = new StringBuilder();
                         cmd.Dump(sb);
 
                         throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
@@ -179,15 +179,15 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<T> Execute<T>() where T : class
         {
-            var mapper = DynamicMapperCache.GetMapper<T>();
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
 
             if (mapper == null)
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
 
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Database.Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
-                using (var rdr = cmd
+                using (IDataReader rdr = cmd
                     .SetCommand(this)
                     .ExecuteReader())
                     while (rdr.Read())
@@ -202,7 +202,7 @@ namespace DynamORM.Builders.Implementation
                         }
                         catch (ArgumentException argex)
                         {
-                            var sb = new StringBuilder();
+                            StringBuilder sb = new StringBuilder();
                             cmd.Dump(sb);
 
                             throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
@@ -218,9 +218,9 @@ namespace DynamORM.Builders.Implementation
         /// <param name="reader">Action containing reader.</param>
         public virtual void ExecuteDataReader(Action<IDataReader> reader)
         {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            using (var rdr = cmd
+            using (IDbConnection con = Database.Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            using (IDataReader rdr = cmd
                 .SetCommand(this)
                 .ExecuteReader())
                 reader(rdr);
@@ -230,14 +230,33 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Result of a query.</returns>
         public virtual object Scalar()
         {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Database.Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(this)
                     .ExecuteScalar();
             }
         }
+
+#if !DYNAMORM_OMMIT_GENERICEXECUTION && !DYNAMORM_OMMIT_TRYPARSE
+
+        /// <summary>Returns a single result.</summary>
+        /// <typeparam name="T">Type to parse to.</typeparam>
+        /// <param name="defaultValue">Default value.</param>
+        /// <returns>Result of a query.</returns>
+        public virtual T ScalarAs<T>(T defaultValue = default(T))
+        {
+            using (IDbConnection con = Database.Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            {
+                return cmd
+                    .SetCommand(this)
+                    .ExecuteScalarAs<T>(defaultValue);
+            }
+        }
+
+#endif
 
         #endregion Execution
 
@@ -260,7 +279,7 @@ namespace DynamORM.Builders.Implementation
                 throw new ArgumentNullException("Array of functions cannot be or contain null.");
 
             int index = FromFunc(-1, fn);
-            foreach (var f in func)
+            foreach (Func<dynamic, object> f in func)
                 index = FromFunc(index, f);
 
             return this;
@@ -273,16 +292,16 @@ namespace DynamORM.Builders.Implementation
 
             index++;
             ITableInfo tableInfo = null;
-            using (var parser = DynamicParser.Parse(f))
+            using (DynamicParser parser = DynamicParser.Parse(f))
             {
-                var result = parser.Result;
+                object result = parser.Result;
 
                 // If the expression result is string.
                 if (result is string)
                 {
-                    var node = (string)result;
-                    var tuple = node.SplitSomethingAndAlias();
-                    var parts = tuple.Item1.Split('.');
+                    string node = (string)result;
+                    Tuple<string, string> tuple = node.SplitSomethingAndAlias();
+                    string[] parts = tuple.Item1.Split('.');
                     tableInfo = new TableInfo(Database,
                         Database.StripName(parts.Last()).Validated("Table"),
                         tuple.Item2.Validated("Alias", canbeNull: true),
@@ -294,7 +313,7 @@ namespace DynamORM.Builders.Implementation
                     if (type.IsAnonymous())
                         throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}). Parsing {1}", type.FullName, result));
 
-                    var mapper = DynamicMapperCache.GetMapper(type);
+                    DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
 
                     if (mapper == null)
                         throw new InvalidOperationException(string.Format("Cant assign unmapable type as a table ({0}). Parsing {1}", type.FullName, result));
@@ -304,7 +323,7 @@ namespace DynamORM.Builders.Implementation
                 else if (result is DynamicParser.Node)
                 {
                     // Or if it resolves to a dynamic node
-                    var node = (DynamicParser.Node)result;
+                    DynamicParser.Node node = (DynamicParser.Node)result;
 
                     string owner = null;
                     string main = null;
@@ -364,14 +383,14 @@ namespace DynamORM.Builders.Implementation
                                 owner = string.Format("{0}", Parse(node, rawstr: true, pars: Parameters));
                             else
                             {
-                                var invoke = (DynamicParser.Node.Invoke)node;
+                                DynamicParser.Node.Invoke invoke = (DynamicParser.Node.Invoke)node;
                                 if (invoke.Arguments.Length == 1 && invoke.Arguments[0] is Type)
                                 {
                                     type = (Type)invoke.Arguments[0];
                                     if (type.IsAnonymous())
                                         throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}). Parsing {1}", type.FullName, result));
 
-                                    var mapper = DynamicMapperCache.GetMapper(type);
+                                    DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
 
                                     if (mapper == null)
                                         throw new InvalidOperationException(string.Format("Cant assign unmapable type as a table ({0}). Parsing {1}", type.FullName, result));
@@ -475,7 +494,7 @@ namespace DynamORM.Builders.Implementation
 
             int index = -1;
 
-            foreach (var f in func)
+            foreach (Func<dynamic, object> f in func)
             {
                 index++;
                 ITableInfo tableInfo = null;
@@ -483,9 +502,9 @@ namespace DynamORM.Builders.Implementation
                 if (f == null)
                     throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
 
-                using (var parser = DynamicParser.Parse(f))
+                using (DynamicParser parser = DynamicParser.Parse(f))
                 {
-                    var result = parser.Result;
+                    object result = parser.Result;
                     if (result == null) throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
 
                     string type = null;
@@ -498,7 +517,7 @@ namespace DynamORM.Builders.Implementation
                     // If the expression resolves to a string...
                     if (result is string)
                     {
-                        var node = (string)result;
+                        string node = (string)result;
 
                         int n = node.ToUpper().IndexOf("JOIN ");
 
@@ -519,8 +538,8 @@ namespace DynamORM.Builders.Implementation
                             main = main.Substring(0, n).Trim();
                         }
 
-                        var tuple = main.SplitSomethingAndAlias(); // In this case we split on the remaining 'main'
-                        var parts = tuple.Item1.Split('.');
+                        Tuple<string, string> tuple = main.SplitSomethingAndAlias(); // In this case we split on the remaining 'main'
+                        string[] parts = tuple.Item1.Split('.');
                         main = Database.StripName(parts.Last()).Validated("Table");
                         owner = parts.Length == 2 ? Database.StripName(parts.First()).Validated("Owner", canbeNull: true) : null;
                         alias = tuple.Item2.Validated("Alias", canbeNull: true);
@@ -528,7 +547,7 @@ namespace DynamORM.Builders.Implementation
                     else if (result is DynamicParser.Node)
                     {
                         // Or if it resolves to a dynamic node...
-                        var node = (DynamicParser.Node)result;
+                        DynamicParser.Node node = (DynamicParser.Node)result;
                         while (true)
                         {
                             // Support for the ON() virtual method...
@@ -597,7 +616,7 @@ namespace DynamORM.Builders.Implementation
                                 if (args != null && args.Length > 0)
                                 {
                                     avoid = args[0] is bool && !((bool)args[0]);
-                                    var proposedType = args.FirstOrDefault(a => a is string) as string;
+                                    string proposedType = args.FirstOrDefault(a => a is string) as string;
                                     if (!string.IsNullOrEmpty(proposedType))
                                         type = proposedType;
                                 }
@@ -642,11 +661,11 @@ namespace DynamORM.Builders.Implementation
                                     owner = string.Format("{0}", Parse(node, rawstr: true, pars: justAddTables ? null : Parameters));
                                 else
                                 {
-                                    var invoke = (DynamicParser.Node.Invoke)node;
+                                    DynamicParser.Node.Invoke invoke = (DynamicParser.Node.Invoke)node;
                                     if (invoke.Arguments.Length == 1 && invoke.Arguments[0] is Type)
                                     {
                                         tableType = (Type)invoke.Arguments[0];
-                                        var mapper = DynamicMapperCache.GetMapper(tableType);
+                                        DynamicTypeMap mapper = DynamicMapperCache.GetMapper(tableType);
 
                                         if (mapper == null)
                                             throw new InvalidOperationException(string.Format("Cant assign unmapable type as a table ({0}).", tableType.FullName));
@@ -799,7 +818,7 @@ namespace DynamORM.Builders.Implementation
 
             int index = SelectFunc(-1, fn);
             if (func != null)
-                foreach (var f in func)
+                foreach (Func<dynamic, object> f in func)
                     index = SelectFunc(index, f);
 
             return this;
@@ -811,9 +830,9 @@ namespace DynamORM.Builders.Implementation
             if (f == null)
                 throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
 
-            using (var parser = DynamicParser.Parse(f))
+            using (DynamicParser parser = DynamicParser.Parse(f))
             {
-                var result = parser.Result;
+                object result = parser.Result;
                 if (result == null)
                     throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
 
@@ -825,8 +844,8 @@ namespace DynamORM.Builders.Implementation
                 // If the expression resolves to a string...
                 if (result is string)
                 {
-                    var node = (string)result;
-                    var tuple = node.SplitSomethingAndAlias();
+                    string node = (string)result;
+                    Tuple<string, string> tuple = node.SplitSomethingAndAlias();
                     main = tuple.Item1.Validated("Table and/or Column");
 
                     main = FixObjectName(main);
@@ -842,12 +861,12 @@ namespace DynamORM.Builders.Implementation
                 {
                     anon = true;
 
-                    foreach (var prop in result.ToDictionary())
+                    foreach (KeyValuePair<string, object> prop in result.ToDictionary())
                     {
                         if (prop.Value is string)
                         {
-                            var node = (string)prop.Value;
-                            var tuple = node.SplitSomethingAndAlias();
+                            string node = (string)prop.Value;
+                            Tuple<string, string> tuple = node.SplitSomethingAndAlias();
                             main = FixObjectName(tuple.Item1.Validated("Table and/or Column"));
 
                             ////alias = tuple.Item2.Validated("Alias", canbeNull: true);
@@ -885,7 +904,7 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicSelectQueryBuilder SelectColumn(params DynamicColumn[] columns)
         {
-            foreach (var col in columns)
+            foreach (DynamicColumn col in columns)
                 Select(x => col.ToSQLSelectColumn(Database));
 
             return this;
@@ -898,7 +917,7 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicSelectQueryBuilder SelectColumn(params string[] columns)
         {
-            var cols = new DynamicColumn[columns.Length];
+            DynamicColumn[] cols = new DynamicColumn[columns.Length];
             for (int i = 0; i < columns.Length; i++)
                 cols[i] = DynamicColumn.ParseSelectColumn(columns[i]);
 
@@ -925,7 +944,7 @@ namespace DynamORM.Builders.Implementation
             if (func != null)
                 for (int i = 0; i < func.Length; i++)
                 {
-                    var f = func[i];
+                    Func<dynamic, object> f = func[i];
                     index = GroupByFunc(index, f);
                 }
 
@@ -937,9 +956,9 @@ namespace DynamORM.Builders.Implementation
             index++;
             if (f == null)
                 throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
-            using (var parser = DynamicParser.Parse(f))
+            using (DynamicParser parser = DynamicParser.Parse(f))
             {
-                var result = parser.Result;
+                object result = parser.Result;
                 if (result == null)
                     throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
 
@@ -967,7 +986,7 @@ namespace DynamORM.Builders.Implementation
         {
             for (int i = 0; i < columns.Length; i++)
             {
-                var col = columns[i];
+                DynamicColumn col = columns[i];
                 GroupBy(x => col.ToSQLGroupByColumn(Database));
             }
 
@@ -1007,7 +1026,7 @@ namespace DynamORM.Builders.Implementation
             if (func != null)
                 for (int i = 0; i < func.Length; i++)
                 {
-                    var f = func[i];
+                    Func<dynamic, object> f = func[i];
                     index = OrderByFunc(index, f);
                 }
 
@@ -1020,9 +1039,9 @@ namespace DynamORM.Builders.Implementation
             if (f == null)
                 throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
 
-            using (var parser = DynamicParser.Parse(f))
+            using (DynamicParser parser = DynamicParser.Parse(f))
             {
-                var result = parser.Result;
+                object result = parser.Result;
                 if (result == null) throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
 
                 string main = null;
@@ -1032,7 +1051,7 @@ namespace DynamORM.Builders.Implementation
                     main = result.ToString();
                 else if (result is string)
                 {
-                    var parts = ((string)result).Split(' ');
+                    string[] parts = ((string)result).Split(' ');
                     main = Database.StripName(parts.First());
 
                     int colNo;
@@ -1046,8 +1065,8 @@ namespace DynamORM.Builders.Implementation
                     // Intercepting trailing 'Ascending' or 'Descending' virtual methods...
                     if (result is DynamicParser.Node.Method)
                     {
-                        var node = (DynamicParser.Node.Method)result;
-                        var name = node.Name.ToUpper();
+                        DynamicParser.Node.Method node = (DynamicParser.Node.Method)result;
+                        string name = node.Name.ToUpper();
                         if (name == "ASCENDING" || name == "ASC" || name == "DESCENDING" || name == "DESC")
                         {
                             object[] args = node.Arguments;
@@ -1102,7 +1121,7 @@ namespace DynamORM.Builders.Implementation
         {
             for (int i = 0; i < columns.Length; i++)
             {
-                var col = columns[i];
+                DynamicColumn col = columns[i];
                 OrderBy(x => col.ToSQLOrderByColumn(Database));
             }
 
@@ -1192,7 +1211,7 @@ namespace DynamORM.Builders.Implementation
         {
             string main = null;
 
-            var node = (DynamicParser.Node)result;
+            DynamicParser.Node node = (DynamicParser.Node)result;
             while (true)
             {
                 // Support for the AS() virtual method...
@@ -1250,7 +1269,7 @@ namespace DynamORM.Builders.Implementation
                         node = node.Host;
 
                         // Get table/alias name
-                        var table = ((DynamicParser.Node.GetMember)node).Name;
+                        string table = ((DynamicParser.Node.GetMember)node).Name;
                         bool isAlias = node.Host is DynamicParser.Node.Argument && IsTableAlias(table);
 
                         if (isAlias)
@@ -1267,7 +1286,7 @@ namespace DynamORM.Builders.Implementation
                     }
                     else if (node.Host is DynamicParser.Node.Argument)
                     {
-                        var table = ((DynamicParser.Node.Argument)node.Host).Name;
+                        string table = ((DynamicParser.Node.Argument)node.Host).Name;
 
                         if (IsTableAlias(table))
                             main = string.Format("{0}.{1}", table, Database.DecorateName(main));
