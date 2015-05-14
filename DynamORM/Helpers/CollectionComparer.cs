@@ -91,13 +91,13 @@ namespace DynamORM.Helpers
             int firstCount;
             int secondCount;
 
-            var firstElementCounts = GetElementCounts(first, out firstCount);
-            var secondElementCounts = GetElementCounts(second, out secondCount);
+            Dictionary<T, int> firstElementCounts = GetElementCounts(first, out firstCount);
+            Dictionary<T, int> secondElementCounts = GetElementCounts(second, out secondCount);
 
             if (firstCount != secondCount)
                 return true;
 
-            foreach (var kvp in firstElementCounts)
+            foreach (KeyValuePair<T, int> kvp in firstElementCounts)
                 if (kvp.Value != (secondElementCounts.TryGetNullable(kvp.Key) ?? 0))
                     return true;
 
@@ -106,7 +106,7 @@ namespace DynamORM.Helpers
 
         private static Dictionary<T, int> GetElementCounts(IEnumerable<T> enumerable, out int nullCount)
         {
-            var dictionary = new Dictionary<T, int>();
+            Dictionary<T, int> dictionary = new Dictionary<T, int>();
             nullCount = 0;
 
             foreach (T element in enumerable)

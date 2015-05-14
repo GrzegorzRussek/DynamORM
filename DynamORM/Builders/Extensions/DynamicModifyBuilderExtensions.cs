@@ -46,9 +46,9 @@ namespace DynamORM.Builders.Extensions
             if (func == null)
                 throw new ArgumentNullException("Function cannot be null.");
 
-            using (var parser = DynamicParser.Parse(func))
+            using (DynamicParser parser = DynamicParser.Parse(func))
             {
-                var result = parser.Result;
+                object result = parser.Result;
 
                 // If the expression result is string.
                 if (result is string)
@@ -58,7 +58,7 @@ namespace DynamORM.Builders.Extensions
                 else if (result is DynamicParser.Node)
                 {
                     // Or if it resolves to a dynamic node
-                    var node = (DynamicParser.Node)result;
+                    DynamicParser.Node node = (DynamicParser.Node)result;
 
                     string owner = null;
                     string main = null;
@@ -89,7 +89,7 @@ namespace DynamORM.Builders.Extensions
                         {
                             if (owner == null && main == null)
                             {
-                                var invoke = (DynamicParser.Node.Invoke)node;
+                                DynamicParser.Node.Invoke invoke = (DynamicParser.Node.Invoke)node;
 
                                 if (invoke.Arguments.Length == 1 && invoke.Arguments[0] is Type)
                                     return builder.Table((Type)invoke.Arguments[0]);
@@ -117,12 +117,12 @@ namespace DynamORM.Builders.Extensions
 
         internal static T Table<T>(this T builder, string tableName, Dictionary<string, DynamicSchemaColumn> schema = null) where T : DynamicModifyBuilder
         {
-            var tuple = tableName.Validated("Table Name").SplitSomethingAndAlias();
+            Tuple<string, string> tuple = tableName.Validated("Table Name").SplitSomethingAndAlias();
 
             if (!string.IsNullOrEmpty(tuple.Item2))
                 throw new ArgumentException(string.Format("Can not use aliases in INSERT steatement. ({0})", tableName), "tableName");
 
-            var parts = tuple.Item1.Split('.');
+            string[] parts = tuple.Item1.Split('.');
 
             if (parts.Length > 2)
                 throw new ArgumentException(string.Format("Table name can consist only from name or owner and name. ({0})", tableName), "tableName");
@@ -143,7 +143,7 @@ namespace DynamORM.Builders.Extensions
             if (type.IsAnonymous())
                 throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}).", type.FullName));
 
-            var mapper = DynamicMapperCache.GetMapper(type);
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
 
             if (mapper == null)
                 throw new InvalidOperationException("Cant assign unmapable type as a table.");

@@ -30,6 +30,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using DynamORM.Builders.Extensions;
 using DynamORM.Helpers.Dynamics;
@@ -57,7 +58,7 @@ namespace DynamORM.Builders.Implementation
         /// <remarks>This method must be override by derived classes.</remarks>
         public override string CommandText()
         {
-            var info = Tables.Single();
+            ITableInfo info = Tables.Single();
             return string.Format("UPDATE {0}{1} SET {2}{3}{4}",
                 string.IsNullOrEmpty(info.Owner) ? string.Empty : string.Format("{0}.", Database.DecorateName(info.Owner)),
                 Database.DecorateName(info.Name), _columns,
@@ -93,7 +94,7 @@ namespace DynamORM.Builders.Implementation
         {
             if (conditions is DynamicColumn)
             {
-                var column = (DynamicColumn)conditions;
+                DynamicColumn column = (DynamicColumn)conditions;
 
                 DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
 
@@ -108,10 +109,10 @@ namespace DynamORM.Builders.Implementation
                 return this;
             }
 
-            var dict = conditions.ToDictionary();
-            var mapper = DynamicMapperCache.GetMapper(conditions.GetType());
+            IDictionary<string, object> dict = conditions.ToDictionary();
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(conditions.GetType());
 
-            foreach (var con in dict)
+            foreach (KeyValuePair<string, object> con in dict)
             {
                 if (mapper.Ignored.Contains(con.Key))
                     continue;
@@ -134,7 +135,7 @@ namespace DynamORM.Builders.Implementation
                     }
                 }
 
-                var propMap = mapper.ColumnsMap.TryGetValue(colName.ToLower());
+                DynamicPropertyInvoker propMap = mapper.ColumnsMap.TryGetValue(colName.ToLower());
                 if (propMap == null || propMap.Column == null || !propMap.Column.IsNoUpdate)
                     Values(colName, con.Value);
             }
@@ -160,7 +161,7 @@ namespace DynamORM.Builders.Implementation
                 throw new ArgumentNullException("Array of specifications cannot be null.");
 
             int index = -1;
-            foreach (var f in func)
+            foreach (Func<dynamic, object> f in func)
             {
                 index++;
                 if (f == null)
@@ -168,7 +169,7 @@ namespace DynamORM.Builders.Implementation
 
                 object result = null;
 
-                using (var p = DynamicParser.Parse(f))
+                using (DynamicParser p = DynamicParser.Parse(f))
                     result = p.Result;
 
                 if (result == null)
@@ -181,7 +182,7 @@ namespace DynamORM.Builders.Implementation
                 // When 'x => x.Table.Column = value' or 'x => x.Column = value'...
                 if (result is DynamicParser.Node.SetMember)
                 {
-                    var node = (DynamicParser.Node.SetMember)result;
+                    DynamicParser.Node.SetMember node = (DynamicParser.Node.SetMember)result;
 
                     DynamicSchemaColumn? col = GetColumnFromSchema(node.Name);
                     main = Database.DecorateName(node.Name);
@@ -198,7 +199,7 @@ namespace DynamORM.Builders.Implementation
                 }
 
                 // Other specifications are considered invalid...
-                var err = string.Format("Specification '{0}' is invalid.", result);
+                string err = string.Format("Specification '{0}' is invalid.", result);
                 str = Parse(result);
                 if (str.Contains("=")) err += " May have you used a '==' instead of a '=' operator?";
                 throw new ArgumentException(err);
@@ -215,7 +216,7 @@ namespace DynamORM.Builders.Implementation
         {
             if (value is DynamicColumn)
             {
-                var v = (DynamicColumn)value;
+                DynamicColumn v = (DynamicColumn)value;
 
                 if (string.IsNullOrEmpty(v.ColumnName))
                     v.ColumnName = column;
@@ -237,29 +238,29 @@ namespace DynamORM.Builders.Implementation
         {
             if (o is DynamicColumn)
             {
-                var column = (DynamicColumn)o;
+                DynamicColumn column = (DynamicColumn)o;
                 DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
 
                 string main = FixObjectName(column.ColumnName, onlyColumn: true);
                 string value = Parse(column.Value, ref col, pars: Parameters, nulls: true);
 
-                var str = string.Format("{0} = {1}", main, value);
+                string str = string.Format("{0} = {1}", main, value);
                 _columns = _columns == null ? str : string.Format("{0}, {1}", _columns, str);
 
                 return this;
             }
 
-            var dict = o.ToDictionary();
-            var mapper = DynamicMapperCache.GetMapper(o.GetType());
+            IDictionary<string, object> dict = o.ToDictionary();
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(o.GetType());
 
             if (mapper != null)
             {
-                foreach (var con in dict)
+                foreach (KeyValuePair<string, object> con in dict)
                     if (!mapper.Ignored.Contains(con.Key))
                         Values(mapper.PropertyMap.TryGetValue(con.Key) ?? con.Key, con.Value);
             }
             else
-                foreach (var con in dict)
+                foreach (KeyValuePair<string, object> con in dict)
                     Values(con.Key, con.Value);
 
             return this;

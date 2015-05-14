@@ -27,6 +27,7 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using DynamORM.Helpers;
 
@@ -267,7 +268,7 @@ namespace DynamORM
             {
                 if (_con != null)
                 {
-                    var pool = _db.CommandsPool.TryGetValue(_con.Connection);
+                    List<IDbCommand> pool = _db.CommandsPool.TryGetValue(_con.Connection);
 
                     if (pool != null && pool.Contains(this))
                         pool.Remove(this);

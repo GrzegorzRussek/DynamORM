@@ -30,6 +30,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using DynamORM.Helpers.Dynamics;
 using DynamORM.Mapper;
@@ -66,7 +67,7 @@ namespace DynamORM.Builders.Implementation
         /// <remarks>This method must be override by derived classes.</remarks>
         public override string CommandText()
         {
-            var info = Tables.Single();
+            ITableInfo info = Tables.Single();
             return string.Format("INSERT INTO {0}{1} ({2}) VALUES ({3})",
                 string.IsNullOrEmpty(info.Owner) ? string.Empty : string.Format("{0}.", Database.DecorateName(info.Owner)),
                 Database.DecorateName(info.Name), _columns, _values);
@@ -91,7 +92,7 @@ namespace DynamORM.Builders.Implementation
             int index = InsertFunc(-1, fn);
 
             if (func != null)
-                foreach (var f in func)
+                foreach (Func<dynamic, object> f in func)
                     index = InsertFunc(index, f);
 
             return this;
@@ -104,9 +105,9 @@ namespace DynamORM.Builders.Implementation
             if (f == null)
                 throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
 
-            using (var parser = DynamicParser.Parse(f))
+            using (DynamicParser parser = DynamicParser.Parse(f))
             {
-                var result = parser.Result;
+                object result = parser.Result;
                 if (result == null)
                     throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
 
@@ -117,7 +118,7 @@ namespace DynamORM.Builders.Implementation
                 // When 'x => x.Table.Column = value' or 'x => x.Column = value'...
                 if (result is DynamicParser.Node.SetMember)
                 {
-                    var node = (DynamicParser.Node.SetMember)result;
+                    DynamicParser.Node.SetMember node = (DynamicParser.Node.SetMember)result;
 
                     DynamicSchemaColumn? col = GetColumnFromSchema(node.Name);
                     main = Database.DecorateName(node.Name);
@@ -134,7 +135,7 @@ namespace DynamORM.Builders.Implementation
                 }
 
                 // Other specifications are considered invalid...
-                var err = string.Format("Specification '{0}' is invalid.", result);
+                string err = string.Format("Specification '{0}' is invalid.", result);
                 str = Parse(result);
                 if (str.Contains("=")) err += " May have you used a '==' instead of a '=' operator?";
                 throw new ArgumentException(err);
@@ -149,7 +150,7 @@ namespace DynamORM.Builders.Implementation
         {
             if (value is DynamicColumn)
             {
-                var v = (DynamicColumn)value;
+                DynamicColumn v = (DynamicColumn)value;
 
                 if (string.IsNullOrEmpty(v.ColumnName))
                     v.ColumnName = column;
@@ -171,7 +172,7 @@ namespace DynamORM.Builders.Implementation
         {
             if (o is DynamicColumn)
             {
-                var column = (DynamicColumn)o;
+                DynamicColumn column = (DynamicColumn)o;
                 DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
 
                 string main = FixObjectName(column.ColumnName, onlyColumn: true);
@@ -183,23 +184,23 @@ namespace DynamORM.Builders.Implementation
                 return this;
             }
 
-            var dict = o.ToDictionary();
-            var mapper = DynamicMapperCache.GetMapper(o.GetType());
+            IDictionary<string, object> dict = o.ToDictionary();
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(o.GetType());
 
             if (mapper != null)
             {
-                foreach (var con in dict)
+                foreach (KeyValuePair<string, object> con in dict)
                     if (!mapper.Ignored.Contains(con.Key))
                     {
-                        var colName = mapper.PropertyMap.TryGetValue(con.Key) ?? con.Key;
-                        var propMap = mapper.ColumnsMap.TryGetValue(colName.ToLower());
+                        string colName = mapper.PropertyMap.TryGetValue(con.Key) ?? con.Key;
+                        DynamicPropertyInvoker propMap = mapper.ColumnsMap.TryGetValue(colName.ToLower());
 
                         if (propMap == null || propMap.Column == null || !propMap.Column.IsNoInsert)
                             Insert(colName, con.Value);
                     }
             }
             else
-                foreach (var con in dict)
+                foreach (KeyValuePair<string, object> con in dict)
                     Insert(con.Key, con.Value);
 
             return this;

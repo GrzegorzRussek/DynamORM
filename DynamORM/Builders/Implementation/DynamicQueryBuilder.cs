@@ -97,7 +97,7 @@ namespace DynamORM.Builders.Implementation
             public TableInfo(DynamicDatabase db, Type type, string alias = null, string owner = null)
                 : this()
             {
-                var mapper = DynamicMapperCache.GetMapper(type);
+                DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
 
                 Name = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
                     mapper.Type.Name : mapper.Table.Name;
@@ -371,7 +371,7 @@ namespace DynamORM.Builders.Implementation
             // If node is a delegate, parse it to create the logical tree...
             if (node is Delegate)
             {
-                using (var p = DynamicParser.Parse((Delegate)node))
+                using (DynamicParser p = DynamicParser.Parse((Delegate)node))
                     node = p.Result;
 
                 return Parse(node, ref columnSchema, pars, rawstr, decorate: decorate); // Intercept containers as in (x => "string")
@@ -409,7 +409,7 @@ namespace DynamORM.Builders.Implementation
                 throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
 
             // Copy parameters to new comand
-            foreach (var parameter in node.Parameters)
+            foreach (KeyValuePair<string, IParameter> parameter in node.Parameters)
                 pars.Add(parameter.Key, parameter.Value);
 
             return string.Format("({0})", str);
@@ -574,11 +574,11 @@ namespace DynamORM.Builders.Implementation
                             if (node.Arguments.Length > 2)
                                 throw new ArgumentException("BETWEEN method expects at most two arguments: " + node.Arguments.Sketch());
 
-                            var arguments = node.Arguments;
+                            object[] arguments = node.Arguments;
 
                             if (arguments.Length == 1 && (arguments[0] is IEnumerable<object> || arguments[0] is Array) && !(arguments[0] is byte[]))
                             {
-                                var vals = arguments[0] as IEnumerable<object>;
+                                IEnumerable<object> vals = arguments[0] as IEnumerable<object>;
 
                                 if (vals == null && arguments[0] is Array)
                                     vals = ((Array)arguments[0]).Cast<object>() as IEnumerable<object>;
@@ -599,20 +599,20 @@ namespace DynamORM.Builders.Implementation
 
                             bool firstParam = true;
                             StringBuilder sbin = new StringBuilder();
-                            foreach (var arg in node.Arguments)
+                            foreach (object arg in node.Arguments)
                             {
                                 if (!firstParam)
                                     sbin.Append(", ");
 
                                 if ((arg is IEnumerable<object> || arg is Array) && !(arg is byte[]))
                                 {
-                                    var vals = arg as IEnumerable<object>;
+                                    IEnumerable<object> vals = arg as IEnumerable<object>;
 
                                     if (vals == null && arg is Array)
                                         vals = ((Array)arg).Cast<object>() as IEnumerable<object>;
 
                                     if (vals != null)
-                                        foreach (var val in vals)
+                                        foreach (object val in vals)
                                         {
                                             if (!firstParam)
                                                 sbin.Append(", ");
@@ -729,7 +729,7 @@ namespace DynamORM.Builders.Implementation
                 bool wellKnownName = VirtualMode && node is String && ((String)node).StartsWith("[$") && ((String)node).EndsWith("]") && ((String)node).Length > 4;
 
                 // If we have a list of parameters to store it, let's parametrize it
-                var par = new Parameter()
+                Parameter par = new Parameter()
                 {
                     Name = wellKnownName ? ((String)node).Substring(2, ((String)node).Length - 3) : Guid.NewGuid().ToString(),
                     Value = wellKnownName ? null : node,
@@ -801,7 +801,7 @@ namespace DynamORM.Builders.Implementation
 
         private string FixObjectNamePrivate(string f, bool onlyColumn = false)
         {
-            var objects = f.Split('.')
+            IEnumerable<string> objects = f.Split('.')
                 .Select(x => Database.StripName(x));
 
             if (onlyColumn || objects.Count() == 1)
@@ -821,11 +821,11 @@ namespace DynamORM.Builders.Implementation
             ////    return null;
 
             // First we need to get real column name and it's owner if exist.
-            var parts = colName.Split('.');
+            string[] parts = colName.Split('.');
             for (int i = 0; i < parts.Length; i++)
                 parts[i] = Database.StripName(parts[i]);
 
-            var columnName = parts.Last();
+            string columnName = parts.Last();
 
             // Get table name from mapper
             string tableName = table;
@@ -842,7 +842,7 @@ namespace DynamORM.Builders.Implementation
             }
 
             // Try to get table info from cache
-            var tableInfo = !string.IsNullOrEmpty(tableName) ?
+            ITableInfo tableInfo = !string.IsNullOrEmpty(tableName) ?
                 Tables.FirstOrDefault(x => !string.IsNullOrEmpty(x.Alias) && x.Alias.ToLower() == tableName) ??
                 Tables.FirstOrDefault(x => x.Name.ToLower() == tableName.ToLower()) ?? Tables.FirstOrDefault() :
                 this is DynamicModifyBuilder ? Tables.FirstOrDefault() : null;
@@ -873,7 +873,7 @@ namespace DynamORM.Builders.Implementation
 
             if (Parameters != null)
             {
-                foreach (var p in Parameters)
+                foreach (KeyValuePair<string, IParameter> p in Parameters)
                     p.Value.Dispose();
 
                 Parameters.Clear();
@@ -882,7 +882,7 @@ namespace DynamORM.Builders.Implementation
 
             if (Tables != null)
             {
-                foreach (var t in Tables)
+                foreach (ITableInfo t in Tables)
                     t.Dispose();
 
                 Tables.Clear();

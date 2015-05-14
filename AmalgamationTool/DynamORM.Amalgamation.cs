@@ -417,7 +417,7 @@ namespace DynamORM
         public static DynamicColumn ParseSelectColumn(string column)
         {
             // Split column description
-            var parts = column.Split(':');
+            string[] parts = column.Split(':');
 
             if (parts.Length > 0)
             {
@@ -443,7 +443,7 @@ namespace DynamORM
         public static DynamicColumn ParseOrderByColumn(string column)
         {
             // Split column description
-            var parts = column.Split(':');
+            string[] parts = column.Split(':');
 
             if (parts.Length > 0)
             {
@@ -765,7 +765,7 @@ namespace DynamORM
             {
                 if (_con != null)
                 {
-                    var pool = _db.CommandsPool.TryGetValue(_con.Connection);
+                    List<IDbCommand> pool = _db.CommandsPool.TryGetValue(_con.Connection);
 
                     if (pool != null && pool.Contains(this))
                         pool.Remove(this);
@@ -1010,6 +1010,10 @@ namespace DynamORM
         /// dump commands to console or not.</summary>
         public bool DumpCommands { get; set; }
 
+        /// <summary>Gets or sets the dump command delegate.</summary>
+        /// <value>The dump command delegate.</value>
+        public Action<IDbCommand, string> DumpCommandDelegate { get; set; }
+
         /// <summary>Initializes a new instance of the <see cref="DynamicDatabase" /> class.</summary>
         /// <param name="provider">Database provider by name.</param>
         /// <param name="connectionString">Connection string to provided database.</param>
@@ -1133,7 +1137,7 @@ namespace DynamORM
         /// <param name="dynamicTable">Disposed dynamic table.</param>
         internal void RemoveFromCache(DynamicTable dynamicTable)
         {
-            foreach (var item in TablesCache.Where(kvp => kvp.Value == dynamicTable).ToList())
+            foreach (KeyValuePair<string, DynamicTable> item in TablesCache.Where(kvp => kvp.Value == dynamicTable).ToList())
                 TablesCache.Remove(item.Key);
         }
 
@@ -1229,27 +1233,27 @@ namespace DynamORM
         public virtual int Insert<T>(IEnumerable<T> e) where T : class
         {
             int affected = 0;
-            var mapper = DynamicMapperCache.GetMapper(typeof(T));
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(typeof(T));
 
             if (mapper != null)
             {
-                using (var con = Open())
-                using (var tra = con.BeginTransaction())
-                using (var cmd = con.CreateCommand())
+                using (IDbConnection con = Open())
+                using (IDbTransaction tra = con.BeginTransaction())
+                using (IDbCommand cmd = con.CreateCommand())
                 {
                     try
                     {
-                        var parameters = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
+                        Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
 
                         if (!string.IsNullOrEmpty(mapper.InsertCommandText))
                         {
                             cmd.CommandText = mapper.InsertCommandText;
 
-                            foreach (var col in mapper.ColumnsMap.Values
+                            foreach (DynamicPropertyInvoker col in mapper.ColumnsMap.Values
                                 .Where(di => !di.Ignore && di.InsertCommandParameter != null)
                                 .OrderBy(di => di.InsertCommandParameter.Ordinal))
                             {
-                                var para = cmd.CreateParameter();
+                                IDbDataParameter para = cmd.CreateParameter();
                                 para.ParameterName = col.InsertCommandParameter.Name;
                                 para.DbType = col.InsertCommandParameter.Type;
                                 cmd.Parameters.Add(para);
@@ -1260,9 +1264,9 @@ namespace DynamORM
                         else
                             PrepareBatchInsert<T>(mapper, cmd, parameters);
 
-                        foreach (var o in e)
+                        foreach (T o in e)
                         {
-                            foreach (var m in parameters)
+                            foreach (KeyValuePair<IDbDataParameter, DynamicPropertyInvoker> m in parameters)
                                 m.Key.Value = m.Value.Get(o);
 
                             affected += cmd.ExecuteNonQuery();
@@ -1277,7 +1281,7 @@ namespace DynamORM
 
                         affected = 0;
 
-                        var problematicCommand = new StringBuilder();
+                        StringBuilder problematicCommand = new StringBuilder();
                         cmd.Dump(problematicCommand);
 
                         throw new InvalidOperationException(problematicCommand.ToString(), ex);
@@ -1327,27 +1331,27 @@ namespace DynamORM
         public virtual int Update<T>(IEnumerable<T> e) where T : class
         {
             int affected = 0;
-            var mapper = DynamicMapperCache.GetMapper(typeof(T));
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(typeof(T));
 
             if (mapper != null)
             {
-                using (var con = Open())
-                using (var tra = con.BeginTransaction())
-                using (var cmd = con.CreateCommand())
+                using (IDbConnection con = Open())
+                using (IDbTransaction tra = con.BeginTransaction())
+                using (IDbCommand cmd = con.CreateCommand())
                 {
                     try
                     {
-                        var parameters = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
+                        Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
 
                         if (!string.IsNullOrEmpty(mapper.UpdateCommandText))
                         {
                             cmd.CommandText = mapper.UpdateCommandText;
 
-                            foreach (var col in mapper.ColumnsMap.Values
+                            foreach (DynamicPropertyInvoker col in mapper.ColumnsMap.Values
                                 .Where(di => !di.Ignore && di.UpdateCommandParameter != null)
                                 .OrderBy(di => di.UpdateCommandParameter.Ordinal))
                             {
-                                var para = cmd.CreateParameter();
+                                IDbDataParameter para = cmd.CreateParameter();
                                 para.ParameterName = col.UpdateCommandParameter.Name;
                                 para.DbType = col.UpdateCommandParameter.Type;
                                 cmd.Parameters.Add(para);
@@ -1358,9 +1362,9 @@ namespace DynamORM
                         else
                             PrepareBatchUpdate<T>(mapper, cmd, parameters);
 
-                        foreach (var o in e)
+                        foreach (T o in e)
                         {
-                            foreach (var m in parameters)
+                            foreach (KeyValuePair<IDbDataParameter, DynamicPropertyInvoker> m in parameters)
                                 m.Key.Value = m.Value.Get(o);
 
                             affected += cmd.ExecuteNonQuery();
@@ -1375,7 +1379,7 @@ namespace DynamORM
 
                         affected = 0;
 
-                        var problematicCommand = new StringBuilder();
+                        StringBuilder problematicCommand = new StringBuilder();
                         cmd.Dump(problematicCommand);
 
                         throw new InvalidOperationException(problematicCommand.ToString(), ex);
@@ -1393,30 +1397,30 @@ namespace DynamORM
         public virtual int UpdateOrInsert<T>(IEnumerable<T> e) where T : class
         {
             int affected = 0;
-            var mapper = DynamicMapperCache.GetMapper(typeof(T));
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(typeof(T));
 
             if (mapper != null)
             {
-                using (var con = Open())
-                using (var tra = con.BeginTransaction())
-                using (var cmdUp = con.CreateCommand())
-                using (var cmdIn = con.CreateCommand())
+                using (IDbConnection con = Open())
+                using (IDbTransaction tra = con.BeginTransaction())
+                using (IDbCommand cmdUp = con.CreateCommand())
+                using (IDbCommand cmdIn = con.CreateCommand())
                 {
                     try
                     {
                         #region Update
 
-                        var parametersUp = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
+                        Dictionary<IDbDataParameter, DynamicPropertyInvoker> parametersUp = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
 
                         if (!string.IsNullOrEmpty(mapper.UpdateCommandText))
                         {
                             cmdUp.CommandText = mapper.UpdateCommandText;
 
-                            foreach (var col in mapper.ColumnsMap.Values
+                            foreach (DynamicPropertyInvoker col in mapper.ColumnsMap.Values
                                 .Where(di => !di.Ignore && di.UpdateCommandParameter != null)
                                 .OrderBy(di => di.UpdateCommandParameter.Ordinal))
                             {
-                                var para = cmdUp.CreateParameter();
+                                IDbDataParameter para = cmdUp.CreateParameter();
                                 para.ParameterName = col.UpdateCommandParameter.Name;
                                 para.DbType = col.UpdateCommandParameter.Type;
                                 cmdUp.Parameters.Add(para);
@@ -1431,17 +1435,17 @@ namespace DynamORM
 
                         #region Insert
 
-                        var parametersIn = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
+                        Dictionary<IDbDataParameter, DynamicPropertyInvoker> parametersIn = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
 
                         if (!string.IsNullOrEmpty(mapper.InsertCommandText))
                         {
                             cmdIn.CommandText = mapper.InsertCommandText;
 
-                            foreach (var col in mapper.ColumnsMap.Values
+                            foreach (DynamicPropertyInvoker col in mapper.ColumnsMap.Values
                                 .Where(di => !di.Ignore && di.InsertCommandParameter != null)
                                 .OrderBy(di => di.InsertCommandParameter.Ordinal))
                             {
-                                var para = cmdIn.CreateParameter();
+                                IDbDataParameter para = cmdIn.CreateParameter();
                                 para.ParameterName = col.InsertCommandParameter.Name;
                                 para.DbType = col.InsertCommandParameter.Type;
                                 cmdIn.Parameters.Add(para);
@@ -1454,15 +1458,15 @@ namespace DynamORM
 
                         #endregion Insert
 
-                        foreach (var o in e)
+                        foreach (T o in e)
                         {
-                            foreach (var m in parametersUp)
+                            foreach (KeyValuePair<IDbDataParameter, DynamicPropertyInvoker> m in parametersUp)
                                 m.Key.Value = m.Value.Get(o);
 
                             int a = cmdUp.ExecuteNonQuery();
                             if (a == 0)
                             {
-                                foreach (var m in parametersIn)
+                                foreach (KeyValuePair<IDbDataParameter, DynamicPropertyInvoker> m in parametersIn)
                                     m.Key.Value = m.Value.Get(o);
 
                                 a = cmdIn.ExecuteNonQuery();
@@ -1480,7 +1484,7 @@ namespace DynamORM
 
                         affected = 0;
 
-                        var problematicCommand = new StringBuilder();
+                        StringBuilder problematicCommand = new StringBuilder();
                         cmdUp.Dump(problematicCommand);
 
                         throw new InvalidOperationException(problematicCommand.ToString(), ex);
@@ -1522,27 +1526,27 @@ namespace DynamORM
         public virtual int Delete<T>(IEnumerable<T> e) where T : class
         {
             int affected = 0;
-            var mapper = DynamicMapperCache.GetMapper(typeof(T));
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(typeof(T));
 
             if (mapper != null)
             {
-                using (var con = Open())
-                using (var tra = con.BeginTransaction())
-                using (var cmd = con.CreateCommand())
+                using (IDbConnection con = Open())
+                using (IDbTransaction tra = con.BeginTransaction())
+                using (IDbCommand cmd = con.CreateCommand())
                 {
                     try
                     {
-                        var parameters = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
+                        Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
 
                         if (!string.IsNullOrEmpty(mapper.DeleteCommandText))
                         {
                             cmd.CommandText = mapper.DeleteCommandText;
 
-                            foreach (var col in mapper.ColumnsMap.Values
+                            foreach (DynamicPropertyInvoker col in mapper.ColumnsMap.Values
                                 .Where(di => !di.Ignore && di.DeleteCommandParameter != null)
                                 .OrderBy(di => di.DeleteCommandParameter.Ordinal))
                             {
-                                var para = cmd.CreateParameter();
+                                IDbDataParameter para = cmd.CreateParameter();
                                 para.ParameterName = col.DeleteCommandParameter.Name;
                                 para.DbType = col.DeleteCommandParameter.Type;
                                 cmd.Parameters.Add(para);
@@ -1553,9 +1557,9 @@ namespace DynamORM
                         else
                             PrepareBatchDelete<T>(mapper, cmd, parameters);
 
-                        foreach (var o in e)
+                        foreach (T o in e)
                         {
-                            foreach (var m in parameters)
+                            foreach (KeyValuePair<IDbDataParameter, DynamicPropertyInvoker> m in parameters)
                                 m.Key.Value = m.Value.Get(o);
 
                             affected += cmd.ExecuteNonQuery();
@@ -1570,7 +1574,7 @@ namespace DynamORM
 
                         affected = 0;
 
-                        var problematicCommand = new StringBuilder();
+                        StringBuilder problematicCommand = new StringBuilder();
                         cmd.Dump(problematicCommand);
 
                         throw new InvalidOperationException(problematicCommand.ToString(), ex);
@@ -1584,11 +1588,11 @@ namespace DynamORM
         private void PrepareBatchInsert<T>(DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
         {
             DynamicPropertyInvoker currentprop = null;
-            var temp = new Dictionary<string, DynamicPropertyInvoker>();
-            var schema = this.GetSchema<T>();
+            Dictionary<string, DynamicPropertyInvoker> temp = new Dictionary<string, DynamicPropertyInvoker>();
+            Dictionary<string, DynamicSchemaColumn> schema = this.GetSchema<T>();
             int ord = 0;
 
-            var ib = Insert<T>()
+            IDynamicInsertQueryBuilder ib = Insert<T>()
                 .SetVirtualMode(true)
                 .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
                 .CreateParameterAction((p, cp) =>
@@ -1602,10 +1606,10 @@ namespace DynamORM
                     };
                 });
 
-            foreach (var prop in mapper.PropertyMap)
+            foreach (KeyValuePair<string, string> prop in mapper.PropertyMap)
                 if (!mapper.Ignored.Contains(prop.Key))
                 {
-                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
+                    string col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
                     currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
 
                     if (currentprop.Ignore || (currentprop.Column != null && currentprop.Column.IsNoInsert))
@@ -1631,11 +1635,11 @@ namespace DynamORM
         private void PrepareBatchUpdate<T>(DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
         {
             DynamicPropertyInvoker currentprop = null;
-            var temp = new Dictionary<string, DynamicPropertyInvoker>();
-            var schema = this.GetSchema<T>();
+            Dictionary<string, DynamicPropertyInvoker> temp = new Dictionary<string, DynamicPropertyInvoker>();
+            Dictionary<string, DynamicSchemaColumn> schema = this.GetSchema<T>();
             int ord = 0;
 
-            var ib = Update<T>()
+            IDynamicUpdateQueryBuilder ib = Update<T>()
                 .SetVirtualMode(true)
                 .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
                 .CreateParameterAction((p, cp) =>
@@ -1649,10 +1653,10 @@ namespace DynamORM
                     };
                 });
 
-            foreach (var prop in mapper.PropertyMap)
+            foreach (KeyValuePair<string, string> prop in mapper.PropertyMap)
                 if (!mapper.Ignored.Contains(prop.Key))
                 {
-                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
+                    string col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
                     currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
 
                     if (currentprop.Ignore)
@@ -1660,7 +1664,7 @@ namespace DynamORM
 
                     if (currentprop.Get != null)
                     {
-                        var colS = schema == null ? null : schema.TryGetNullable(col.ToLower());
+                        DynamicSchemaColumn? colS = schema == null ? null : schema.TryGetNullable(col.ToLower());
 
                         if (colS.HasValue)
                         {
@@ -1704,11 +1708,11 @@ namespace DynamORM
         private void PrepareBatchDelete<T>(DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
         {
             DynamicPropertyInvoker currentprop = null;
-            var temp = new Dictionary<string, DynamicPropertyInvoker>();
-            var schema = this.GetSchema<T>();
+            Dictionary<string, DynamicPropertyInvoker> temp = new Dictionary<string, DynamicPropertyInvoker>();
+            Dictionary<string, DynamicSchemaColumn> schema = this.GetSchema<T>();
             int ord = 0;
 
-            var ib = Delete<T>()
+            IDynamicDeleteQueryBuilder ib = Delete<T>()
                 .SetVirtualMode(true)
                 .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
                 .CreateParameterAction((p, cp) =>
@@ -1722,10 +1726,10 @@ namespace DynamORM
                     };
                 });
 
-            foreach (var prop in mapper.PropertyMap)
+            foreach (KeyValuePair<string, string> prop in mapper.PropertyMap)
                 if (!mapper.Ignored.Contains(prop.Key))
                 {
-                    var col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
+                    string col = mapper.PropertyMap.TryGetValue(prop.Key) ?? prop.Key;
                     currentprop = mapper.ColumnsMap.TryGetValue(col.ToLower());
 
                     if (currentprop.Ignore)
@@ -1733,7 +1737,7 @@ namespace DynamORM
 
                     if (currentprop.Get != null)
                     {
-                        var colS = schema == null ? null : schema.TryGetNullable(col.ToLower());
+                        DynamicSchemaColumn? colS = schema == null ? null : schema.TryGetNullable(col.ToLower());
 
                         if (colS != null)
                         {
@@ -1786,8 +1790,8 @@ namespace DynamORM
             if ((Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
                 throw new InvalidOperationException("Database connection desn't support stored procedures.");
 
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(CommandType.StoredProcedure, procName)
@@ -1805,8 +1809,8 @@ namespace DynamORM
             if ((Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
                 throw new InvalidOperationException("Database connection desn't support stored procedures.");
 
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(CommandType.StoredProcedure, procName)
@@ -1824,8 +1828,8 @@ namespace DynamORM
             if ((Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
                 throw new InvalidOperationException("Database connection desn't support stored procedures.");
 
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(CommandType.StoredProcedure, procName)
@@ -1846,8 +1850,8 @@ namespace DynamORM
         /// <returns>Number of affected rows.</returns>
         public virtual int Execute(string sql, params object[] args)
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(sql).AddParameters(this, args)
@@ -1860,8 +1864,8 @@ namespace DynamORM
         /// <returns>Number of affected rows.</returns>
         public virtual int Execute(IDynamicQueryBuilder builder)
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(builder)
@@ -1876,19 +1880,15 @@ namespace DynamORM
         {
             int ret = 0;
 
-            using (var con = Open())
+            using (IDbConnection con = Open())
             {
-                using (var trans = con.BeginTransaction())
+                using (IDbTransaction trans = con.BeginTransaction())
                 {
-                    foreach (var builder in builders)
-                    {
-                        using (var cmd = con.CreateCommand())
-                        {
+                    foreach (IDynamicQueryBuilder builder in builders)
+                        using (IDbCommand cmd = con.CreateCommand())
                             ret += cmd
                                .SetCommand(builder)
                                .ExecuteNonQuery();
-                        }
-                    }
 
                     trans.Commit();
                 }
@@ -1909,8 +1909,8 @@ namespace DynamORM
         /// <returns>Result of a query.</returns>
         public virtual object Scalar(string sql, params object[] args)
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(sql).AddParameters(this, args)
@@ -1923,8 +1923,8 @@ namespace DynamORM
         /// <returns>Result of a query.</returns>
         public virtual object Scalar(IDynamicQueryBuilder builder)
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(builder)
@@ -1943,8 +1943,8 @@ namespace DynamORM
         /// <returns>Result of a query.</returns>
         public virtual T ScalarAs<T>(string sql, params object[] args)
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(sql).AddParameters(this, args)
@@ -1959,8 +1959,8 @@ namespace DynamORM
         /// <returns>Result of a query.</returns>
         public virtual T ScalarAs<T>(IDynamicQueryBuilder builder, T defaultValue = default(T))
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(builder)
@@ -1982,9 +1982,9 @@ namespace DynamORM
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Query(string sql, params object[] args)
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
-            using (var rdr = cmd
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            using (IDataReader rdr = cmd
                 .SetCommand(sql)
                 .AddParameters(this, args)
                 .ExecuteReader())
@@ -2000,7 +2000,7 @@ namespace DynamORM
                     }
                     catch (ArgumentException argex)
                     {
-                        var sb = new StringBuilder();
+                        StringBuilder sb = new StringBuilder();
                         cmd.Dump(sb);
 
                         throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
@@ -2016,9 +2016,9 @@ namespace DynamORM
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Query(IDynamicQueryBuilder builder)
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand())
-            using (var rdr = cmd
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            using (IDataReader rdr = cmd
                 .SetCommand(builder)
                 .ExecuteReader())
                 while (rdr.Read())
@@ -2033,7 +2033,7 @@ namespace DynamORM
                     }
                     catch (ArgumentException argex)
                     {
-                        var sb = new StringBuilder();
+                        StringBuilder sb = new StringBuilder();
                         cmd.Dump(sb);
 
                         throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
@@ -2053,8 +2053,8 @@ namespace DynamORM
         /// <returns>Query schema.</returns>
         public Dictionary<string, DynamicSchemaColumn> GetQuerySchema(IDynamicSelectQueryBuilder builder)
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand().SetCommand(builder))
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand().SetCommand(builder))
                 return ReadSchema(cmd)
                     .Distinct()
                     .ToDictionary(k => k.Name.ToLower(), k => k);
@@ -2066,8 +2066,8 @@ namespace DynamORM
         /// <returns>Query schema.</returns>
         public Dictionary<string, DynamicSchemaColumn> GetQuerySchema(string sql, params object[] args)
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand().SetCommand(sql, args))
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand().SetCommand(sql, args))
                 return ReadSchema(cmd)
                     .Distinct()
                     .ToDictionary(k => k.Name.ToLower(), k => k);
@@ -2161,7 +2161,7 @@ namespace DynamORM
         {
             lock (SyncLock)
             {
-                foreach (var s in Schema)
+                foreach (KeyValuePair<string, Dictionary<string, DynamicSchemaColumn>> s in Schema)
                     if (s.Value != null)
                         s.Value.Clear();
 
@@ -2176,8 +2176,8 @@ namespace DynamORM
         /// If your database doesn't get those values in upper case (like most of the databases) you should override this method.</returns>
         protected virtual IList<DynamicSchemaColumn> ReadSchema(string table, string owner)
         {
-            using (var con = Open())
-            using (var cmd = con.CreateCommand()
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand()
                 .SetCommand(string.Format("SELECT * FROM {0}{1} WHERE 1 = 0",
                     !string.IsNullOrEmpty(owner) ? string.Format("{0}.", DecorateName(owner)) : string.Empty,
                     DecorateName(table))))
@@ -2191,11 +2191,11 @@ namespace DynamORM
         /// If your database doesn't get those values in upper case (like most of the databases) you should override this method.</returns>
         protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(IDbCommand cmd)
         {
-            using (var rdr = cmd.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
-            using (var st = rdr.GetSchemaTable())
+            using (IDataReader rdr = cmd.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
+            using (DataTable st = rdr.GetSchemaTable())
                 foreach (DataRow col in st.Rows)
                 {
-                    var c = col.RowToDynamicUpper();
+                    dynamic c = col.RowToDynamicUpper();
 
                     yield return new DynamicSchemaColumn
                     {
@@ -2396,7 +2396,10 @@ namespace DynamORM
         /// <param name="cmd">The command to dump.</param>
         public virtual void DumpCommand(IDbCommand cmd)
         {
-            cmd.Dump(Console.Out);
+            if (DumpCommandDelegate != null)
+                DumpCommandDelegate(cmd, cmd.DumpToString());
+            else
+                cmd.Dump(Console.Out);
         }
 
         #endregion Decorators
@@ -2460,7 +2463,7 @@ namespace DynamORM
                 // Close all commands
                 if (CommandsPool.ContainsKey(connection))
                 {
-                    var tmp = CommandsPool[connection].ToList();
+                    List<IDbCommand> tmp = CommandsPool[connection].ToList();
                     tmp.ForEach(cmd => cmd.Dispose());
 
                     CommandsPool[connection].Clear();
@@ -2521,7 +2524,7 @@ namespace DynamORM
 
             return _tempConn.BeginTransaction(null, null, () =>
             {
-                var t = TransactionPool.TryGetValue(_tempConn.Connection);
+                Stack<IDbTransaction> t = TransactionPool.TryGetValue(_tempConn.Connection);
 
                 if (t == null | t.Count == 0)
                 {
@@ -2541,7 +2544,7 @@ namespace DynamORM
 
             return _tempConn.BeginTransaction(il, null, () =>
             {
-                var t = TransactionPool.TryGetValue(_tempConn.Connection);
+                Stack<IDbTransaction> t = TransactionPool.TryGetValue(_tempConn.Connection);
 
                 if (t == null | t.Count == 0)
                 {
@@ -2561,7 +2564,7 @@ namespace DynamORM
 
             return _tempConn.BeginTransaction(null, custom, () =>
             {
-                var t = TransactionPool.TryGetValue(_tempConn.Connection);
+                Stack<IDbTransaction> t = TransactionPool.TryGetValue(_tempConn.Connection);
 
                 if (t == null | t.Count == 0)
                 {
@@ -2580,7 +2583,7 @@ namespace DynamORM
         public void Dispose()
         {
 #if !DYNAMORM_OMMIT_OLDSYNTAX
-            var tables = TablesCache.Values.ToList();
+            List<DynamicTable> tables = TablesCache.Values.ToList();
             TablesCache.Clear();
 
             tables.ForEach(t => t.Dispose());
@@ -2588,12 +2591,12 @@ namespace DynamORM
             tables = null;
 #endif
 
-            foreach (var con in TransactionPool)
+            foreach (KeyValuePair<IDbConnection, Stack<IDbTransaction>> con in TransactionPool)
             {
                 // Close all commands
                 if (CommandsPool.ContainsKey(con.Key))
                 {
-                    var tmp = CommandsPool[con.Key].ToList();
+                    List<IDbCommand> tmp = CommandsPool[con.Key].ToList();
                     tmp.ForEach(cmd => cmd.Dispose());
 
                     CommandsPool[con.Key].Clear();
@@ -3003,7 +3006,7 @@ namespace DynamORM
         public static IDbCommand AddParameters(this IDbCommand cmd, DynamicDatabase database, params object[] args)
         {
             if (args != null && args.Count() > 0)
-                foreach (var item in args)
+                foreach (object item in args)
                     cmd.AddParameter(database, item);
 
             return cmd;
@@ -3017,7 +3020,7 @@ namespace DynamORM
         public static IDbCommand AddParameters(this IDbCommand cmd, DynamicDatabase database, ExpandoObject args)
         {
             if (args != null && args.Count() > 0)
-                foreach (var item in args.ToDictionary())
+                foreach (KeyValuePair<string, object> item in args.ToDictionary())
                     cmd.AddParameter(database, item.Key, item.Value);
 
             return cmd;
@@ -3031,7 +3034,7 @@ namespace DynamORM
         public static IDbCommand AddParameters(this IDbCommand cmd, DynamicDatabase database, DynamicExpando args)
         {
             if (args != null && args.Count() > 0)
-                foreach (var item in args.ToDictionary())
+                foreach (KeyValuePair<string, object> item in args.ToDictionary())
                     cmd.AddParameter(database, item.Key, item.Value);
 
             return cmd;
@@ -3055,7 +3058,7 @@ namespace DynamORM
         /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
         public static IDbCommand AddParameter(this IDbCommand cmd, DynamicDatabase database, string name, object item)
         {
-            var p = cmd.CreateParameter();
+            IDbDataParameter p = cmd.CreateParameter();
             p.ParameterName = name;
 
             if (item == null || item == DBNull.Value)
@@ -3088,7 +3091,7 @@ namespace DynamORM
         /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
         public static IDbCommand AddParameter(this IDbCommand cmd, IDynamicQueryBuilder builder, DynamicSchemaColumn? col, object value)
         {
-            var p = cmd.CreateParameter();
+            IDbDataParameter p = cmd.CreateParameter();
             p.ParameterName = builder.Database.GetParameterName(cmd.Parameters.Count);
 
             if (col.HasValue)
@@ -3133,10 +3136,10 @@ namespace DynamORM
         /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
         public static IDbCommand AddParameter(this IDbCommand cmd, IDynamicQueryBuilder builder, DynamicColumn item)
         {
-            var p = cmd.CreateParameter();
+            IDbDataParameter p = cmd.CreateParameter();
             p.ParameterName = builder.Database.GetParameterName(cmd.Parameters.Count);
 
-            var col = item.Schema ?? (builder as DynamicQueryBuilder)
+            DynamicSchemaColumn? col = item.Schema ?? (builder as DynamicQueryBuilder)
                 .NullOr(b => b.GetColumnFromSchema(item.ColumnName),
                     builder.Tables.FirstOrDefault()
                         .NullOr(t => t.Schema
@@ -3473,7 +3476,7 @@ namespace DynamORM
                     ret = (T)o;
                 else
                 {
-                    var method = typeof(T).GetMethod(
+                    MethodInfo method = typeof(T).GetMethod(
                         "TryParse",
                         new Type[]
                         {
@@ -3505,7 +3508,7 @@ namespace DynamORM
         {
             using (IDataReader reader = command.ExecuteReader())
             {
-                var method = typeof(T).GetMethod(
+                MethodInfo method = typeof(T).GetMethod(
                     "TryParse",
                     new[]
                     {
@@ -3527,16 +3530,25 @@ namespace DynamORM
                         {
                             if (handler != null)
                                 ret = o.ToString().TryParseDefault<T>(defaultValue, handler);
+                            else if (o is IConvertible && typeof(T).GetInterfaces().Any(i => i == typeof(IConvertible)))
+                                ret = (T)Convert.ChangeType(o, typeof(T));
+                            else if (typeof(T) == typeof(Guid))
+                            {
+                                if (o.GetType() == typeof(byte[]))
+                                    ret = (T)(object)new Guid((byte[])o);
+                                else
+                                    ret = (T)(object)Guid.Parse(o.ToString());
+                            }
+                            else if (typeof(T) == typeof(string))
+                                ret = (T)(o.ToString() as object);
+                            else if (typeof(T) == typeof(object))
+                                ret = (T)o;
                             else if (method != null)
                                 ret = o.ToString().TryParseDefault<T>(defaultValue, delegate(string v, out T r)
                                 {
                                     r = defaultValue;
                                     return (bool)method.Invoke(null, new object[] { v, r });
                                 });
-                            else if (typeof(T) == typeof(string))
-                                ret = (T)(o.ToString() as object);
-                            else if (typeof(T) == typeof(object))
-                                ret = (T)o;
                             else
                                 throw new InvalidOperationException("Provided type can't be parsed using generic approach.");
                         }
@@ -3556,7 +3568,7 @@ namespace DynamORM
         /// <returns>Returns dumped <see cref="System.Data.IDbCommand"/> instance in string form.</returns>
         public static string DumpToString(this IDbCommand command)
         {
-            var sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder();
             command.Dump(sb);
             return sb.ToString();
         }
@@ -3726,7 +3738,7 @@ namespace DynamORM
         /// <returns>This instance to permit chaining.</returns>
         public static T SubQuery<T>(this T b, Action<T, IDynamicSelectQueryBuilder> subquery) where T : IDynamicQueryBuilder
         {
-            var sub = b.SubQuery();
+            IDynamicSelectQueryBuilder sub = b.SubQuery();
 
             subquery(b, sub);
 
@@ -3744,7 +3756,7 @@ namespace DynamORM
         /// <returns>This instance to permit chaining.</returns>
         public static T SubQuery<T>(this T b, Action<T, IDynamicSelectQueryBuilder> subquery, Func<dynamic, object> fn, params Func<dynamic, object>[] func) where T : IDynamicQueryBuilder
         {
-            var sub = b.SubQuery(fn, func);
+            IDynamicSelectQueryBuilder sub = b.SubQuery(fn, func);
 
             subquery(b, sub);
 
@@ -3762,7 +3774,7 @@ namespace DynamORM
         /// <returns>List of things.</returns>
         public static List<dynamic> ToList(this IDataReader r)
         {
-            var result = new List<dynamic>();
+            List<dynamic> result = new List<dynamic>();
 
             while (r.Read())
                 result.Add(r.RowToDynamic());
@@ -3775,10 +3787,10 @@ namespace DynamORM
         /// <returns>Converted dictionary.</returns>
         public static dynamic ToDynamic(this IDictionary<string, object> d)
         {
-            var result = new DynamicExpando();
-            var dict = (IDictionary<string, object>)result;
+            DynamicExpando result = new DynamicExpando();
+            IDictionary<string, object> dict = (IDictionary<string, object>)result;
 
-            foreach (var prop in d)
+            foreach (KeyValuePair<string, object> prop in d)
                 dict.Add(prop.Key, prop.Value);
 
             return result;
@@ -3789,10 +3801,10 @@ namespace DynamORM
         /// <returns>Converted dictionary.</returns>
         public static dynamic ToExpando(this IDictionary<string, object> d)
         {
-            var result = new ExpandoObject();
-            var dict = (IDictionary<string, object>)result;
+            ExpandoObject result = new ExpandoObject();
+            IDictionary<string, object> dict = (IDictionary<string, object>)result;
 
-            foreach (var prop in d)
+            foreach (KeyValuePair<string, object> prop in d)
                 dict.Add(prop.Key, prop.Value);
 
             return result;
@@ -3803,13 +3815,13 @@ namespace DynamORM
         /// <returns>Converted object.</returns>
         public static dynamic ToDynamic(this object o)
         {
-            var ot = o.GetType();
+            Type ot = o.GetType();
 
             if (ot == typeof(DynamicExpando) || ot == typeof(ExpandoObject))
                 return o;
 
-            var result = new DynamicExpando();
-            var dict = (IDictionary<string, object>)result;
+            DynamicExpando result = new DynamicExpando();
+            IDictionary<string, object> dict = (IDictionary<string, object>)result;
 
             if (o is IDictionary<string, object>)
                 ((IDictionary<string, object>)o)
@@ -3817,7 +3829,7 @@ namespace DynamORM
                     .ForEach(kvp => dict.Add(kvp.Key, kvp.Value));
             else if (ot == typeof(NameValueCollection) || ot.IsSubclassOf(typeof(NameValueCollection)))
             {
-                var nameValue = (NameValueCollection)o;
+                NameValueCollection nameValue = (NameValueCollection)o;
                 nameValue.Cast<string>()
                     .Select(key => new KeyValuePair<string, object>(key, nameValue[key]))
                     .ToList()
@@ -3825,19 +3837,19 @@ namespace DynamORM
             }
             else
             {
-                var mapper = DynamicMapperCache.GetMapper(ot);
+                DynamicTypeMap mapper = DynamicMapperCache.GetMapper(ot);
 
                 if (mapper != null)
                 {
-                    foreach (var item in mapper.ColumnsMap.Values)
+                    foreach (DynamicPropertyInvoker item in mapper.ColumnsMap.Values)
                         if (item.Get != null)
                             dict.Add(item.Name, item.Get(o));
                 }
                 else
                 {
-                    var props = ot.GetProperties();
+                    PropertyInfo[] props = ot.GetProperties();
 
-                    foreach (var item in props)
+                    foreach (PropertyInfo item in props)
                         if (item.CanRead)
                             dict.Add(item.Name, item.GetValue(o, null));
                 }
@@ -3851,13 +3863,13 @@ namespace DynamORM
         /// <returns>Converted object.</returns>
         public static dynamic ToExpando(this object o)
         {
-            var ot = o.GetType();
+            Type ot = o.GetType();
 
             if (ot == typeof(ExpandoObject) || ot == typeof(DynamicExpando))
                 return o;
 
-            var result = new ExpandoObject();
-            var dict = (IDictionary<string, object>)result;
+            ExpandoObject result = new ExpandoObject();
+            IDictionary<string, object> dict = (IDictionary<string, object>)result;
 
             if (o is IDictionary<string, object>)
                 ((IDictionary<string, object>)o)
@@ -3865,7 +3877,7 @@ namespace DynamORM
                     .ForEach(kvp => dict.Add(kvp.Key, kvp.Value));
             else if (ot == typeof(NameValueCollection) || ot.IsSubclassOf(typeof(NameValueCollection)))
             {
-                var nameValue = (NameValueCollection)o;
+                NameValueCollection nameValue = (NameValueCollection)o;
                 nameValue.Cast<string>()
                     .Select(key => new KeyValuePair<string, object>(key, nameValue[key]))
                     .ToList()
@@ -3873,19 +3885,19 @@ namespace DynamORM
             }
             else
             {
-                var mapper = DynamicMapperCache.GetMapper(ot);
+                DynamicTypeMap mapper = DynamicMapperCache.GetMapper(ot);
 
                 if (mapper != null)
                 {
-                    foreach (var item in mapper.ColumnsMap.Values)
+                    foreach (DynamicPropertyInvoker item in mapper.ColumnsMap.Values)
                         if (item.Get != null)
                             dict.Add(item.Name, item.Get(o));
                 }
                 else
                 {
-                    var props = ot.GetProperties();
+                    PropertyInfo[] props = ot.GetProperties();
 
-                    foreach (var item in props)
+                    foreach (PropertyInfo item in props)
                         if (item.CanRead)
                             dict.Add(item.Name, item.GetValue(o, null));
                 }
@@ -3973,7 +3985,7 @@ namespace DynamORM
         public static dynamic RowToDynamic(this IDataReader r)
         {
             dynamic e = new DynamicExpando();
-            var d = e as IDictionary<string, object>;
+            IDictionary<string, object> d = e as IDictionary<string, object>;
 
             int c = r.FieldCount;
             for (int i = 0; i < c; i++)
@@ -3996,7 +4008,7 @@ namespace DynamORM
         public static dynamic RowToExpando(this IDataReader r)
         {
             dynamic e = new ExpandoObject();
-            var d = e as IDictionary<string, object>;
+            IDictionary<string, object> d = e as IDictionary<string, object>;
 
             int c = r.FieldCount;
             for (int i = 0; i < c; i++)
@@ -4125,7 +4137,7 @@ namespace DynamORM
         /// provided <see cref="System.Data.DbType"/>.</returns>
         public static Type ToType(this DbType dbt)
         {
-            foreach (var tdbt in TypeMap)
+            foreach (KeyValuePair<Type, DbType> tdbt in TypeMap)
                 if (tdbt.Value == dbt)
                     return tdbt.Key;
 
@@ -4208,12 +4220,12 @@ namespace DynamORM
         /// <returns>Enumerator of specified type.</returns>
         public static IEnumerable<T> MapEnumerable<T>(this IEnumerable<object> enumerable)
         {
-            var mapper = DynamicMapperCache.GetMapper<T>();
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
 
             if (mapper == null)
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
 
-            foreach (var item in enumerable)
+            foreach (object item in enumerable)
                 yield return (T)mapper.Create(item);
         }
 
@@ -4223,7 +4235,7 @@ namespace DynamORM
         /// <returns>Item of specified type.</returns>
         public static T Map<T>(this object item)
         {
-            var mapper = DynamicMapperCache.GetMapper<T>();
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
 
             if (mapper == null)
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
@@ -4238,7 +4250,7 @@ namespace DynamORM
         /// <returns>Filled item.</returns>
         public static T Fill<T>(this T item, object source)
         {
-            var mapper = DynamicMapperCache.GetMapper<T>();
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
 
             if (mapper == null)
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
@@ -4254,12 +4266,12 @@ namespace DynamORM
         /// <returns>Enumerator of specified type.</returns>
         public static IEnumerable<object> MapEnumerable(this IEnumerable<object> enumerable, Type type)
         {
-            var mapper = DynamicMapperCache.GetMapper(type);
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
 
             if (mapper == null)
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
 
-            foreach (var item in enumerable)
+            foreach (object item in enumerable)
                 yield return mapper.Create(item);
         }
 
@@ -4269,7 +4281,7 @@ namespace DynamORM
         /// <returns>Item of specified type.</returns>
         public static object Map(this object item, Type type)
         {
-            var mapper = DynamicMapperCache.GetMapper(type);
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
 
             if (mapper == null)
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
@@ -4692,7 +4704,7 @@ namespace DynamORM
             Database = database;
             TableType = type;
 
-            var mapper = DynamicMapperCache.GetMapper(type);
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
 
             if (mapper != null)
             {
@@ -4718,11 +4730,11 @@ namespace DynamORM
 
             if (keys == null && TableType != null)
             {
-                var mapper = DynamicMapperCache.GetMapper(TableType);
+                DynamicTypeMap mapper = DynamicMapperCache.GetMapper(TableType);
 
                 if (mapper != null)
                 {
-                    var k = mapper.ColumnsMap.Where(p => p.Value.Column != null && p.Value.Column.IsKey).Select(p => p.Key);
+                    IEnumerable<string> k = mapper.ColumnsMap.Where(p => p.Value.Column != null && p.Value.Column.IsKey).Select(p => p.Key);
                     if (k.Count() > 0)
                         keys = k.ToArray();
                 }
@@ -4786,9 +4798,9 @@ namespace DynamORM
         /// <returns>New <see cref="DynamicSelectQueryBuilder"/> instance.</returns>
         public virtual IDynamicSelectQueryBuilder Query()
         {
-            var builder = new DynamicSelectQueryBuilder(this.Database);
+            IDynamicSelectQueryBuilder builder = new DynamicSelectQueryBuilder(this.Database);
 
-            var name = this.FullName;
+            string name = this.FullName;
             if (!string.IsNullOrEmpty(name))
                 builder.From(x => name);
 
@@ -5000,16 +5012,16 @@ namespace DynamORM
         public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
         {
             // parse the method
-            var info = binder.CallInfo;
+            CallInfo info = binder.CallInfo;
 
             // Get generic types
-            var types = binder.GetGenericTypeArguments();
+            IList<Type> types = binder.GetGenericTypeArguments();
 
             // accepting named args only... SKEET!
             if (info.ArgumentNames.Count != args.Length)
                 throw new InvalidOperationException("Please use named arguments for this type of query - the column name, orderby, columns, etc");
 
-            var op = binder.Name;
+            string op = binder.Name;
 
             // Avoid strange things
             if (!_allowedCommands.Contains(op))
@@ -5039,7 +5051,7 @@ namespace DynamORM
 
         private object DynamicInsert(object[] args, CallInfo info, IList<Type> types)
         {
-            var builder = new DynamicInsertQueryBuilder(this.Database);
+            DynamicInsertQueryBuilder builder = new DynamicInsertQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicInsertQueryBuilder>(null, info, ref types, builder, 0);
@@ -5052,8 +5064,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var fullName = info.ArgumentNames[i];
-                    var name = fullName.ToLower();
+                    string fullName = info.ArgumentNames[i];
+                    string name = fullName.ToLower();
 
                     switch (name)
                     {
@@ -5086,7 +5098,7 @@ namespace DynamORM
 
         private object DynamicUpdate(object[] args, CallInfo info, IList<Type> types)
         {
-            var builder = new DynamicUpdateQueryBuilder(this.Database);
+            DynamicUpdateQueryBuilder builder = new DynamicUpdateQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicUpdateQueryBuilder>(null, info, ref types, builder, 0);
@@ -5099,8 +5111,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var fullName = info.ArgumentNames[i];
-                    var name = fullName.ToLower();
+                    string fullName = info.ArgumentNames[i];
+                    string name = fullName.ToLower();
 
                     switch (name)
                     {
@@ -5141,7 +5153,7 @@ namespace DynamORM
 
         private object DynamicDelete(object[] args, CallInfo info, IList<Type> types)
         {
-            var builder = new DynamicDeleteQueryBuilder(this.Database);
+            DynamicDeleteQueryBuilder builder = new DynamicDeleteQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicDeleteQueryBuilder>(null, info, ref types, builder, 0);
@@ -5154,8 +5166,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var fullName = info.ArgumentNames[i];
-                    var name = fullName.ToLower();
+                    string fullName = info.ArgumentNames[i];
+                    string name = fullName.ToLower();
 
                     switch (name)
                     {
@@ -5193,7 +5205,7 @@ namespace DynamORM
         private object DynamicQuery(object[] args, CallInfo info, string op, IList<Type> types)
         {
             object result;
-            var builder = new DynamicSelectQueryBuilder(this.Database);
+            DynamicSelectQueryBuilder builder = new DynamicSelectQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicSelectQueryBuilder>(null, info, ref types, builder, 0);
@@ -5206,8 +5218,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var fullName = info.ArgumentNames[i];
-                    var name = fullName.ToLower();
+                    string fullName = info.ArgumentNames[i];
+                    string name = fullName.ToLower();
 
                     // TODO: Make this nicer
                     switch (name)
@@ -5238,14 +5250,14 @@ namespace DynamORM
 
                         case "columns":
                             {
-                                var agregate = (op == "Sum" || op == "Max" || op == "Min" || op == "Avg" || op == "Count") ?
+                                string agregate = (op == "Sum" || op == "Max" || op == "Min" || op == "Avg" || op == "Count") ?
                                     op.ToUpper() : null;
 
                                 if (args[i] is string || args[i] is string[])
                                     builder.SelectColumn((args[i] as String).NullOr(s => s.Split(','), args[i] as String[])
                                         .Select(c =>
                                         {
-                                            var col = DynamicColumn.ParseSelectColumn(c);
+                                            DynamicColumn col = DynamicColumn.ParseSelectColumn(c);
                                             if (string.IsNullOrEmpty(col.Aggregate))
                                                 col.Aggregate = agregate;
 
@@ -5311,17 +5323,9 @@ namespace DynamORM
             else
             {
                 // build the SQL
-                var justOne = op == "First" || op == "Last" || op == "Get" || op == "Single";
+                bool justOne = op == "First" || op == "Last" || op == "Get" || op == "Single";
 
                 // Be sure to sort by DESC on selected columns
-                /*if (op == "Last")
-                {
-                    if (builder.Order.Count > 0)
-                        foreach (var o in builder.Order)
-                            o.Order = o.Order == DynamicColumn.SortOrder.Desc ?
-                                DynamicColumn.SortOrder.Asc : DynamicColumn.SortOrder.Desc;
-                }*/
-
                 if (justOne && !(op == "Last"))
                 {
                     if ((Database.Options & DynamicDatabaseOptions.SupportLimitOffset) == DynamicDatabaseOptions.SupportLimitOffset)
@@ -5456,7 +5460,7 @@ namespace DynamORM
                 {
                     if (customParams != null)
                     {
-                        var mi = _con.Connection.GetType().GetMethods().Where(m => m.GetParameters().Count() == 1 && m.GetParameters().First().ParameterType == customParams.GetType()).FirstOrDefault();
+                        MethodInfo mi = _con.Connection.GetType().GetMethods().Where(m => m.GetParameters().Count() == 1 && m.GetParameters().First().ParameterType == customParams.GetType()).FirstOrDefault();
                         if (mi != null)
                             _db.TransactionPool[_con.Connection].Push((IDbTransaction)mi.Invoke(_con.Connection, new object[] { customParams, }));
                         else
@@ -5480,7 +5484,7 @@ namespace DynamORM
             {
                 if (_operational)
                 {
-                    var t = _db.TransactionPool.TryGetValue(_con.Connection);
+                    Stack<IDbTransaction> t = _db.TransactionPool.TryGetValue(_con.Connection);
 
                     if (t != null && t.Count > 0)
                     {
@@ -5504,7 +5508,7 @@ namespace DynamORM
             {
                 if (_operational)
                 {
-                    var t = _db.TransactionPool.TryGetValue(_con.Connection);
+                    Stack<IDbTransaction> t = _db.TransactionPool.TryGetValue(_con.Connection);
 
                     if (t != null && t.Count > 0)
                     {
@@ -6018,9 +6022,9 @@ namespace DynamORM
                     if (func == null)
                         throw new ArgumentNullException("Function cannot be null.");
 
-                    using (var parser = DynamicParser.Parse(func))
+                    using (DynamicParser parser = DynamicParser.Parse(func))
                     {
-                        var result = parser.Result;
+                        object result = parser.Result;
 
                         // If the expression result is string.
                         if (result is string)
@@ -6030,7 +6034,7 @@ namespace DynamORM
                         else if (result is DynamicParser.Node)
                         {
                             // Or if it resolves to a dynamic node
-                            var node = (DynamicParser.Node)result;
+                            DynamicParser.Node node = (DynamicParser.Node)result;
 
                             string owner = null;
                             string main = null;
@@ -6061,7 +6065,7 @@ namespace DynamORM
                                 {
                                     if (owner == null && main == null)
                                     {
-                                        var invoke = (DynamicParser.Node.Invoke)node;
+                                        DynamicParser.Node.Invoke invoke = (DynamicParser.Node.Invoke)node;
 
                                         if (invoke.Arguments.Length == 1 && invoke.Arguments[0] is Type)
                                             return builder.Table((Type)invoke.Arguments[0]);
@@ -6089,12 +6093,12 @@ namespace DynamORM
 
                 internal static T Table<T>(this T builder, string tableName, Dictionary<string, DynamicSchemaColumn> schema = null) where T : DynamicModifyBuilder
                 {
-                    var tuple = tableName.Validated("Table Name").SplitSomethingAndAlias();
+                    Tuple<string, string> tuple = tableName.Validated("Table Name").SplitSomethingAndAlias();
 
                     if (!string.IsNullOrEmpty(tuple.Item2))
                         throw new ArgumentException(string.Format("Can not use aliases in INSERT steatement. ({0})", tableName), "tableName");
 
-                    var parts = tuple.Item1.Split('.');
+                    string[] parts = tuple.Item1.Split('.');
 
                     if (parts.Length > 2)
                         throw new ArgumentException(string.Format("Table name can consist only from name or owner and name. ({0})", tableName), "tableName");
@@ -6115,7 +6119,7 @@ namespace DynamORM
                     if (type.IsAnonymous())
                         throw new InvalidOperationException(string.Format("Cant assign anonymous type as a table ({0}).", type.FullName));
 
-                    var mapper = DynamicMapperCache.GetMapper(type);
+                    DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
 
                     if (mapper == null)
                         throw new InvalidOperationException("Cant assign unmapable type as a table.");
@@ -6145,12 +6149,12 @@ namespace DynamORM
                 {
                     if (func == null) throw new ArgumentNullException("Array of functions cannot be null.");
 
-                    using (var parser = DynamicParser.Parse(func))
+                    using (DynamicParser parser = DynamicParser.Parse(func))
                     {
                         string condition = null;
                         bool and = true;
 
-                        var result = parser.Result;
+                        object result = parser.Result;
                         if (result is string)
                         {
                             condition = (string)result;
@@ -6170,8 +6174,8 @@ namespace DynamORM
                             // Intercepting the 'x => x.And()' and 'x => x.Or()' virtual methods...
                             if (result is DynamicParser.Node.Method && ((DynamicParser.Node.Method)result).Host is DynamicParser.Node.Argument)
                             {
-                                var node = (DynamicParser.Node.Method)result;
-                                var name = node.Name.ToUpper();
+                                DynamicParser.Node.Method node = (DynamicParser.Node.Method)result;
+                                string name = node.Name.ToUpper();
                                 if (name == "AND" || name == "OR")
                                 {
                                     object[] args = ((DynamicParser.Node.Method)node).Arguments;
@@ -6260,7 +6264,7 @@ namespace DynamORM
                 {
                     if (value is DynamicColumn)
                     {
-                        var v = (DynamicColumn)value;
+                        DynamicColumn v = (DynamicColumn)value;
 
                         if (string.IsNullOrEmpty(v.ColumnName))
                             v.ColumnName = column;
@@ -6300,11 +6304,11 @@ namespace DynamORM
                         return builder;
                     }
 
-                    var dict = conditions.ToDictionary();
-                    var mapper = DynamicMapperCache.GetMapper(conditions.GetType());
-                    var table = dict.TryGetValue("_table").NullOr(x => x.ToString(), string.Empty);
+                    IDictionary<string, object> dict = conditions.ToDictionary();
+                    DynamicTypeMap mapper = DynamicMapperCache.GetMapper(conditions.GetType());
+                    string table = dict.TryGetValue("_table").NullOr(x => x.ToString(), string.Empty);
 
-                    foreach (var condition in dict)
+                    foreach (KeyValuePair<string, object> condition in dict)
                     {
                         if (mapper.Ignored.Contains(condition.Key) || condition.Key == "_table")
                             continue;
@@ -6367,7 +6371,7 @@ namespace DynamORM
                 /// <remarks>This method must be override by derived classes.</remarks>
                 public override string CommandText()
                 {
-                    var info = Tables.Single();
+                    ITableInfo info = Tables.Single();
                     return string.Format("DELETE FROM {0}{1}{2}{3}",
                         string.IsNullOrEmpty(info.Owner) ? string.Empty : string.Format("{0}.", Database.DecorateName(info.Owner)),
                         Database.DecorateName(info.Name),
@@ -6462,7 +6466,7 @@ namespace DynamORM
                 /// <remarks>This method must be override by derived classes.</remarks>
                 public override string CommandText()
                 {
-                    var info = Tables.Single();
+                    ITableInfo info = Tables.Single();
                     return string.Format("INSERT INTO {0}{1} ({2}) VALUES ({3})",
                         string.IsNullOrEmpty(info.Owner) ? string.Empty : string.Format("{0}.", Database.DecorateName(info.Owner)),
                         Database.DecorateName(info.Name), _columns, _values);
@@ -6487,7 +6491,7 @@ namespace DynamORM
                     int index = InsertFunc(-1, fn);
 
                     if (func != null)
-                        foreach (var f in func)
+                        foreach (Func<dynamic, object> f in func)
                             index = InsertFunc(index, f);
 
                     return this;
@@ -6500,9 +6504,9 @@ namespace DynamORM
                     if (f == null)
                         throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
 
-                    using (var parser = DynamicParser.Parse(f))
+                    using (DynamicParser parser = DynamicParser.Parse(f))
                     {
-                        var result = parser.Result;
+                        object result = parser.Result;
                         if (result == null)
                             throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
 
@@ -6513,7 +6517,7 @@ namespace DynamORM
                         // When 'x => x.Table.Column = value' or 'x => x.Column = value'...
                         if (result is DynamicParser.Node.SetMember)
                         {
-                            var node = (DynamicParser.Node.SetMember)result;
+                            DynamicParser.Node.SetMember node = (DynamicParser.Node.SetMember)result;
 
                             DynamicSchemaColumn? col = GetColumnFromSchema(node.Name);
                             main = Database.DecorateName(node.Name);
@@ -6530,7 +6534,7 @@ namespace DynamORM
                         }
 
                         // Other specifications are considered invalid...
-                        var err = string.Format("Specification '{0}' is invalid.", result);
+                        string err = string.Format("Specification '{0}' is invalid.", result);
                         str = Parse(result);
                         if (str.Contains("=")) err += " May have you used a '==' instead of a '=' operator?";
                         throw new ArgumentException(err);
@@ -6545,7 +6549,7 @@ namespace DynamORM
                 {
                     if (value is DynamicColumn)
                     {
-                        var v = (DynamicColumn)value;
+                        DynamicColumn v = (DynamicColumn)value;
 
                         if (string.IsNullOrEmpty(v.ColumnName))
                             v.ColumnName = column;
@@ -6567,7 +6571,7 @@ namespace DynamORM
                 {
                     if (o is DynamicColumn)
                     {
-                        var column = (DynamicColumn)o;
+                        DynamicColumn column = (DynamicColumn)o;
                         DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
 
                         string main = FixObjectName(column.ColumnName, onlyColumn: true);
@@ -6579,23 +6583,23 @@ namespace DynamORM
                         return this;
                     }
 
-                    var dict = o.ToDictionary();
-                    var mapper = DynamicMapperCache.GetMapper(o.GetType());
+                    IDictionary<string, object> dict = o.ToDictionary();
+                    DynamicTypeMap mapper = DynamicMapperCache.GetMapper(o.GetType());
 
                     if (mapper != null)
                     {
-                        foreach (var con in dict)
+                        foreach (KeyValuePair<string, object> con in dict)
                             if (!mapper.Ignored.Contains(con.Key))
                             {
-                                var colName = mapper.PropertyMap.TryGetValue(con.Key) ?? con.Key;
-                                var propMap = mapper.ColumnsMap.TryGetValue(colName.ToLower());
+                                string colName = mapper.PropertyMap.TryGetValue(con.Key) ?? con.Key;
+                                DynamicPropertyInvoker propMap = mapper.ColumnsMap.TryGetValue(colName.ToLower());
 
                                 if (propMap == null || propMap.Column == null || !propMap.Column.IsNoInsert)
                                     Insert(colName, con.Value);
                             }
                     }
                     else
-                        foreach (var con in dict)
+                        foreach (KeyValuePair<string, object> con in dict)
                             Insert(con.Key, con.Value);
 
                     return this;
@@ -6646,8 +6650,8 @@ namespace DynamORM
                 /// <returns>Result of an execution..</returns>
                 public virtual int Execute()
                 {
-                    using (var con = Database.Open())
-                    using (var cmd = con.CreateCommand())
+                    using (IDbConnection con = Database.Open())
+                    using (IDbCommand cmd = con.CreateCommand())
                     {
                         return cmd
                             .SetCommand(this)
@@ -6712,7 +6716,7 @@ namespace DynamORM
                     public TableInfo(DynamicDatabase db, Type type, string alias = null, string owner = null)
                         : this()
                     {
-                        var mapper = DynamicMapperCache.GetMapper(type);
+                        DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
 
                         Name = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
                             mapper.Type.Name : mapper.Table.Name;
@@ -6986,7 +6990,7 @@ namespace DynamORM
                     // If node is a delegate, parse it to create the logical tree...
                     if (node is Delegate)
                     {
-                        using (var p = DynamicParser.Parse((Delegate)node))
+                        using (DynamicParser p = DynamicParser.Parse((Delegate)node))
                             node = p.Result;
 
                         return Parse(node, ref columnSchema, pars, rawstr, decorate: decorate); // Intercept containers as in (x => "string")
@@ -7024,7 +7028,7 @@ namespace DynamORM
                         throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
 
                     // Copy parameters to new comand
-                    foreach (var parameter in node.Parameters)
+                    foreach (KeyValuePair<string, IParameter> parameter in node.Parameters)
                         pars.Add(parameter.Key, parameter.Value);
 
                     return string.Format("({0})", str);
@@ -7189,11 +7193,11 @@ namespace DynamORM
                                     if (node.Arguments.Length > 2)
                                         throw new ArgumentException("BETWEEN method expects at most two arguments: " + node.Arguments.Sketch());
 
-                                    var arguments = node.Arguments;
+                                    object[] arguments = node.Arguments;
 
                                     if (arguments.Length == 1 && (arguments[0] is IEnumerable<object> || arguments[0] is Array) && !(arguments[0] is byte[]))
                                     {
-                                        var vals = arguments[0] as IEnumerable<object>;
+                                        IEnumerable<object> vals = arguments[0] as IEnumerable<object>;
 
                                         if (vals == null && arguments[0] is Array)
                                             vals = ((Array)arguments[0]).Cast<object>() as IEnumerable<object>;
@@ -7214,20 +7218,20 @@ namespace DynamORM
 
                                     bool firstParam = true;
                                     StringBuilder sbin = new StringBuilder();
-                                    foreach (var arg in node.Arguments)
+                                    foreach (object arg in node.Arguments)
                                     {
                                         if (!firstParam)
                                             sbin.Append(", ");
 
                                         if ((arg is IEnumerable<object> || arg is Array) && !(arg is byte[]))
                                         {
-                                            var vals = arg as IEnumerable<object>;
+                                            IEnumerable<object> vals = arg as IEnumerable<object>;
 
                                             if (vals == null && arg is Array)
                                                 vals = ((Array)arg).Cast<object>() as IEnumerable<object>;
 
                                             if (vals != null)
-                                                foreach (var val in vals)
+                                                foreach (object val in vals)
                                                 {
                                                     if (!firstParam)
                                                         sbin.Append(", ");
@@ -7344,7 +7348,7 @@ namespace DynamORM
                         bool wellKnownName = VirtualMode && node is String && ((String)node).StartsWith("[$") && ((String)node).EndsWith("]") && ((String)node).Length > 4;
 
                         // If we have a list of parameters to store it, let's parametrize it
-                        var par = new Parameter()
+                        Parameter par = new Parameter()
                         {
                             Name = wellKnownName ? ((String)node).Substring(2, ((String)node).Length - 3) : Guid.NewGuid().ToString(),
                             Value = wellKnownName ? null : node,
@@ -7416,7 +7420,7 @@ namespace DynamORM
 
                 private string FixObjectNamePrivate(string f, bool onlyColumn = false)
                 {
-                    var objects = f.Split('.')
+                    IEnumerable<string> objects = f.Split('.')
                         .Select(x => Database.StripName(x));
 
                     if (onlyColumn || objects.Count() == 1)
@@ -7436,11 +7440,11 @@ namespace DynamORM
                     ////    return null;
 
                     // First we need to get real column name and it's owner if exist.
-                    var parts = colName.Split('.');
+                    string[] parts = colName.Split('.');
                     for (int i = 0; i < parts.Length; i++)
                         parts[i] = Database.StripName(parts[i]);
 
-                    var columnName = parts.Last();
+                    string columnName = parts.Last();
 
                     // Get table name from mapper
                     string tableName = table;
@@ -7457,7 +7461,7 @@ namespace DynamORM
                     }
 
                     // Try to get table info from cache
-                    var tableInfo = !string.IsNullOrEmpty(tableName) ?
+                    ITableInfo tableInfo = !string.IsNullOrEmpty(tableName) ?
                         Tables.FirstOrDefault(x => !string.IsNullOrEmpty(x.Alias) && x.Alias.ToLower() == tableName) ??
                         Tables.FirstOrDefault(x => x.Name.ToLower() == tableName.ToLower()) ?? Tables.FirstOrDefault() :
                         this is DynamicModifyBuilder ? Tables.FirstOrDefault() : null;
@@ -7488,7 +7492,7 @@ namespace DynamORM
 
                     if (Parameters != null)
                     {
-                        foreach (var p in Parameters)
+                        foreach (KeyValuePair<string, IParameter> p in Parameters)
                             p.Value.Dispose();
 
                         Parameters.Clear();
@@ -7497,7 +7501,7 @@ namespace DynamORM
 
                     if (Tables != null)
                     {
-                        foreach (var t in Tables)
+                        foreach (ITableInfo t in Tables)
                             t.Dispose();
 
                         Tables.Clear();
@@ -7569,48 +7573,6 @@ namespace DynamORM
                 }
 
                 #region Execution
-
-                /*/// <summary>Execute this builder.</summary>
-
-                /// <returns>Enumerator of objects expanded from query.</returns>
-                public virtual IEnumerator<dynamic> GetEnumerator()
-                {
-                    using (var con = Database.Open())
-                    using (var cmd = con.CreateCommand())
-                    {
-                        using (var rdr = cmd
-                            .SetCommand(this)
-                            .ExecuteReader())
-                            while (rdr.Read())
-                            {
-                                dynamic val = null;
-
-                                // Work around to avoid yield being in try...catchblock:
-                                // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
-                                try
-                                {
-                                    val = rdr.RowToDynamic();
-                                }
-                                catch (ArgumentException argex)
-                                {
-                                    var sb = new StringBuilder();
-                                    cmd.Dump(sb);
-
-                                    throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
-                                        argex.InnerException.NullOr(a => a, argex));
-                                }
-
-                                yield return val;
-                            }
-                    }
-                }
-
-                /// <summary>Execute this builder.</summary>
-                /// <returns>Enumerator of objects expanded from query.</returns>
-                System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-                {
-                    return GetEnumerator();
-                }*/
 
                 /// <summary>Execute this builder.</summary>
                 /// <returns>Enumerator of objects expanded from query.</returns>
@@ -8838,7 +8800,7 @@ namespace DynamORM
                 /// <remarks>This method must be override by derived classes.</remarks>
                 public override string CommandText()
                 {
-                    var info = Tables.Single();
+                    ITableInfo info = Tables.Single();
                     return string.Format("UPDATE {0}{1} SET {2}{3}{4}",
                         string.IsNullOrEmpty(info.Owner) ? string.Empty : string.Format("{0}.", Database.DecorateName(info.Owner)),
                         Database.DecorateName(info.Name), _columns,
@@ -8874,7 +8836,7 @@ namespace DynamORM
                 {
                     if (conditions is DynamicColumn)
                     {
-                        var column = (DynamicColumn)conditions;
+                        DynamicColumn column = (DynamicColumn)conditions;
 
                         DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
 
@@ -8889,10 +8851,10 @@ namespace DynamORM
                         return this;
                     }
 
-                    var dict = conditions.ToDictionary();
-                    var mapper = DynamicMapperCache.GetMapper(conditions.GetType());
+                    IDictionary<string, object> dict = conditions.ToDictionary();
+                    DynamicTypeMap mapper = DynamicMapperCache.GetMapper(conditions.GetType());
 
-                    foreach (var con in dict)
+                    foreach (KeyValuePair<string, object> con in dict)
                     {
                         if (mapper.Ignored.Contains(con.Key))
                             continue;
@@ -8915,7 +8877,7 @@ namespace DynamORM
                             }
                         }
 
-                        var propMap = mapper.ColumnsMap.TryGetValue(colName.ToLower());
+                        DynamicPropertyInvoker propMap = mapper.ColumnsMap.TryGetValue(colName.ToLower());
                         if (propMap == null || propMap.Column == null || !propMap.Column.IsNoUpdate)
                             Values(colName, con.Value);
                     }
@@ -8941,7 +8903,7 @@ namespace DynamORM
                         throw new ArgumentNullException("Array of specifications cannot be null.");
 
                     int index = -1;
-                    foreach (var f in func)
+                    foreach (Func<dynamic, object> f in func)
                     {
                         index++;
                         if (f == null)
@@ -8949,7 +8911,7 @@ namespace DynamORM
 
                         object result = null;
 
-                        using (var p = DynamicParser.Parse(f))
+                        using (DynamicParser p = DynamicParser.Parse(f))
                             result = p.Result;
 
                         if (result == null)
@@ -8962,7 +8924,7 @@ namespace DynamORM
                         // When 'x => x.Table.Column = value' or 'x => x.Column = value'...
                         if (result is DynamicParser.Node.SetMember)
                         {
-                            var node = (DynamicParser.Node.SetMember)result;
+                            DynamicParser.Node.SetMember node = (DynamicParser.Node.SetMember)result;
 
                             DynamicSchemaColumn? col = GetColumnFromSchema(node.Name);
                             main = Database.DecorateName(node.Name);
@@ -8979,7 +8941,7 @@ namespace DynamORM
                         }
 
                         // Other specifications are considered invalid...
-                        var err = string.Format("Specification '{0}' is invalid.", result);
+                        string err = string.Format("Specification '{0}' is invalid.", result);
                         str = Parse(result);
                         if (str.Contains("=")) err += " May have you used a '==' instead of a '=' operator?";
                         throw new ArgumentException(err);
@@ -8996,7 +8958,7 @@ namespace DynamORM
                 {
                     if (value is DynamicColumn)
                     {
-                        var v = (DynamicColumn)value;
+                        DynamicColumn v = (DynamicColumn)value;
 
                         if (string.IsNullOrEmpty(v.ColumnName))
                             v.ColumnName = column;
@@ -9018,29 +8980,29 @@ namespace DynamORM
                 {
                     if (o is DynamicColumn)
                     {
-                        var column = (DynamicColumn)o;
+                        DynamicColumn column = (DynamicColumn)o;
                         DynamicSchemaColumn? col = column.Schema ?? GetColumnFromSchema(column.ColumnName);
 
                         string main = FixObjectName(column.ColumnName, onlyColumn: true);
                         string value = Parse(column.Value, ref col, pars: Parameters, nulls: true);
 
-                        var str = string.Format("{0} = {1}", main, value);
+                        string str = string.Format("{0} = {1}", main, value);
                         _columns = _columns == null ? str : string.Format("{0}, {1}", _columns, str);
 
                         return this;
                     }
 
-                    var dict = o.ToDictionary();
-                    var mapper = DynamicMapperCache.GetMapper(o.GetType());
+                    IDictionary<string, object> dict = o.ToDictionary();
+                    DynamicTypeMap mapper = DynamicMapperCache.GetMapper(o.GetType());
 
                     if (mapper != null)
                     {
-                        foreach (var con in dict)
+                        foreach (KeyValuePair<string, object> con in dict)
                             if (!mapper.Ignored.Contains(con.Key))
                                 Values(mapper.PropertyMap.TryGetValue(con.Key) ?? con.Key, con.Value);
                     }
                     else
-                        foreach (var con in dict)
+                        foreach (KeyValuePair<string, object> con in dict)
                             Values(con.Key, con.Value);
 
                     return this;
@@ -9182,13 +9144,13 @@ namespace DynamORM
                 int firstCount;
                 int secondCount;
 
-                var firstElementCounts = GetElementCounts(first, out firstCount);
-                var secondElementCounts = GetElementCounts(second, out secondCount);
+                Dictionary<T, int> firstElementCounts = GetElementCounts(first, out firstCount);
+                Dictionary<T, int> secondElementCounts = GetElementCounts(second, out secondCount);
 
                 if (firstCount != secondCount)
                     return true;
 
-                foreach (var kvp in firstElementCounts)
+                foreach (KeyValuePair<T, int> kvp in firstElementCounts)
                     if (kvp.Value != (secondElementCounts.TryGetNullable(kvp.Key) ?? 0))
                         return true;
 
@@ -9197,7 +9159,7 @@ namespace DynamORM
 
             private static Dictionary<T, int> GetElementCounts(IEnumerable<T> enumerable, out int nullCount)
             {
-                var dictionary = new Dictionary<T, int>();
+                Dictionary<T, int> dictionary = new Dictionary<T, int>();
                 nullCount = 0;
 
                 foreach (T element in enumerable)
@@ -9242,7 +9204,7 @@ namespace DynamORM
                 // HACK: Creating binders assuming types are correct... this may fail.
                 if (IsMono)
                 {
-                    var binderType = typeof(Microsoft.CSharp.RuntimeBinder.RuntimeBinderException).Assembly.GetType("Microsoft.CSharp.RuntimeBinder.CSharpInvokeMemberBinder");
+                    Type binderType = typeof(Microsoft.CSharp.RuntimeBinder.RuntimeBinderException).Assembly.GetType("Microsoft.CSharp.RuntimeBinder.CSharpInvokeMemberBinder");
 
                     if (binderType != null)
                     {
@@ -9257,16 +9219,16 @@ namespace DynamORM
                 }
                 else
                 {
-                    var inter = typeof(Microsoft.CSharp.RuntimeBinder.RuntimeBinderException).Assembly.GetType("Microsoft.CSharp.RuntimeBinder.ICSharpInvokeOrInvokeMemberBinder");
+                    Type inter = typeof(Microsoft.CSharp.RuntimeBinder.RuntimeBinderException).Assembly.GetType("Microsoft.CSharp.RuntimeBinder.ICSharpInvokeOrInvokeMemberBinder");
 
                     if (inter != null)
                     {
-                        var prop = inter.GetProperty("TypeArguments");
+                        PropertyInfo prop = inter.GetProperty("TypeArguments");
 
                         if (!prop.CanRead)
                             return null;
 
-                        var objParm = Expression.Parameter(typeof(InvokeMemberBinder), "o");
+                        ParameterExpression objParm = Expression.Parameter(typeof(InvokeMemberBinder), "o");
 
                         return Expression.Lambda<Func<InvokeMemberBinder, IList<Type>>>(
                             Expression.TypeAs(
@@ -9302,7 +9264,7 @@ namespace DynamORM
                     // In mono this is trivial.
 
                     // First we get field info.
-                    var field = binder.GetType().GetField("typeArguments", BindingFlags.Instance |
+                    FieldInfo field = binder.GetType().GetField("typeArguments", BindingFlags.Instance |
                         BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 
                     // If this was a success get and return it's value
@@ -9315,12 +9277,12 @@ namespace DynamORM
                     // In this case, we need more aerobic :D
 
                     // First, get the interface
-                    var inter = binder.GetType().GetInterface("Microsoft.CSharp.RuntimeBinder.ICSharpInvokeOrInvokeMemberBinder");
+                    Type inter = binder.GetType().GetInterface("Microsoft.CSharp.RuntimeBinder.ICSharpInvokeOrInvokeMemberBinder");
 
                     if (inter != null)
                     {
                         // Now get property.
-                        var prop = inter.GetProperty("TypeArguments");
+                        PropertyInfo prop = inter.GetProperty("TypeArguments");
 
                         // If we have a property, return it's value
                         if (prop != null)
@@ -9469,7 +9431,7 @@ namespace DynamORM
 
                     if (props.Length != 0)
                     {
-                        foreach (var prop in props)
+                        foreach (PropertyInfo prop in props)
                         {
                             if (!first) sb.Append(", "); else first = false;
                             sb.AppendFormat("{0}='{1}'", prop.Name, prop.GetValue(obj, null).Sketch());
@@ -9479,7 +9441,7 @@ namespace DynamORM
                     {
                         if (infos.Length != 0)
                         {
-                            foreach (var info in infos)
+                            foreach (FieldInfo info in infos)
                             {
                                 if (!first) sb.Append(", "); else first = false;
                                 sb.AppendFormat("{0}='{1}'", info.Name, info.GetValue(obj).Sketch());
@@ -9750,12 +9712,12 @@ namespace DynamORM
                         // Func was cool but caused memory leaks
                         private DynamicMetaObject GetBinder(Node node)
                         {
-                            var o = (Node)this.Value;
+                            Node o = (Node)this.Value;
                             node.Parser = o.Parser;
                             o.Parser.Last = node;
 
-                            var p = Expression.Variable(typeof(Node), "ret");
-                            var exp = Expression.Block(new ParameterExpression[] { p }, Expression.Assign(p, Expression.Constant(node)));
+                            ParameterExpression p = Expression.Variable(typeof(Node), "ret");
+                            BlockExpression exp = Expression.Block(new ParameterExpression[] { p }, Expression.Assign(p, Expression.Constant(node)));
 
                             return new MetaNode(exp, this.Restrictions, node);
                         }
@@ -9860,8 +9822,8 @@ namespace DynamORM
                         /// </returns>
                         public override DynamicMetaObject BindUnaryOperation(UnaryOperationBinder binder)
                         {
-                            var o = (Node)this.Value;
-                            var node = new Unary(o, binder.Operation) { Parser = o.Parser };
+                            Node o = (Node)this.Value;
+                            Unary node = new Unary(o, binder.Operation) { Parser = o.Parser };
                             o.Parser.Last = node;
 
                             // If operation is 'IsTrue' or 'IsFalse', we will return false to keep the engine working...
@@ -9869,8 +9831,8 @@ namespace DynamORM
                             if (binder.Operation == ExpressionType.IsTrue) ret = (object)false;
                             if (binder.Operation == ExpressionType.IsFalse) ret = (object)false;
 
-                            var p = Expression.Variable(ret.GetType(), "ret"); // the type is now obtained from "ret"
-                            var exp = Expression.Block(
+                            ParameterExpression p = Expression.Variable(ret.GetType(), "ret"); // the type is now obtained from "ret"
+                            BlockExpression exp = Expression.Block(
                                 new ParameterExpression[] { p },
                                 Expression.Assign(p, Expression.Constant(ret))); // the expression is now obtained from "ret"
 
@@ -9886,8 +9848,8 @@ namespace DynamORM
                         /// </returns>
                         public override DynamicMetaObject BindConvert(ConvertBinder binder)
                         {
-                            var o = (Node)this.Value;
-                            var node = new Convert(o, binder.ReturnType) { Parser = o.Parser };
+                            Node o = (Node)this.Value;
+                            Convert node = new Convert(o, binder.ReturnType) { Parser = o.Parser };
                             o.Parser.Last = node;
 
                             // Reducing the object to return if this is an assignment node...
@@ -9922,8 +9884,8 @@ namespace DynamORM
                                 }
                             }
 
-                            var p = Expression.Variable(binder.ReturnType, "ret");
-                            var exp = Expression.Block(
+                            ParameterExpression p = Expression.Variable(binder.ReturnType, "ret");
+                            BlockExpression exp = Expression.Block(
                                 new ParameterExpression[] { p },
                                 Expression.Assign(p, Expression.Constant(ret, binder.ReturnType))); // specifying binder.ReturnType
 
@@ -10775,7 +10737,7 @@ namespace DynamORM
                         if (!IsDisposed && _arguments != null)
                             list.AddRange(_arguments);
 
-                        foreach (var arg in list)
+                        foreach (Node.Argument arg in list)
                             yield return arg;
 
                         list.Clear();
@@ -10807,13 +10769,13 @@ namespace DynamORM
                 {
                     // I know this can be almost a one liner
                     // but it causes memory leaks when so.
-                    var pars = f.Method.GetParameters();
-                    foreach (var p in pars)
+                    ParameterInfo[] pars = f.Method.GetParameters();
+                    foreach (ParameterInfo p in pars)
                     {
-                        var attrs = p.GetCustomAttributes(typeof(DynamicAttribute), true).Length;
+                        int attrs = p.GetCustomAttributes(typeof(DynamicAttribute), true).Length;
                         if (attrs != 0)
                         {
-                            var par = new Node.Argument(p.Name) { Parser = this };
+                            Node.Argument par = new Node.Argument(p.Name) { Parser = this };
                             this._arguments.Add(par);
                         }
                         else
@@ -10849,7 +10811,7 @@ namespace DynamORM
 
                     if (_arguments != null)
                     {
-                        foreach (var arg in _arguments)
+                        foreach (Node.Argument arg in _arguments)
                         {
                             if (!first) sb.Append(", "); else first = false;
                             sb.Append(arg);
@@ -10930,7 +10892,7 @@ namespace DynamORM
                     _proxy = proxiedObject;
                     _type = typeof(T);
 
-                    var mapper = Mapper.DynamicMapperCache.GetMapper<T>();
+                    DynamicTypeMap mapper = Mapper.DynamicMapperCache.GetMapper<T>();
 
                     _properties = mapper
                         .ColumnsMap
@@ -11017,7 +10979,7 @@ namespace DynamORM
                 {
                     try
                     {
-                        var prop = _properties.TryGetValue(binder.Name);
+                        DynamicPropertyInvoker prop = _properties.TryGetValue(binder.Name);
 
                         result = prop.NullOr(p => p.Get.NullOr(g => g(_proxy), null), null);
 
@@ -11052,7 +11014,7 @@ namespace DynamORM
                 {
                     try
                     {
-                        var prop = _properties.TryGetValue(binder.Name);
+                        DynamicPropertyInvoker prop = _properties.TryGetValue(binder.Name);
 
                         if (prop != null && prop.Setter != null)
                         {
@@ -11149,18 +11111,17 @@ namespace DynamORM
                 {
                     if (type.IsInterface)
                     {
-                        var members = new List<MemberInfo>();
-
-                        var considered = new List<Type>();
-                        var queue = new Queue<Type>();
+                        List<MemberInfo> members = new List<MemberInfo>();
+                        List<Type> considered = new List<Type>();
+                        Queue<Type> queue = new Queue<Type>();
 
                         considered.Add(type);
                         queue.Enqueue(type);
 
                         while (queue.Count > 0)
                         {
-                            var subType = queue.Dequeue();
-                            foreach (var subInterface in subType.GetInterfaces())
+                            Type subType = queue.Dequeue();
+                            foreach (Type subInterface in subType.GetInterfaces())
                             {
                                 if (considered.Contains(subInterface)) continue;
 
@@ -11168,12 +11129,12 @@ namespace DynamORM
                                 queue.Enqueue(subInterface);
                             }
 
-                            var typeProperties = subType.GetMembers(
+                            MemberInfo[] typeProperties = subType.GetMembers(
                                 BindingFlags.FlattenHierarchy
                                 | BindingFlags.Public
                                 | BindingFlags.Instance);
 
-                            var newPropertyInfos = typeProperties
+                            IEnumerable<MemberInfo> newPropertyInfos = typeProperties
                                 .Where(x => !members.Contains(x));
 
                             members.InsertRange(0, newPropertyInfos);
@@ -11425,7 +11386,7 @@ namespace DynamORM
                 Name = property.Name;
                 Type = property.PropertyType;
 
-                var ignore = property.GetCustomAttributes(typeof(IgnoreAttribute), false);
+                object[] ignore = property.GetCustomAttributes(typeof(IgnoreAttribute), false);
 
                 Ignore = ignore != null && ignore.Length > 0;
 
@@ -11443,7 +11404,7 @@ namespace DynamORM
                 if (!property.CanRead)
                     return null;
 
-                var objParm = Expression.Parameter(typeof(object), "o");
+                ParameterExpression objParm = Expression.Parameter(typeof(object), "o");
 
                 return Expression.Lambda<Func<object, object>>(
                     Expression.Convert(
@@ -11458,8 +11419,8 @@ namespace DynamORM
                 if (!property.CanWrite)
                     return null;
 
-                var objParm = Expression.Parameter(typeof(object), "o");
-                var valueParm = Expression.Parameter(typeof(object), "value");
+                ParameterExpression objParm = Expression.Parameter(typeof(object), "o");
+                ParameterExpression valueParm = Expression.Parameter(typeof(object), "value");
 
                 return Expression.Lambda<Action<object, object>>(
                     Expression.Assign(
@@ -11552,7 +11513,7 @@ namespace DynamORM
             {
                 Type = type;
 
-                var attr = type.GetCustomAttributes(typeof(TableAttribute), false);
+                object[] attr = type.GetCustomAttributes(typeof(TableAttribute), false);
 
                 if (attr != null && attr.Length > 0)
                     Table = (TableAttribute)attr[0];
@@ -11563,22 +11524,22 @@ namespace DynamORM
 
             private void CreateColumnAndPropertyMap()
             {
-                var columnMap = new Dictionary<string, DynamicPropertyInvoker>();
-                var propertyMap = new Dictionary<string, string>();
-                var ignored = new List<string>();
+                Dictionary<string, DynamicPropertyInvoker> columnMap = new Dictionary<string, DynamicPropertyInvoker>();
+                Dictionary<string, string> propertyMap = new Dictionary<string, string>();
+                List<string> ignored = new List<string>();
 
-                foreach (var pi in GetAllMembers(Type).Where(x => x is PropertyInfo).Cast<PropertyInfo>())
+                foreach (PropertyInfo pi in GetAllMembers(Type).Where(x => x is PropertyInfo).Cast<PropertyInfo>())
                 {
                     ColumnAttribute attr = null;
 
-                    var attrs = pi.GetCustomAttributes(typeof(ColumnAttribute), true);
+                    object[] attrs = pi.GetCustomAttributes(typeof(ColumnAttribute), true);
 
                     if (attrs != null && attrs.Length > 0)
                         attr = (ColumnAttribute)attrs[0];
 
                     string col = attr == null || string.IsNullOrEmpty(attr.Name) ? pi.Name : attr.Name;
 
-                    var val = new DynamicPropertyInvoker(pi, attr);
+                    DynamicPropertyInvoker val = new DynamicPropertyInvoker(pi, attr);
                     columnMap.Add(col.ToLower(), val);
 
                     propertyMap.Add(pi.Name, col);
@@ -11617,7 +11578,7 @@ namespace DynamORM
             {
                 DynamicPropertyInvoker dpi = null;
 
-                foreach (var item in source.ToDictionary())
+                foreach (KeyValuePair<string, object> item in source.ToDictionary())
                 {
                     if (ColumnsMap.TryGetValue(item.Key.ToLower(), out dpi) && item.Value != null)
                         if (dpi.Setter != null)
@@ -11631,18 +11592,17 @@ namespace DynamORM
             {
                 if (type.IsInterface)
                 {
-                    var members = new List<MemberInfo>();
-
-                    var considered = new List<Type>();
-                    var queue = new Queue<Type>();
+                    List<MemberInfo> members = new List<MemberInfo>();
+                    List<Type> considered = new List<Type>();
+                    Queue<Type> queue = new Queue<Type>();
 
                     considered.Add(type);
                     queue.Enqueue(type);
 
                     while (queue.Count > 0)
                     {
-                        var subType = queue.Dequeue();
-                        foreach (var subInterface in subType.GetInterfaces())
+                        Type subType = queue.Dequeue();
+                        foreach (Type subInterface in subType.GetInterfaces())
                         {
                             if (considered.Contains(subInterface)) continue;
 
@@ -11650,12 +11610,12 @@ namespace DynamORM
                             queue.Enqueue(subInterface);
                         }
 
-                        var typeProperties = subType.GetMembers(
+                        MemberInfo[] typeProperties = subType.GetMembers(
                             BindingFlags.FlattenHierarchy
                             | BindingFlags.Public
                             | BindingFlags.Instance);
 
-                        var newPropertyInfos = typeProperties
+                        IEnumerable<MemberInfo> newPropertyInfos = typeProperties
                             .Where(x => !members.Contains(x));
 
                         members.InsertRange(0, newPropertyInfos);

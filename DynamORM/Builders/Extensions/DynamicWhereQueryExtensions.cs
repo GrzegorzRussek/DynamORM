@@ -51,12 +51,12 @@ namespace DynamORM.Builders.Extensions
         {
             if (func == null) throw new ArgumentNullException("Array of functions cannot be null.");
 
-            using (var parser = DynamicParser.Parse(func))
+            using (DynamicParser parser = DynamicParser.Parse(func))
             {
                 string condition = null;
                 bool and = true;
 
-                var result = parser.Result;
+                object result = parser.Result;
                 if (result is string)
                 {
                     condition = (string)result;
@@ -76,8 +76,8 @@ namespace DynamORM.Builders.Extensions
                     // Intercepting the 'x => x.And()' and 'x => x.Or()' virtual methods...
                     if (result is DynamicParser.Node.Method && ((DynamicParser.Node.Method)result).Host is DynamicParser.Node.Argument)
                     {
-                        var node = (DynamicParser.Node.Method)result;
-                        var name = node.Name.ToUpper();
+                        DynamicParser.Node.Method node = (DynamicParser.Node.Method)result;
+                        string name = node.Name.ToUpper();
                         if (name == "AND" || name == "OR")
                         {
                             object[] args = ((DynamicParser.Node.Method)node).Arguments;
@@ -166,7 +166,7 @@ namespace DynamORM.Builders.Extensions
         {
             if (value is DynamicColumn)
             {
-                var v = (DynamicColumn)value;
+                DynamicColumn v = (DynamicColumn)value;
 
                 if (string.IsNullOrEmpty(v.ColumnName))
                     v.ColumnName = column;
@@ -206,11 +206,11 @@ namespace DynamORM.Builders.Extensions
                 return builder;
             }
 
-            var dict = conditions.ToDictionary();
-            var mapper = DynamicMapperCache.GetMapper(conditions.GetType());
-            var table = dict.TryGetValue("_table").NullOr(x => x.ToString(), string.Empty);
+            IDictionary<string, object> dict = conditions.ToDictionary();
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(conditions.GetType());
+            string table = dict.TryGetValue("_table").NullOr(x => x.ToString(), string.Empty);
 
-            foreach (var condition in dict)
+            foreach (KeyValuePair<string, object> condition in dict)
             {
                 if (mapper.Ignored.Contains(condition.Key) || condition.Key == "_table")
                     continue;

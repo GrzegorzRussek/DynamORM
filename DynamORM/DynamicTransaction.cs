@@ -27,8 +27,11 @@
 */
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Reflection;
 using DynamORM.Helpers;
 
 namespace DynamORM
@@ -66,7 +69,7 @@ namespace DynamORM
                 {
                     if (customParams != null)
                     {
-                        var mi = _con.Connection.GetType().GetMethods().Where(m => m.GetParameters().Count() == 1 && m.GetParameters().First().ParameterType == customParams.GetType()).FirstOrDefault();
+                        MethodInfo mi = _con.Connection.GetType().GetMethods().Where(m => m.GetParameters().Count() == 1 && m.GetParameters().First().ParameterType == customParams.GetType()).FirstOrDefault();
                         if (mi != null)
                             _db.TransactionPool[_con.Connection].Push((IDbTransaction)mi.Invoke(_con.Connection, new object[] { customParams, }));
                         else
@@ -90,7 +93,7 @@ namespace DynamORM
             {
                 if (_operational)
                 {
-                    var t = _db.TransactionPool.TryGetValue(_con.Connection);
+                    Stack<IDbTransaction> t = _db.TransactionPool.TryGetValue(_con.Connection);
 
                     if (t != null && t.Count > 0)
                     {
@@ -114,7 +117,7 @@ namespace DynamORM
             {
                 if (_operational)
                 {
-                    var t = _db.TransactionPool.TryGetValue(_con.Connection);
+                    Stack<IDbTransaction> t = _db.TransactionPool.TryGetValue(_con.Connection);
 
                     if (t != null && t.Count > 0)
                     {

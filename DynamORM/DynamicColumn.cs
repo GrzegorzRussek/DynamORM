@@ -390,7 +390,7 @@ namespace DynamORM
         public static DynamicColumn ParseSelectColumn(string column)
         {
             // Split column description
-            var parts = column.Split(':');
+            string[] parts = column.Split(':');
 
             if (parts.Length > 0)
             {
@@ -416,7 +416,7 @@ namespace DynamORM
         public static DynamicColumn ParseOrderByColumn(string column)
         {
             // Split column description
-            var parts = column.Split(':');
+            string[] parts = column.Split(':');
 
             if (parts.Length > 0)
             {

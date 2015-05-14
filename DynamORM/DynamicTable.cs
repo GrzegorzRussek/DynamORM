@@ -267,7 +267,7 @@ namespace DynamORM
             Database = database;
             TableType = type;
 
-            var mapper = DynamicMapperCache.GetMapper(type);
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
 
             if (mapper != null)
             {
@@ -293,11 +293,11 @@ namespace DynamORM
 
             if (keys == null && TableType != null)
             {
-                var mapper = DynamicMapperCache.GetMapper(TableType);
+                DynamicTypeMap mapper = DynamicMapperCache.GetMapper(TableType);
 
                 if (mapper != null)
                 {
-                    var k = mapper.ColumnsMap.Where(p => p.Value.Column != null && p.Value.Column.IsKey).Select(p => p.Key);
+                    IEnumerable<string> k = mapper.ColumnsMap.Where(p => p.Value.Column != null && p.Value.Column.IsKey).Select(p => p.Key);
                     if (k.Count() > 0)
                         keys = k.ToArray();
                 }
@@ -361,9 +361,9 @@ namespace DynamORM
         /// <returns>New <see cref="DynamicSelectQueryBuilder"/> instance.</returns>
         public virtual IDynamicSelectQueryBuilder Query()
         {
-            var builder = new DynamicSelectQueryBuilder(this.Database);
+            IDynamicSelectQueryBuilder builder = new DynamicSelectQueryBuilder(this.Database);
 
-            var name = this.FullName;
+            string name = this.FullName;
             if (!string.IsNullOrEmpty(name))
                 builder.From(x => name);
 
@@ -575,16 +575,16 @@ namespace DynamORM
         public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
         {
             // parse the method
-            var info = binder.CallInfo;
+            CallInfo info = binder.CallInfo;
 
             // Get generic types
-            var types = binder.GetGenericTypeArguments();
+            IList<Type> types = binder.GetGenericTypeArguments();
 
             // accepting named args only... SKEET!
             if (info.ArgumentNames.Count != args.Length)
                 throw new InvalidOperationException("Please use named arguments for this type of query - the column name, orderby, columns, etc");
 
-            var op = binder.Name;
+            string op = binder.Name;
 
             // Avoid strange things
             if (!_allowedCommands.Contains(op))
@@ -614,7 +614,7 @@ namespace DynamORM
 
         private object DynamicInsert(object[] args, CallInfo info, IList<Type> types)
         {
-            var builder = new DynamicInsertQueryBuilder(this.Database);
+            DynamicInsertQueryBuilder builder = new DynamicInsertQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicInsertQueryBuilder>(null, info, ref types, builder, 0);
@@ -627,8 +627,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var fullName = info.ArgumentNames[i];
-                    var name = fullName.ToLower();
+                    string fullName = info.ArgumentNames[i];
+                    string name = fullName.ToLower();
 
                     switch (name)
                     {
@@ -661,7 +661,7 @@ namespace DynamORM
 
         private object DynamicUpdate(object[] args, CallInfo info, IList<Type> types)
         {
-            var builder = new DynamicUpdateQueryBuilder(this.Database);
+            DynamicUpdateQueryBuilder builder = new DynamicUpdateQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicUpdateQueryBuilder>(null, info, ref types, builder, 0);
@@ -674,8 +674,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var fullName = info.ArgumentNames[i];
-                    var name = fullName.ToLower();
+                    string fullName = info.ArgumentNames[i];
+                    string name = fullName.ToLower();
 
                     switch (name)
                     {
@@ -716,7 +716,7 @@ namespace DynamORM
 
         private object DynamicDelete(object[] args, CallInfo info, IList<Type> types)
         {
-            var builder = new DynamicDeleteQueryBuilder(this.Database);
+            DynamicDeleteQueryBuilder builder = new DynamicDeleteQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicDeleteQueryBuilder>(null, info, ref types, builder, 0);
@@ -729,8 +729,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var fullName = info.ArgumentNames[i];
-                    var name = fullName.ToLower();
+                    string fullName = info.ArgumentNames[i];
+                    string name = fullName.ToLower();
 
                     switch (name)
                     {
@@ -768,7 +768,7 @@ namespace DynamORM
         private object DynamicQuery(object[] args, CallInfo info, string op, IList<Type> types)
         {
             object result;
-            var builder = new DynamicSelectQueryBuilder(this.Database);
+            DynamicSelectQueryBuilder builder = new DynamicSelectQueryBuilder(this.Database);
 
             if (types != null && types.Count == 1)
                 HandleTypeArgument<DynamicSelectQueryBuilder>(null, info, ref types, builder, 0);
@@ -781,8 +781,8 @@ namespace DynamORM
             {
                 for (int i = 0; i < args.Length; i++)
                 {
-                    var fullName = info.ArgumentNames[i];
-                    var name = fullName.ToLower();
+                    string fullName = info.ArgumentNames[i];
+                    string name = fullName.ToLower();
 
                     // TODO: Make this nicer
                     switch (name)
@@ -813,14 +813,14 @@ namespace DynamORM
 
                         case "columns":
                             {
-                                var agregate = (op == "Sum" || op == "Max" || op == "Min" || op == "Avg" || op == "Count") ?
+                                string agregate = (op == "Sum" || op == "Max" || op == "Min" || op == "Avg" || op == "Count") ?
                                     op.ToUpper() : null;
 
                                 if (args[i] is string || args[i] is string[])
                                     builder.SelectColumn((args[i] as String).NullOr(s => s.Split(','), args[i] as String[])
                                         .Select(c =>
                                         {
-                                            var col = DynamicColumn.ParseSelectColumn(c);
+                                            DynamicColumn col = DynamicColumn.ParseSelectColumn(c);
                                             if (string.IsNullOrEmpty(col.Aggregate))
                                                 col.Aggregate = agregate;
 
@@ -886,17 +886,9 @@ namespace DynamORM
             else
             {
                 // build the SQL
-                var justOne = op == "First" || op == "Last" || op == "Get" || op == "Single";
+                bool justOne = op == "First" || op == "Last" || op == "Get" || op == "Single";
 
                 // Be sure to sort by DESC on selected columns
-                /*if (op == "Last")
-                {
-                    if (builder.Order.Count > 0)
-                        foreach (var o in builder.Order)
-                            o.Order = o.Order == DynamicColumn.SortOrder.Desc ?
-                                DynamicColumn.SortOrder.Asc : DynamicColumn.SortOrder.Desc;
-                }*/
-
                 if (justOne && !(op == "Last"))
                 {
                     if ((Database.Options & DynamicDatabaseOptions.SupportLimitOffset) == DynamicDatabaseOptions.SupportLimitOffset)

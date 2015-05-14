@@ -59,7 +59,7 @@ namespace DynamORM.Helpers.Dynamics
             _proxy = proxiedObject;
             _type = typeof(T);
 
-            var mapper = Mapper.DynamicMapperCache.GetMapper<T>();
+            DynamicTypeMap mapper = Mapper.DynamicMapperCache.GetMapper<T>();
 
             _properties = mapper
                 .ColumnsMap
@@ -146,7 +146,7 @@ namespace DynamORM.Helpers.Dynamics
         {
             try
             {
-                var prop = _properties.TryGetValue(binder.Name);
+                DynamicPropertyInvoker prop = _properties.TryGetValue(binder.Name);
 
                 result = prop.NullOr(p => p.Get.NullOr(g => g(_proxy), null), null);
 
@@ -181,7 +181,7 @@ namespace DynamORM.Helpers.Dynamics
         {
             try
             {
-                var prop = _properties.TryGetValue(binder.Name);
+                DynamicPropertyInvoker prop = _properties.TryGetValue(binder.Name);
 
                 if (prop != null && prop.Setter != null)
                 {
@@ -278,18 +278,17 @@ namespace DynamORM.Helpers.Dynamics
         {
             if (type.IsInterface)
             {
-                var members = new List<MemberInfo>();
-
-                var considered = new List<Type>();
-                var queue = new Queue<Type>();
+                List<MemberInfo> members = new List<MemberInfo>();
+                List<Type> considered = new List<Type>();
+                Queue<Type> queue = new Queue<Type>();
 
                 considered.Add(type);
                 queue.Enqueue(type);
 
                 while (queue.Count > 0)
                 {
-                    var subType = queue.Dequeue();
-                    foreach (var subInterface in subType.GetInterfaces())
+                    Type subType = queue.Dequeue();
+                    foreach (Type subInterface in subType.GetInterfaces())
                     {
                         if (considered.Contains(subInterface)) continue;
 
@@ -297,12 +296,12 @@ namespace DynamORM.Helpers.Dynamics
                         queue.Enqueue(subInterface);
                     }
 
-                    var typeProperties = subType.GetMembers(
+                    MemberInfo[] typeProperties = subType.GetMembers(
                         BindingFlags.FlattenHierarchy
                         | BindingFlags.Public
                         | BindingFlags.Instance);
 
-                    var newPropertyInfos = typeProperties
+                    IEnumerable<MemberInfo> newPropertyInfos = typeProperties
                         .Where(x => !members.Contains(x));
 
                     members.InsertRange(0, newPropertyInfos);

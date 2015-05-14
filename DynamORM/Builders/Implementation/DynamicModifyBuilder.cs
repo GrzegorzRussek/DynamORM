@@ -26,6 +26,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+using System.Data;
 using DynamORM.Builders.Extensions;
 
 namespace DynamORM.Builders.Implementation
@@ -59,8 +60,8 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Result of an execution..</returns>
         public virtual int Execute()
         {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
+            using (IDbConnection con = Database.Open())
+            using (IDbCommand cmd = con.CreateCommand())
             {
                 return cmd
                     .SetCommand(this)

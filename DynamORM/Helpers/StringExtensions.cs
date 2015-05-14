@@ -146,7 +146,7 @@ namespace DynamORM.Helpers
 
                 if (props.Length != 0)
                 {
-                    foreach (var prop in props)
+                    foreach (PropertyInfo prop in props)
                     {
                         if (!first) sb.Append(", "); else first = false;
                         sb.AppendFormat("{0}='{1}'", prop.Name, prop.GetValue(obj, null).Sketch());
@@ -156,7 +156,7 @@ namespace DynamORM.Helpers
                 {
                     if (infos.Length != 0)
                     {
-                        foreach (var info in infos)
+                        foreach (FieldInfo info in infos)
                         {
                             if (!first) sb.Append(", "); else first = false;
                             sb.AppendFormat("{0}='{1}'", info.Name, info.GetValue(obj).Sketch());

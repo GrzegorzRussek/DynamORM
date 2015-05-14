@@ -63,7 +63,7 @@ namespace DynamORM.Mapper
         {
             Type = type;
 
-            var attr = type.GetCustomAttributes(typeof(TableAttribute), false);
+            object[] attr = type.GetCustomAttributes(typeof(TableAttribute), false);
 
             if (attr != null && attr.Length > 0)
                 Table = (TableAttribute)attr[0];
@@ -74,22 +74,22 @@ namespace DynamORM.Mapper
 
         private void CreateColumnAndPropertyMap()
         {
-            var columnMap = new Dictionary<string, DynamicPropertyInvoker>();
-            var propertyMap = new Dictionary<string, string>();
-            var ignored = new List<string>();
+            Dictionary<string, DynamicPropertyInvoker> columnMap = new Dictionary<string, DynamicPropertyInvoker>();
+            Dictionary<string, string> propertyMap = new Dictionary<string, string>();
+            List<string> ignored = new List<string>();
 
-            foreach (var pi in GetAllMembers(Type).Where(x => x is PropertyInfo).Cast<PropertyInfo>())
+            foreach (PropertyInfo pi in GetAllMembers(Type).Where(x => x is PropertyInfo).Cast<PropertyInfo>())
             {
                 ColumnAttribute attr = null;
 
-                var attrs = pi.GetCustomAttributes(typeof(ColumnAttribute), true);
+                object[] attrs = pi.GetCustomAttributes(typeof(ColumnAttribute), true);
 
                 if (attrs != null && attrs.Length > 0)
                     attr = (ColumnAttribute)attrs[0];
 
                 string col = attr == null || string.IsNullOrEmpty(attr.Name) ? pi.Name : attr.Name;
 
-                var val = new DynamicPropertyInvoker(pi, attr);
+                DynamicPropertyInvoker val = new DynamicPropertyInvoker(pi, attr);
                 columnMap.Add(col.ToLower(), val);
 
                 propertyMap.Add(pi.Name, col);
@@ -128,7 +128,7 @@ namespace DynamORM.Mapper
         {
             DynamicPropertyInvoker dpi = null;
 
-            foreach (var item in source.ToDictionary())
+            foreach (KeyValuePair<string, object> item in source.ToDictionary())
             {
                 if (ColumnsMap.TryGetValue(item.Key.ToLower(), out dpi) && item.Value != null)
                     if (dpi.Setter != null)
@@ -142,18 +142,17 @@ namespace DynamORM.Mapper
         {
             if (type.IsInterface)
             {
-                var members = new List<MemberInfo>();
-
-                var considered = new List<Type>();
-                var queue = new Queue<Type>();
+                List<MemberInfo> members = new List<MemberInfo>();
+                List<Type> considered = new List<Type>();
+                Queue<Type> queue = new Queue<Type>();
 
                 considered.Add(type);
                 queue.Enqueue(type);
 
                 while (queue.Count > 0)
                 {
-                    var subType = queue.Dequeue();
-                    foreach (var subInterface in subType.GetInterfaces())
+                    Type subType = queue.Dequeue();
+                    foreach (Type subInterface in subType.GetInterfaces())
                     {
                         if (considered.Contains(subInterface)) continue;
 
@@ -161,12 +160,12 @@ namespace DynamORM.Mapper
                         queue.Enqueue(subInterface);
                     }
 
-                    var typeProperties = subType.GetMembers(
+                    MemberInfo[] typeProperties = subType.GetMembers(
                         BindingFlags.FlattenHierarchy
                         | BindingFlags.Public
                         | BindingFlags.Instance);
 
-                    var newPropertyInfos = typeProperties
+                    IEnumerable<MemberInfo> newPropertyInfos = typeProperties
                         .Where(x => !members.Contains(x));
 
                     members.InsertRange(0, newPropertyInfos);

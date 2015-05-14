@@ -61,7 +61,7 @@ namespace DynamORM.Helpers
             // HACK: Creating binders assuming types are correct... this may fail.
             if (IsMono)
             {
-                var binderType = typeof(Microsoft.CSharp.RuntimeBinder.RuntimeBinderException).Assembly.GetType("Microsoft.CSharp.RuntimeBinder.CSharpInvokeMemberBinder");
+                Type binderType = typeof(Microsoft.CSharp.RuntimeBinder.RuntimeBinderException).Assembly.GetType("Microsoft.CSharp.RuntimeBinder.CSharpInvokeMemberBinder");
 
                 if (binderType != null)
                 {
@@ -76,16 +76,16 @@ namespace DynamORM.Helpers
             }
             else
             {
-                var inter = typeof(Microsoft.CSharp.RuntimeBinder.RuntimeBinderException).Assembly.GetType("Microsoft.CSharp.RuntimeBinder.ICSharpInvokeOrInvokeMemberBinder");
+                Type inter = typeof(Microsoft.CSharp.RuntimeBinder.RuntimeBinderException).Assembly.GetType("Microsoft.CSharp.RuntimeBinder.ICSharpInvokeOrInvokeMemberBinder");
 
                 if (inter != null)
                 {
-                    var prop = inter.GetProperty("TypeArguments");
+                    PropertyInfo prop = inter.GetProperty("TypeArguments");
 
                     if (!prop.CanRead)
                         return null;
 
-                    var objParm = Expression.Parameter(typeof(InvokeMemberBinder), "o");
+                    ParameterExpression objParm = Expression.Parameter(typeof(InvokeMemberBinder), "o");
 
                     return Expression.Lambda<Func<InvokeMemberBinder, IList<Type>>>(
                         Expression.TypeAs(
@@ -121,7 +121,7 @@ namespace DynamORM.Helpers
                 // In mono this is trivial.
 
                 // First we get field info.
-                var field = binder.GetType().GetField("typeArguments", BindingFlags.Instance |
+                FieldInfo field = binder.GetType().GetField("typeArguments", BindingFlags.Instance |
                     BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 
                 // If this was a success get and return it's value
@@ -134,12 +134,12 @@ namespace DynamORM.Helpers
                 // In this case, we need more aerobic :D
 
                 // First, get the interface
-                var inter = binder.GetType().GetInterface("Microsoft.CSharp.RuntimeBinder.ICSharpInvokeOrInvokeMemberBinder");
+                Type inter = binder.GetType().GetInterface("Microsoft.CSharp.RuntimeBinder.ICSharpInvokeOrInvokeMemberBinder");
 
                 if (inter != null)
                 {
                     // Now get property.
-                    var prop = inter.GetProperty("TypeArguments");
+                    PropertyInfo prop = inter.GetProperty("TypeArguments");
 
                     // If we have a property, return it's value
                     if (prop != null)

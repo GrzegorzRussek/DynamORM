@@ -100,48 +100,6 @@ namespace DynamORM.Builders.Implementation
 
         #region Execution
 
-        /*/// <summary>Execute this builder.</summary>
-
-        /// <returns>Enumerator of objects expanded from query.</returns>
-        public virtual IEnumerator<dynamic> GetEnumerator()
-        {
-            using (var con = Database.Open())
-            using (var cmd = con.CreateCommand())
-            {
-                using (var rdr = cmd
-                    .SetCommand(this)
-                    .ExecuteReader())
-                    while (rdr.Read())
-                    {
-                        dynamic val = null;
-
-                        // Work around to avoid yield being in try...catchblock:
-                        // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
-                        try
-                        {
-                            val = rdr.RowToDynamic();
-                        }
-                        catch (ArgumentException argex)
-                        {
-                            var sb = new StringBuilder();
-                            cmd.Dump(sb);
-
-                            throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
-                                argex.InnerException.NullOr(a => a, argex));
-                        }
-
-                        yield return val;
-                    }
-            }
-        }
-
-        /// <summary>Execute this builder.</summary>
-        /// <returns>Enumerator of objects expanded from query.</returns>
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }*/
-
         /// <summary>Execute this builder.</summary>
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Execute()

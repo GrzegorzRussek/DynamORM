@@ -71,7 +71,7 @@ namespace DynamORM.Mapper
             Name = property.Name;
             Type = property.PropertyType;
 
-            var ignore = property.GetCustomAttributes(typeof(IgnoreAttribute), false);
+            object[] ignore = property.GetCustomAttributes(typeof(IgnoreAttribute), false);
 
             Ignore = ignore != null && ignore.Length > 0;
 
@@ -89,7 +89,7 @@ namespace DynamORM.Mapper
             if (!property.CanRead)
                 return null;
 
-            var objParm = Expression.Parameter(typeof(object), "o");
+            ParameterExpression objParm = Expression.Parameter(typeof(object), "o");
 
             return Expression.Lambda<Func<object, object>>(
                 Expression.Convert(
@@ -104,8 +104,8 @@ namespace DynamORM.Mapper
             if (!property.CanWrite)
                 return null;
 
-            var objParm = Expression.Parameter(typeof(object), "o");
-            var valueParm = Expression.Parameter(typeof(object), "value");
+            ParameterExpression objParm = Expression.Parameter(typeof(object), "o");
+            ParameterExpression valueParm = Expression.Parameter(typeof(object), "value");
 
             return Expression.Lambda<Action<object, object>>(
                 Expression.Assign(

@@ -62,7 +62,7 @@ namespace DynamORM.Builders.Implementation
         /// <remarks>This method must be override by derived classes.</remarks>
         public override string CommandText()
         {
-            var info = Tables.Single();
+            ITableInfo info = Tables.Single();
             return string.Format("DELETE FROM {0}{1}{2}{3}",
                 string.IsNullOrEmpty(info.Owner) ? string.Empty : string.Format("{0}.", Database.DecorateName(info.Owner)),
                 Database.DecorateName(info.Name),

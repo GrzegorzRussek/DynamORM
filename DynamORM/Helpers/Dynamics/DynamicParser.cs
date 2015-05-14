@@ -33,6 +33,7 @@ using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
@@ -77,12 +78,12 @@ namespace DynamORM.Helpers.Dynamics
                 // Func was cool but caused memory leaks
                 private DynamicMetaObject GetBinder(Node node)
                 {
-                    var o = (Node)this.Value;
+                    Node o = (Node)this.Value;
                     node.Parser = o.Parser;
                     o.Parser.Last = node;
 
-                    var p = Expression.Variable(typeof(Node), "ret");
-                    var exp = Expression.Block(new ParameterExpression[] { p }, Expression.Assign(p, Expression.Constant(node)));
+                    ParameterExpression p = Expression.Variable(typeof(Node), "ret");
+                    BlockExpression exp = Expression.Block(new ParameterExpression[] { p }, Expression.Assign(p, Expression.Constant(node)));
 
                     return new MetaNode(exp, this.Restrictions, node);
                 }
@@ -187,8 +188,8 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindUnaryOperation(UnaryOperationBinder binder)
                 {
-                    var o = (Node)this.Value;
-                    var node = new Unary(o, binder.Operation) { Parser = o.Parser };
+                    Node o = (Node)this.Value;
+                    Unary node = new Unary(o, binder.Operation) { Parser = o.Parser };
                     o.Parser.Last = node;
 
                     // If operation is 'IsTrue' or 'IsFalse', we will return false to keep the engine working...
@@ -196,8 +197,8 @@ namespace DynamORM.Helpers.Dynamics
                     if (binder.Operation == ExpressionType.IsTrue) ret = (object)false;
                     if (binder.Operation == ExpressionType.IsFalse) ret = (object)false;
 
-                    var p = Expression.Variable(ret.GetType(), "ret"); // the type is now obtained from "ret"
-                    var exp = Expression.Block(
+                    ParameterExpression p = Expression.Variable(ret.GetType(), "ret"); // the type is now obtained from "ret"
+                    BlockExpression exp = Expression.Block(
                         new ParameterExpression[] { p },
                         Expression.Assign(p, Expression.Constant(ret))); // the expression is now obtained from "ret"
 
@@ -213,8 +214,8 @@ namespace DynamORM.Helpers.Dynamics
                 /// </returns>
                 public override DynamicMetaObject BindConvert(ConvertBinder binder)
                 {
-                    var o = (Node)this.Value;
-                    var node = new Convert(o, binder.ReturnType) { Parser = o.Parser };
+                    Node o = (Node)this.Value;
+                    Convert node = new Convert(o, binder.ReturnType) { Parser = o.Parser };
                     o.Parser.Last = node;
 
                     // Reducing the object to return if this is an assignment node...
@@ -249,8 +250,8 @@ namespace DynamORM.Helpers.Dynamics
                         }
                     }
 
-                    var p = Expression.Variable(binder.ReturnType, "ret");
-                    var exp = Expression.Block(
+                    ParameterExpression p = Expression.Variable(binder.ReturnType, "ret");
+                    BlockExpression exp = Expression.Block(
                         new ParameterExpression[] { p },
                         Expression.Assign(p, Expression.Constant(ret, binder.ReturnType))); // specifying binder.ReturnType
 
@@ -1102,7 +1103,7 @@ namespace DynamORM.Helpers.Dynamics
                 if (!IsDisposed && _arguments != null)
                     list.AddRange(_arguments);
 
-                foreach (var arg in list)
+                foreach (Node.Argument arg in list)
                     yield return arg;
 
                 list.Clear();
@@ -1134,13 +1135,13 @@ namespace DynamORM.Helpers.Dynamics
         {
             // I know this can be almost a one liner
             // but it causes memory leaks when so.
-            var pars = f.Method.GetParameters();
-            foreach (var p in pars)
+            ParameterInfo[] pars = f.Method.GetParameters();
+            foreach (ParameterInfo p in pars)
             {
-                var attrs = p.GetCustomAttributes(typeof(DynamicAttribute), true).Length;
+                int attrs = p.GetCustomAttributes(typeof(DynamicAttribute), true).Length;
                 if (attrs != 0)
                 {
-                    var par = new Node.Argument(p.Name) { Parser = this };
+                    Node.Argument par = new Node.Argument(p.Name) { Parser = this };
                     this._arguments.Add(par);
                 }
                 else
@@ -1176,7 +1177,7 @@ namespace DynamORM.Helpers.Dynamics
 
             if (_arguments != null)
             {
-                foreach (var arg in _arguments)
+                foreach (Node.Argument arg in _arguments)
                 {
                     if (!first) sb.Append(", "); else first = false;
                     sb.Append(arg);
