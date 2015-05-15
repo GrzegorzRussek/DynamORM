@@ -1,6 +1,6 @@
 ﻿/*
  * DynamORM - Dynamic Object-Relational Mapping library.
- * Copyright (c) 2012, Grzegorz Russek (grzegorz.russek@gmail.com)
+ * Copyright (c) 2012-2015, Grzegorz Russek (grzegorz.russek@gmail.com)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@ namespace DynamORM
         #region Internal fields and properties
 
         private DbProviderFactory _provider;
+        private DynamicProcedureInvoker _proc;
         private string _connectionString;
         private bool _singleConnection;
         private bool _singleTransaction;
@@ -117,6 +118,23 @@ namespace DynamORM
 
         /// <summary>Gets the database provider.</summary>
         public DbProviderFactory Provider { get { return _provider; } }
+
+        /// <summary>Gets the procedures invoker.</summary>
+        public dynamic Procedures
+        {
+            get
+            {
+                if (_proc == null)
+                {
+                    if ((Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                        throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+                    _proc = new DynamicProcedureInvoker(this);
+                }
+
+                return _proc;
+            }
+        }
 
         /// <summary>Gets or sets a value indicating whether
         /// dump commands to console or not.</summary>
@@ -1748,6 +1766,8 @@ namespace DynamORM
             }
 
             ClearSchema();
+            if (_proc != null)
+                _proc.Dispose();
 
             IsDisposed = true;
         }

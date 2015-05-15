@@ -1,6 +1,6 @@
 ﻿/*
  * DynamORM - Dynamic Object-Relational Mapping library.
- * Copyright (c) 2012, Grzegorz Russek (grzegorz.russek@gmail.com)
+ * Copyright (c) 2012-2015, Grzegorz Russek (grzegorz.russek@gmail.com)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -210,7 +210,14 @@ namespace DynamORM
         {
             if (args != null && args.Count() > 0)
                 foreach (object item in args)
-                    cmd.AddParameter(database, item);
+                {
+                    if (item is DynamicExpando)
+                        cmd.AddParameters(database, (DynamicExpando)item);
+                    else if (item is ExpandoObject)
+                        cmd.AddParameters(database, (ExpandoObject)item);
+                    else
+                        cmd.AddParameter(database, item);
+                }
 
             return cmd;
         }
@@ -1411,6 +1418,12 @@ namespace DynamORM
         public static DbType GetFieldDbType(this IDataReader r, int i)
         {
             return TypeMap.TryGetNullable(r.GetFieldType(i)) ?? DbType.String;
+        }
+
+        internal static IEnumerable<dynamic> EnumerateReader(this IDataReader r)
+        {
+            while (r.Read())
+                yield return r.RowToDynamic();
         }
 
         #endregion IDataReader extensions

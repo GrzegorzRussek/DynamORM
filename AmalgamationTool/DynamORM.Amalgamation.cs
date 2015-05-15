@@ -1,6 +1,6 @@
 /*
  * DynamORM - Dynamic Object-Relational Mapping library.
- * Copyright (c) 2012, Grzegorz Russek (grzegorz.russek@gmail.com)
+ * Copyright (c) 2012-2015, Grzegorz Russek (grzegorz.russek@gmail.com)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Data;
@@ -935,6 +936,7 @@ namespace DynamORM
         #region Internal fields and properties
 
         private DbProviderFactory _provider;
+        private DynamicProcedureInvoker _proc;
         private string _connectionString;
         private bool _singleConnection;
         private bool _singleTransaction;
@@ -1005,6 +1007,23 @@ namespace DynamORM
 
         /// <summary>Gets the database provider.</summary>
         public DbProviderFactory Provider { get { return _provider; } }
+
+        /// <summary>Gets the procedures invoker.</summary>
+        public dynamic Procedures
+        {
+            get
+            {
+                if (_proc == null)
+                {
+                    if ((Options & DynamicDatabaseOptions.SupportStoredProcedures) != DynamicDatabaseOptions.SupportStoredProcedures)
+                        throw new InvalidOperationException("Database connection desn't support stored procedures.");
+
+                    _proc = new DynamicProcedureInvoker(this);
+                }
+
+                return _proc;
+            }
+        }
 
         /// <summary>Gets or sets a value indicating whether
         /// dump commands to console or not.</summary>
@@ -2636,6 +2655,8 @@ namespace DynamORM
             }
 
             ClearSchema();
+            if (_proc != null)
+                _proc.Dispose();
 
             IsDisposed = true;
         }
@@ -3007,7 +3028,14 @@ namespace DynamORM
         {
             if (args != null && args.Count() > 0)
                 foreach (object item in args)
-                    cmd.AddParameter(database, item);
+                {
+                    if (item is DynamicExpando)
+                        cmd.AddParameters(database, (DynamicExpando)item);
+                    else if (item is ExpandoObject)
+                        cmd.AddParameters(database, (ExpandoObject)item);
+                    else
+                        cmd.AddParameter(database, item);
+                }
 
             return cmd;
         }
@@ -4210,6 +4238,12 @@ namespace DynamORM
             return TypeMap.TryGetNullable(r.GetFieldType(i)) ?? DbType.String;
         }
 
+        internal static IEnumerable<dynamic> EnumerateReader(this IDataReader r)
+        {
+            while (r.Read())
+                yield return r.RowToDynamic();
+        }
+
         #endregion IDataReader extensions
 
         #region Mapper extensions
@@ -4381,6 +4415,203 @@ namespace DynamORM
         }
 
         #endregion Coalesce - besicaly not an extensions
+    }
+
+    /// <summary>Dynamic procedure invoker.</summary>
+    /// <remarks>Unfortunately I can use <c>out</c> and <c>ref</c> to
+    /// return parameters, <see href="http://stackoverflow.com/questions/2475310/c-sharp-4-0-dynamic-doesnt-set-ref-out-arguments"/>.
+    /// But see example for workaround. If there aren't any return parameters execution will return scalar value.
+    /// Scalar result is not converted to provided generic type (if any). For output results there is possibility to map to provided class.
+    /// </remarks><example>You still can use out, return and both way parameters by providing variable prefix:<code>
+    /// dynamic res = db.Procedures.sp_Test_Scalar_In_Out(inp: Guid.NewGuid(), out_outp: Guid.Empty);
+    /// Console.Out.WriteLine(res.outp);</code>
+    /// Prefixes: <c>out_</c>, <c>ret_</c>, <c>both_</c>. Result will contain field without prefix.
+    /// Here is an example with result class:<code>
+    /// public class ProcResult { [Column("outp")] public Guid Output { get; set; } }
+    /// ProcResult res4 = db.Procedures.sp_Test_Scalar_In_Out&lt;ProcResult&gt;(inp: Guid.NewGuid(), out_outp: Guid.Empty) as ProcResult;
+    /// </code>As you can se, you can use mapper to do job for you.</example>
+    public class DynamicProcedureInvoker : DynamicObject, IDisposable
+    {
+        private DynamicDatabase _db;
+
+        internal DynamicProcedureInvoker(DynamicDatabase db)
+        {
+            _db = db;
+        }
+
+        /// <summary>This is where the magic begins.</summary>
+        /// <param name="binder">Binder to invoke.</param>
+        /// <param name="args">Binder arguments.</param>
+        /// <param name="result">Binder invoke result.</param>
+        /// <returns>Returns <c>true</c> if invoke was performed.</returns>
+        public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
+        {
+            // parse the method
+            CallInfo info = binder.CallInfo;
+
+            // Get generic types
+            IList<Type> types = binder.GetGenericTypeArguments();
+
+            Dictionary<string, int> retParams = null;
+
+            using (IDbConnection con = _db.Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            {
+                cmd.SetCommand(CommandType.StoredProcedure, binder.Name);
+
+                #region Prepare arguments
+
+                int alen = args.Length;
+                if (alen > 0)
+                {
+                    for (int i = 0; i < alen; i++)
+                    {
+                        object arg = args[i];
+
+                        if (arg is DynamicExpando)
+                            cmd.AddParameters(_db, (DynamicExpando)arg);
+                        else if (arg is ExpandoObject)
+                            cmd.AddParameters(_db, (ExpandoObject)arg);
+                        else
+                        {
+                            if (info.ArgumentNames.Count > i && !string.IsNullOrEmpty(info.ArgumentNames[i]))
+                            {
+                                bool isOut = info.ArgumentNames[i].StartsWith("out_");
+                                bool isRet = info.ArgumentNames[i].StartsWith("ret_");
+                                bool isBoth = info.ArgumentNames[i].StartsWith("both_");
+                                string paramName = isOut || isRet ?
+                                    info.ArgumentNames[i].Substring(4) :
+                                    isBoth ? info.ArgumentNames[i].Substring(5) :
+                                    info.ArgumentNames[i];
+
+                                if (isOut || isBoth || isRet)
+                                {
+                                    if (retParams == null)
+                                        retParams = new Dictionary<string, int>();
+                                    retParams.Add(paramName, cmd.Parameters.Count);
+                                }
+
+                                cmd.AddParameter(
+                                    _db.GetParameterName(paramName),
+                                    isOut ? ParameterDirection.Output :
+                                        isRet ? ParameterDirection.ReturnValue :
+                                            isBoth ? ParameterDirection.InputOutput : ParameterDirection.Input,
+                                    arg == null ? DbType.String : arg.GetType().ToDbType(), 0, isOut ? DBNull.Value : arg);
+                            }
+                            else
+                                cmd.AddParameter(_db, arg);
+                        }
+                    }
+                }
+
+                #endregion Prepare arguments
+
+                #region Get main result
+
+                object mainResult = null;
+
+                if (types.Count > 0)
+                {
+                    mainResult = types[0].GetDefaultValue();
+
+                    if (types[0] == typeof(IDataReader))
+                        mainResult = cmd.ExecuteReader();
+                    else if (types[0].IsGenericEnumerable())
+                    {
+                        Type argType = types[0].GetGenericArguments().First();
+                        if (argType == typeof(object))
+                            using (IDataReader rdr = cmd.ExecuteReader())
+                                mainResult = rdr.EnumerateReader().ToList();
+                        else if (argType.IsValueType)
+                        {
+                            Type listType = typeof(List<>).MakeGenericType(new Type[] { argType });
+                            IList listInstance = (IList)Activator.CreateInstance(listType);
+
+                            object defVal = listType.GetDefaultValue();
+
+                            using (IDataReader rdr = cmd.ExecuteReader())
+                                while (rdr.Read())
+                                    listInstance.Add(rdr[0] == DBNull.Value ? defVal : argType.CastObject(rdr[0]));
+
+                            mainResult = listInstance;
+                        }
+                        else
+                        {
+                            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(argType);
+                            if (mapper == null)
+                                throw new InvalidCastException(string.Format("Don't konw what to do with this type: '{0}'.", argType.ToString()));
+
+                            using (IDataReader rdr = cmd.ExecuteReader())
+                                mainResult = rdr.EnumerateReader().MapEnumerable(argType).ToList();
+                        }
+                    }
+                    else if (types[0].IsValueType)
+                    {
+                        mainResult = cmd.ExecuteScalar();
+                        if (mainResult != DBNull.Value)
+                            mainResult = types[0].CastObject(mainResult);
+                    }
+                    else
+                    {
+                        DynamicTypeMap mapper = DynamicMapperCache.GetMapper(types[0]);
+                        if (mapper == null)
+                            throw new InvalidCastException(string.Format("Don't konw what to do with this type: '{0}'.", types[0].ToString()));
+
+                        using (IDataReader rdr = cmd.ExecuteReader())
+                            if (rdr.Read())
+                                mainResult = (rdr.ToDynamic() as object).Map(types[0]);
+                            else
+                                mainResult = null;
+                    }
+                }
+                else
+                    mainResult = cmd.ExecuteNonQuery();
+
+                #endregion Get main result
+
+                #region Handle out params
+
+                if (retParams != null)
+                {
+                    Dictionary<string, object> res = new Dictionary<string, object>();
+
+                    if (mainResult != null)
+                    {
+                        if (mainResult == DBNull.Value)
+                            res.Add(binder.Name, null);
+                        else
+                            res.Add(binder.Name, mainResult);
+                    }
+
+                    foreach (KeyValuePair<string, int> pos in retParams)
+                        res.Add(pos.Key, ((IDbDataParameter)cmd.Parameters[pos.Value]).Value);
+
+                    if (types.Count > 1)
+                    {
+                        DynamicTypeMap mapper = DynamicMapperCache.GetMapper(types[1]);
+
+                        if (mapper != null)
+                            result = mapper.Create(res.ToDynamic());
+                        else
+                            result = res.ToDynamic();
+                    }
+                    else
+                        result = res.ToDynamic();
+                }
+                else
+                    result = mainResult;
+
+                #endregion Handle out params
+            }
+
+            return true;
+        }
+
+        /// <summary>Performs application-defined tasks associated with
+        /// freeing, releasing, or resetting unmanaged resources.</summary>
+        public void Dispose()
+        {
+        }
     }
 
     /// <summary>Dynamic query exception.</summary>
@@ -11305,6 +11536,91 @@ namespace DynamORM
             }
 
             #endregion Constructors
+        }
+
+        /// <summary>Type cast helper.</summary>
+        public static class DynamicCast
+        {
+            /// <summary>Gets the default value.</summary>
+            /// <param name="type">The type.</param>
+            /// <returns>Default instance.</returns>
+            public static object GetDefaultValue(this Type type)
+            {
+                return type.IsValueType ? TypeDefaults.GetOrAdd(type, t => Activator.CreateInstance(t)) : null;
+            }
+
+            /// <summary>Casts the object to this type.</summary>
+            /// <param name="type">The type to which cast value.</param>
+            /// <param name="val">The value to cast.</param>
+            /// <returns>Value casted to new type.</returns>
+            public static object CastObject(this Type type, object val)
+            {
+                return GetConverter(type, val)(val);
+            }
+
+            private static readonly ConcurrentDictionary<Type, object> TypeDefaults = new ConcurrentDictionary<Type, object>();
+            private static readonly ConcurrentDictionary<Type, Func<object, object>> TypeAsCasts = new ConcurrentDictionary<Type, Func<object, object>>();
+            private static readonly ConcurrentDictionary<PairOfTypes, Func<object, object>> TypeConvert = new ConcurrentDictionary<PairOfTypes, Func<object, object>>();
+            private static readonly ParameterExpression ConvParameter = Expression.Parameter(typeof(object), "val");
+
+            [MethodImpl(MethodImplOptions.Synchronized)]
+            private static Func<object, object> GetConverter(Type targetType, object val)
+            {
+                Func<object, object> fn;
+
+                if (!targetType.IsValueType && !val.GetType().IsValueType)
+                {
+                    if (!TypeAsCasts.TryGetValue(targetType, out fn))
+                    {
+                        UnaryExpression instanceCast = Expression.TypeAs(ConvParameter, targetType);
+
+                        fn = Expression.Lambda<Func<object, object>>(Expression.TypeAs(instanceCast, typeof(object)), ConvParameter).Compile();
+                        TypeAsCasts.AddOrUpdate(targetType, fn, (t, f) => fn);
+                    }
+                }
+                else
+                {
+                    var fromType = val != null ? val.GetType() : typeof(object);
+                    var key = new PairOfTypes(fromType, targetType);
+                    if (TypeConvert.TryGetValue(key, out fn))
+                        return fn;
+
+                    fn = (Func<object, object>)Expression.Lambda(Expression.Convert(Expression.Convert(Expression.Convert(ConvParameter, fromType), targetType), typeof(object)), ConvParameter).Compile();
+                    TypeConvert.AddOrUpdate(key, fn, (t, f) => fn);
+                }
+
+                return fn;
+            }
+
+            private class PairOfTypes
+            {
+                private readonly Type _first;
+                private readonly Type _second;
+
+                public PairOfTypes(Type first, Type second)
+                {
+                    this._first = first;
+                    this._second = second;
+                }
+
+                public override int GetHashCode()
+                {
+                    return (31 * _first.GetHashCode()) + _second.GetHashCode();
+                }
+
+                public override bool Equals(object obj)
+                {
+                    if (obj == this)
+                        return true;
+
+                    var other = obj as PairOfTypes;
+                    if (other == null)
+                        return false;
+
+                    return _first.Equals(other._first)
+                        && _second.Equals(other._second);
+                }
+            }
         }
 
         /// <summary>Class with mapper cache.</summary>
