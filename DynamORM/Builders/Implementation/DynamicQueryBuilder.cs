@@ -129,7 +129,9 @@ namespace DynamORM.Builders.Implementation
             {
                 IsDisposed = true;
 
-                Schema.Clear();
+                if (Schema != null)
+                    Schema.Clear();
+
                 Owner = Name = Alias = null;
                 Schema = null;
             }
@@ -632,6 +634,47 @@ namespace DynamORM.Builders.Implementation
 
                             return string.Format("{0} IN({1})", parent, sbin.ToString());
                         }
+                    
+                    case "NOTIN":
+                        {
+                            if (node.Arguments == null || node.Arguments.Length == 0)
+                                throw new ArgumentException("IN method expects at least one argument: " + node.Arguments.Sketch());
+
+                            bool firstParam = true;
+                            StringBuilder sbin = new StringBuilder();
+                            foreach (object arg in node.Arguments)
+                            {
+                                if (!firstParam)
+                                    sbin.Append(", ");
+
+                                if ((arg is IEnumerable<object> || arg is Array) && !(arg is byte[]))
+                                {
+                                    IEnumerable<object> vals = arg as IEnumerable<object>;
+
+                                    if (vals == null && arg is Array)
+                                        vals = ((Array)arg).Cast<object>() as IEnumerable<object>;
+
+                                    if (vals != null)
+                                        foreach (object val in vals)
+                                        {
+                                            if (!firstParam)
+                                                sbin.Append(", ");
+                                            else
+                                                firstParam = false;
+
+                                            sbin.Append(Parse(val, ref columnSchema, pars: pars));
+                                        }
+                                    else
+                                        sbin.Append(Parse(arg, ref columnSchema, pars: pars));
+                                }
+                                else
+                                    sbin.Append(Parse(arg, ref columnSchema, pars: pars));
+
+                                firstParam = false;
+                            }
+
+                            return string.Format("{0} NOT IN({1})", parent, sbin.ToString());
+                        }
 
                     case "LIKE":
                         if (node.Arguments == null || node.Arguments.Length != 1)
@@ -883,7 +926,8 @@ namespace DynamORM.Builders.Implementation
             if (Tables != null)
             {
                 foreach (ITableInfo t in Tables)
-                    t.Dispose();
+                    if (t != null)
+                        t.Dispose();
 
                 Tables.Clear();
                 Tables = null;

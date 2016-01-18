@@ -4433,10 +4433,30 @@ namespace DynamORM
     public class DynamicProcedureInvoker : DynamicObject, IDisposable
     {
         private DynamicDatabase _db;
+        private List<string> _prefixes;
 
-        internal DynamicProcedureInvoker(DynamicDatabase db)
+        internal DynamicProcedureInvoker(DynamicDatabase db, List<string> prefixes = null)
         {
+            _prefixes = prefixes;
             _db = db;
+        }
+
+        /// <summary>This is where the magic begins.</summary>
+        /// <param name="binder">Binder to create owner.</param>
+        /// <param name="result">Binder invoke result.</param>
+        /// <returns>Returns <c>true</c> if invoke was performed.</returns>
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        {
+            List<string> pref = new List<string>();
+
+            if (_prefixes != null)
+                pref.AddRange(_prefixes);
+
+            pref.Add(binder.Name);
+
+            result = new DynamicProcedureInvoker(_db, pref);
+
+            return true;
         }
 
         /// <summary>This is where the magic begins.</summary>
@@ -4457,7 +4477,10 @@ namespace DynamORM
             using (IDbConnection con = _db.Open())
             using (IDbCommand cmd = con.CreateCommand())
             {
-                cmd.SetCommand(CommandType.StoredProcedure, binder.Name);
+                if (_prefixes == null || _prefixes.Count == 0)
+                    cmd.SetCommand(CommandType.StoredProcedure, binder.Name);
+                else
+                    cmd.SetCommand(CommandType.StoredProcedure, string.Format("{0}.{1}", string.Join(".", _prefixes), binder.Name));
 
                 #region Prepare arguments
 
@@ -6979,7 +7002,9 @@ namespace DynamORM
                     {
                         IsDisposed = true;
 
-                        Schema.Clear();
+                        if (Schema != null)
+                            Schema.Clear();
+
                         Owner = Name = Alias = null;
                         Schema = null;
                     }
@@ -7483,6 +7508,47 @@ namespace DynamORM
                                     return string.Format("{0} IN({1})", parent, sbin.ToString());
                                 }
 
+                            case "NOTIN":
+                                {
+                                    if (node.Arguments == null || node.Arguments.Length == 0)
+                                        throw new ArgumentException("IN method expects at least one argument: " + node.Arguments.Sketch());
+
+                                    bool firstParam = true;
+                                    StringBuilder sbin = new StringBuilder();
+                                    foreach (object arg in node.Arguments)
+                                    {
+                                        if (!firstParam)
+                                            sbin.Append(", ");
+
+                                        if ((arg is IEnumerable<object> || arg is Array) && !(arg is byte[]))
+                                        {
+                                            IEnumerable<object> vals = arg as IEnumerable<object>;
+
+                                            if (vals == null && arg is Array)
+                                                vals = ((Array)arg).Cast<object>() as IEnumerable<object>;
+
+                                            if (vals != null)
+                                                foreach (object val in vals)
+                                                {
+                                                    if (!firstParam)
+                                                        sbin.Append(", ");
+                                                    else
+                                                        firstParam = false;
+
+                                                    sbin.Append(Parse(val, ref columnSchema, pars: pars));
+                                                }
+                                            else
+                                                sbin.Append(Parse(arg, ref columnSchema, pars: pars));
+                                        }
+                                        else
+                                            sbin.Append(Parse(arg, ref columnSchema, pars: pars));
+
+                                        firstParam = false;
+                                    }
+
+                                    return string.Format("{0} NOT IN({1})", parent, sbin.ToString());
+                                }
+
                             case "LIKE":
                                 if (node.Arguments == null || node.Arguments.Length != 1)
                                     throw new ArgumentException("LIKE method expects one argument: " + node.Arguments.Sketch());
@@ -7733,7 +7799,8 @@ namespace DynamORM
                     if (Tables != null)
                     {
                         foreach (ITableInfo t in Tables)
-                            t.Dispose();
+                            if (t != null)
+                                t.Dispose();
 
                         Tables.Clear();
                         Tables = null;

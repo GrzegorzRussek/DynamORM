@@ -53,10 +53,30 @@ namespace DynamORM
     public class DynamicProcedureInvoker : DynamicObject, IDisposable
     {
         private DynamicDatabase _db;
+        private List<string> _prefixes;
 
-        internal DynamicProcedureInvoker(DynamicDatabase db)
+        internal DynamicProcedureInvoker(DynamicDatabase db, List<string> prefixes = null)
         {
+            _prefixes = prefixes;
             _db = db;
+        }
+
+        /// <summary>This is where the magic begins.</summary>
+        /// <param name="binder">Binder to create owner.</param>
+        /// <param name="result">Binder invoke result.</param>
+        /// <returns>Returns <c>true</c> if invoke was performed.</returns>
+        public override bool TryGetMember(GetMemberBinder binder, out object result)
+        {
+            List<string> pref = new List<string>();
+
+            if (_prefixes != null)
+                pref.AddRange(_prefixes);
+
+            pref.Add(binder.Name);
+
+            result = new DynamicProcedureInvoker(_db, pref);
+
+            return true;
         }
 
         /// <summary>This is where the magic begins.</summary>
@@ -77,7 +97,10 @@ namespace DynamORM
             using (IDbConnection con = _db.Open())
             using (IDbCommand cmd = con.CreateCommand())
             {
-                cmd.SetCommand(CommandType.StoredProcedure, binder.Name);
+                if (_prefixes == null || _prefixes.Count == 0)
+                    cmd.SetCommand(CommandType.StoredProcedure, binder.Name);
+                else
+                    cmd.SetCommand(CommandType.StoredProcedure, string.Format("{0}.{1}", string.Join(".", _prefixes), binder.Name));
 
                 #region Prepare arguments
 

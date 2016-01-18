@@ -52,13 +52,13 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="ProfilingSessions\Session20141128_203722.sdps" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\DynamORM\DynamORM.csproj">
       <Project>{63963ED7-9C78-4672-A4D4-339B6E825503}</Project>
       <Name>DynamORM</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="ProfilingSessions\Session20141128_203722.sdps" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

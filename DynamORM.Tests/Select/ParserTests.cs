@@ -26,10 +26,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-using System.Linq;
 using DynamORM.Builders;
 using DynamORM.Builders.Implementation;
 using NUnit.Framework;
+using System.Linq;
 
 namespace DynamORM.Tests.Select
 {
@@ -155,6 +155,19 @@ namespace DynamORM.Tests.Select
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
 
             cmd.From(u => u(u.dbo.Users).As(u.u));
+
+            Assert.AreEqual("SELECT * FROM \"dbo\".\"Users\" AS u", cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests from method using invoke with as.
+        /// </summary>
+        [Test]
+        public void TestFromTextAs3()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u("\"dbo\".\"Users\"").As(u.u));
 
             Assert.AreEqual("SELECT * FROM \"dbo\".\"Users\" AS u", cmd.CommandText());
         }
