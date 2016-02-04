@@ -27,7 +27,9 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -44,6 +46,9 @@ namespace DynamORM.Mapper
 
             public int Ordinal { get; set; }
         }
+
+        private Type _arrayType;
+        private bool _genericEnumerable;
 
         /// <summary>Gets the type of property.</summary>
         public Type Type { get; private set; }
@@ -63,6 +68,9 @@ namespace DynamORM.Mapper
         /// <summary>Gets a value indicating whether this <see cref="DynamicPropertyInvoker"/> is ignored in some cases.</summary>
         public bool Ignore { get; private set; }
 
+        /// <summary>Gets a value indicating whether this instance hold data contract type.</summary>
+        public bool IsDataContract { get; private set; }
+
         /// <summary>Initializes a new instance of the <see cref="DynamicPropertyInvoker" /> class.</summary>
         /// <param name="property">Property info to be invoked in the future.</param>
         /// <param name="attr">Column attribute if exist.</param>
@@ -74,6 +82,20 @@ namespace DynamORM.Mapper
             object[] ignore = property.GetCustomAttributes(typeof(IgnoreAttribute), false);
 
             Ignore = ignore != null && ignore.Length > 0;
+
+            _arrayType = Type.IsArray ? Type.GetElementType() :
+                Type.IsGenericEnumerable() ? Type.GetGenericArguments().First() :
+                Type;
+
+            _genericEnumerable = Type.IsGenericEnumerable();
+
+            IsDataContract = _arrayType.GetCustomAttributes(false).Any(x => x.GetType().Name == "DataContractAttribute");
+
+            if (_arrayType.IsArray)
+                throw new InvalidOperationException("Jagged arrays are not supported");
+
+            if (_arrayType.IsGenericEnumerable())
+                throw new InvalidOperationException("Enumerables of enumerables are not supported");
 
             Column = attr;
 
@@ -121,41 +143,63 @@ namespace DynamORM.Mapper
         /// <param name="val">The value.</param>
         public void Set(object dest, object val)
         {
-            Type type = Nullable.GetUnderlyingType(Type) ?? Type;
-            bool nullable = Type.IsGenericType && Type.GetGenericTypeDefinition() == typeof(Nullable<>);
+            object value = null;
 
             try
             {
-                if (val == null && type.IsValueType)
+                if (Type.IsArray || _genericEnumerable)
                 {
-                    if (nullable)
-                        Setter(dest, null);
-                    else
-                        Setter(dest, Activator.CreateInstance(Type));
-                }
-                else if ((val == null && !type.IsValueType) || (val != null && type == val.GetType()))
-                    Setter(dest, val);
-                else if (type.IsEnum && val.GetType().IsValueType)
-                    Setter(dest, Enum.ToObject(type, val));
-                else if (type.IsEnum)
-                    Setter(dest, Enum.Parse(type, val.ToString()));
-                else if (Type == typeof(string) && val.GetType() == typeof(Guid))
-                    Setter(dest, val.ToString());
-                else if (Type == typeof(Guid) && val.GetType() == typeof(string))
-                {
-                    Guid g;
-                    Setter(dest, Guid.TryParse((string)val, out g) ? g : Guid.Empty);
+                    var lst = (val as IEnumerable<object>).Select(x => GetElementVal(_arrayType, x)).ToList();
+
+                    value = Array.CreateInstance(_arrayType, lst.Count);
+
+                    int i = 0;
+                    foreach (var e in lst)
+                        ((Array)value).SetValue(e, i++);
                 }
                 else
-                    Setter(dest, Convert.ChangeType(val, type));
+                    value = GetElementVal(Type, val);
+
+                Setter(dest, value);
             }
             catch (Exception ex)
             {
                 throw new InvalidCastException(
-                    string.Format("Error trying to convert value '{0}' of type '{1}' to value of type '{2}{3}' in object of type '{4}'",
-                        val.ToString(), val.GetType(), type.FullName, nullable ? "(NULLABLE)" : string.Empty, dest.GetType().FullName),
+                    string.Format("Error trying to convert value '{0}' of type '{1}' to value of type '{2}' in object of type '{3}'",
+                        (val ?? string.Empty).ToString(), val.GetType(), Type.FullName, dest.GetType().FullName),
                     ex);
             }
+        }
+
+        private object GetElementVal(System.Type etype, object val)
+        {
+            bool nullable = etype.IsGenericType && etype.GetGenericTypeDefinition() == typeof(Nullable<>);
+            Type type = Nullable.GetUnderlyingType(etype) ?? etype;
+
+            if (val == null && type.IsValueType)
+            {
+                if (nullable)
+                    return null;
+                else
+                    return Activator.CreateInstance(Type);
+            }
+            else if ((val == null && !type.IsValueType) || (val != null && type == val.GetType()))
+                return val;
+            else if (type.IsEnum && val.GetType().IsValueType)
+                return Enum.ToObject(type, val);
+            else if (type.IsEnum)
+                return Enum.Parse(type, val.ToString());
+            else if (Type == typeof(string) && val.GetType() == typeof(Guid))
+                return val.ToString();
+            else if (Type == typeof(Guid) && val.GetType() == typeof(string))
+            {
+                Guid g;
+                return Guid.TryParse((string)val, out g) ? g : Guid.Empty;
+            }
+            else if (IsDataContract)
+                return val.Map(type);
+            else
+                return Convert.ChangeType(val, type);
         }
 
         #region Type command cache

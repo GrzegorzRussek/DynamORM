@@ -44,7 +44,6 @@ namespace DynamORM.Builders.Implementation
     /// <summary>Implementation of dynamic select query builder.</summary>
     internal class DynamicSelectQueryBuilder : DynamicQueryBuilder, IDynamicSelectQueryBuilder, DynamicQueryBuilder.IQueryWithWhere
     {
-        private int? _top = null;
         private int? _limit = null;
         private int? _offset = null;
         private bool _distinct = false;
@@ -83,17 +82,42 @@ namespace DynamORM.Builders.Implementation
         /// <returns>The text to execute against the underlying database.</returns>
         public override string CommandText()
         {
+            bool lused = false;
+            bool oused = false;
+
             StringBuilder sb = new StringBuilder("SELECT");
             if (_distinct) sb.AppendFormat(" DISTINCT");
-            if (_top.HasValue) sb.AppendFormat(" TOP {0}", _top);
+
+            if (_limit.HasValue)
+            {
+                if ((Database.Options & DynamicDatabaseOptions.SupportTop) == DynamicDatabaseOptions.SupportTop)
+                {
+                    sb.AppendFormat(" TOP {0}", _limit);
+                    lused = true;
+                }
+                else if ((Database.Options & DynamicDatabaseOptions.SupportFirstSkip) == DynamicDatabaseOptions.SupportFirstSkip)
+                {
+                    sb.AppendFormat(" FIRST {0}", _limit);
+                    lused = true;
+                }
+            }
+
+            if (_offset.HasValue && (Database.Options & DynamicDatabaseOptions.SupportFirstSkip) == DynamicDatabaseOptions.SupportFirstSkip)
+            {
+                sb.AppendFormat(" SKIP {0}", _offset);
+                oused = true;
+            }
+
             if (_select != null) sb.AppendFormat(" {0}", _select); else sb.Append(" *");
             if (_from != null) sb.AppendFormat(" FROM {0}", _from);
             if (_join != null) sb.AppendFormat(" {0}", _join);
             if (WhereCondition != null) sb.AppendFormat(" WHERE {0}", WhereCondition);
             if (_groupby != null) sb.AppendFormat(" GROUP BY {0}", _groupby);
             if (_orderby != null) sb.AppendFormat(" ORDER BY {0}", _orderby);
-            if (_limit.HasValue) sb.AppendFormat(" LIMIT {0}", _limit);
-            if (_offset.HasValue) sb.AppendFormat(" OFFSET {0}", _offset);
+            if (_limit.HasValue && !lused && (Database.Options & DynamicDatabaseOptions.SupportLimitOffset) == DynamicDatabaseOptions.SupportLimitOffset)
+                sb.AppendFormat(" LIMIT {0}", _limit);
+            if (_offset.HasValue && !oused && (Database.Options & DynamicDatabaseOptions.SupportLimitOffset) == DynamicDatabaseOptions.SupportLimitOffset)
+                sb.AppendFormat(" OFFSET {0}", _offset);
 
             return sb.ToString();
         }
@@ -1105,11 +1129,7 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicSelectQueryBuilder Top(int? top)
         {
-            if ((Database.Options & DynamicDatabaseOptions.SupportTop) != DynamicDatabaseOptions.SupportTop)
-                throw new NotSupportedException("Database doesn't support TOP clause.");
-
-            _top = top;
-            return this;
+            return Limit(top);
         }
 
         /// <summary>Set top if database support it.</summary>
@@ -1117,7 +1137,9 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicSelectQueryBuilder Limit(int? limit)
         {
-            if ((Database.Options & DynamicDatabaseOptions.SupportLimitOffset) != DynamicDatabaseOptions.SupportLimitOffset)
+            if ((Database.Options & DynamicDatabaseOptions.SupportLimitOffset) != DynamicDatabaseOptions.SupportLimitOffset &&
+                (Database.Options & DynamicDatabaseOptions.SupportFirstSkip) != DynamicDatabaseOptions.SupportFirstSkip &&
+                (Database.Options & DynamicDatabaseOptions.SupportTop) != DynamicDatabaseOptions.SupportTop)
                 throw new NotSupportedException("Database doesn't support LIMIT clause.");
 
             _limit = limit;
@@ -1129,7 +1151,8 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Builder instance.</returns>
         public virtual IDynamicSelectQueryBuilder Offset(int? offset)
         {
-            if ((Database.Options & DynamicDatabaseOptions.SupportLimitOffset) != DynamicDatabaseOptions.SupportLimitOffset)
+            if ((Database.Options & DynamicDatabaseOptions.SupportLimitOffset) != DynamicDatabaseOptions.SupportLimitOffset &&
+                (Database.Options & DynamicDatabaseOptions.SupportFirstSkip) != DynamicDatabaseOptions.SupportFirstSkip)
                 throw new NotSupportedException("Database doesn't support OFFSET clause.");
 
             _offset = offset;

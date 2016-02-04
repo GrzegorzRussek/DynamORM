@@ -50,11 +50,14 @@ namespace DynamORM
         /// <summary>Database supports limit offset syntax (SELECT ... FROM ... LIMIT x OFFSET y).</summary>
         SupportLimitOffset = 0x00000040,
 
+        /// <summary>Database supports limit offset syntax (SELECT FIRST x SKIP y ... FROM ...).</summary>
+        SupportFirstSkip = 0x00000020,
+
         /// <summary>Database support standard schema.</summary>
         SupportSchema = 0x00000010,
 
         /// <summary>Database support stored procedures (EXEC procedure ...).</summary>
-        SupportStoredProcedures = 0x00000020,
+        SupportStoredProcedures = 0x00000100,
 
         /// <summary>Debug option allowing to enable command dumps by default.</summary>
         DumpCommands = 0x01000000,

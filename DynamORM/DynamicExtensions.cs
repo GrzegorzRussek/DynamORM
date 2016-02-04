@@ -1283,7 +1283,7 @@ namespace DynamORM
         /// <returns>Returns <c>true</c> if it does.</returns>
         public static bool IsGenericEnumerable(this Type type)
         {
-            return type.IsGenericType && type.GetInterfaces().Any(t => t.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+            return type.IsGenericType && type.GetInterfaces().Any(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IEnumerable<>));
         }
 
         /// <summary>Check if type implements IEnumerable&lt;&gt; interface.</summary>
