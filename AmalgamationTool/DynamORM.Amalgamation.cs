@@ -3698,9 +3698,7 @@ namespace DynamORM
         /// <returns>Returns instance of builder on which action is set.</returns>
         public static T CreateTemporaryParameterAction<T>(this T b, Action<IParameter> a) where T : IDynamicQueryBuilder
         {
-            if (a == null)
-                b.OnCreateTemporaryParameter = null;
-            else
+            if (a != null)
             {
                 if (b.OnCreateTemporaryParameter == null)
                     b.OnCreateTemporaryParameter = new List<Action<IParameter>>();
@@ -3718,9 +3716,7 @@ namespace DynamORM
         /// <returns>Returns instance of builder on which action is set.</returns>
         public static T CreateParameterAction<T>(this T b, Action<IParameter, IDbDataParameter> a) where T : IDynamicQueryBuilder
         {
-            if (a == null)
-                b.OnCreateParameter = null;
-            else
+            if (a != null)
             {
                 if (b.OnCreateParameter == null)
                     b.OnCreateParameter = new List<Action<IParameter, IDbDataParameter>>();
@@ -7090,6 +7086,8 @@ namespace DynamORM
                     VirtualMode = false;
                     Tables = new List<ITableInfo>();
                     Parameters = new Dictionary<string, IParameter>();
+                    OnCreateTemporaryParameter = new List<Action<IParameter>>();
+                    OnCreateParameter = new List<Action<IParameter, IDbDataParameter>>();
 
                     WhereCondition = null;
                     OpenBracketsCount = 0;
@@ -11872,18 +11870,28 @@ namespace DynamORM
 
                 try
                 {
-                    if (Type.IsArray || _genericEnumerable)
+                    if (!Type.IsAssignableFrom(val.GetType()))
                     {
-                        var lst = (val as IEnumerable<object>).Select(x => GetElementVal(_arrayType, x)).ToList();
+                        if (Type.IsArray || _genericEnumerable)
+                        {
+                            if (val != null)
+                            {
+                                var lst = (val as IEnumerable<object>).Select(x => GetElementVal(_arrayType, x)).ToList();
 
-                        value = Array.CreateInstance(_arrayType, lst.Count);
+                                value = Array.CreateInstance(_arrayType, lst.Count);
 
-                        int i = 0;
-                        foreach (var e in lst)
-                            ((Array)value).SetValue(e, i++);
+                                int i = 0;
+                                foreach (var e in lst)
+                                    ((Array)value).SetValue(e, i++);
+                            }
+                            else
+                                value = Array.CreateInstance(_arrayType, 0);
+                        }
+                        else
+                            value = GetElementVal(Type, val);
                     }
                     else
-                        value = GetElementVal(Type, val);
+                        value = val;
 
                     Setter(dest, value);
                 }

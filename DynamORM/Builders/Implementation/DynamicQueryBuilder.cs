@@ -214,6 +214,8 @@ namespace DynamORM.Builders.Implementation
             VirtualMode = false;
             Tables = new List<ITableInfo>();
             Parameters = new Dictionary<string, IParameter>();
+            OnCreateTemporaryParameter = new List<Action<IParameter>>();
+            OnCreateParameter = new List<Action<IParameter, IDbDataParameter>>();
 
             WhereCondition = null;
             OpenBracketsCount = 0;

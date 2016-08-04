@@ -147,18 +147,28 @@ namespace DynamORM.Mapper
 
             try
             {
-                if (Type.IsArray || _genericEnumerable)
+                if (!Type.IsAssignableFrom(val.GetType()))
                 {
-                    var lst = (val as IEnumerable<object>).Select(x => GetElementVal(_arrayType, x)).ToList();
+                    if (Type.IsArray || _genericEnumerable)
+                    {
+                        if (val != null)
+                        {
+                            var lst = (val as IEnumerable<object>).Select(x => GetElementVal(_arrayType, x)).ToList();
 
-                    value = Array.CreateInstance(_arrayType, lst.Count);
+                            value = Array.CreateInstance(_arrayType, lst.Count);
 
-                    int i = 0;
-                    foreach (var e in lst)
-                        ((Array)value).SetValue(e, i++);
+                            int i = 0;
+                            foreach (var e in lst)
+                                ((Array)value).SetValue(e, i++);
+                        }
+                        else
+                            value = Array.CreateInstance(_arrayType, 0);
+                    }
+                    else
+                        value = GetElementVal(Type, val);
                 }
                 else
-                    value = GetElementVal(Type, val);
+                    value = val;
 
                 Setter(dest, value);
             }

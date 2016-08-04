@@ -30,6 +30,8 @@ using System.Linq;
 using DynamORM.Builders;
 using DynamORM.Builders.Implementation;
 using NUnit.Framework;
+using DynamORM.Tests.Helpers;
+using System.Collections.Generic;
 
 namespace DynamORM.Tests.Modify
 {
