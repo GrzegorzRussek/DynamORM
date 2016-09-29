@@ -79,6 +79,7 @@
     <Compile Include="Builders\IDynamicQueryBuilder.cs" />
     <Compile Include="Builders\IParameter.cs" />
     <Compile Include="Builders\ITableInfo.cs" />
+    <Compile Include="DynamicCachedReader.cs" />
     <Compile Include="DynamicColumn.cs" />
     <Compile Include="DynamicCommand.cs" />
     <Compile Include="DynamicConnection.cs" />

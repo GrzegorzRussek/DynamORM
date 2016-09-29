@@ -122,6 +122,7 @@ namespace DynamORM
                                 bool isOut = info.ArgumentNames[i].StartsWith("out_");
                                 bool isRet = info.ArgumentNames[i].StartsWith("ret_");
                                 bool isBoth = info.ArgumentNames[i].StartsWith("both_");
+
                                 string paramName = isOut || isRet ?
                                     info.ArgumentNames[i].Substring(4) :
                                     isBoth ? info.ArgumentNames[i].Substring(5) :
@@ -158,13 +159,21 @@ namespace DynamORM
                     mainResult = types[0].GetDefaultValue();
 
                     if (types[0] == typeof(IDataReader))
-                        mainResult = cmd.ExecuteReader();
+                    {
+                        using (IDataReader rdr = cmd.ExecuteReader())
+                            mainResult = rdr.CachedReader();
+                    }
                     else if (types[0].IsGenericEnumerable())
                     {
                         Type argType = types[0].GetGenericArguments().First();
                         if (argType == typeof(object))
+                        {
+                            IDataReader cache = null;
                             using (IDataReader rdr = cmd.ExecuteReader())
-                                mainResult = rdr.EnumerateReader().ToList();
+                                cache = rdr.CachedReader();
+
+                            mainResult = cache.EnumerateReader().ToList();
+                        }
                         else if (argType.IsValueType)
                         {
                             Type listType = typeof(List<>).MakeGenericType(new Type[] { argType });
@@ -172,9 +181,12 @@ namespace DynamORM
 
                             object defVal = listType.GetDefaultValue();
 
+                            IDataReader cache = null;
                             using (IDataReader rdr = cmd.ExecuteReader())
-                                while (rdr.Read())
-                                    listInstance.Add(rdr[0] == DBNull.Value ? defVal : argType.CastObject(rdr[0]));
+                                cache = rdr.CachedReader();
+
+                            while (cache.Read())
+                                listInstance.Add(cache[0] == DBNull.Value ? defVal : argType.CastObject(cache[0]));
 
                             mainResult = listInstance;
                         }
@@ -184,8 +196,11 @@ namespace DynamORM
                             if (mapper == null)
                                 throw new InvalidCastException(string.Format("Don't konw what to do with this type: '{0}'.", argType.ToString()));
 
+                            IDataReader cache = null;
                             using (IDataReader rdr = cmd.ExecuteReader())
-                                mainResult = rdr.EnumerateReader().MapEnumerable(argType).ToList();
+                                cache = rdr.CachedReader();
+
+                            mainResult = cache.EnumerateReader().MapEnumerable(argType).ToList();
                         }
                     }
                     else if (types[0].IsValueType)

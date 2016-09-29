@@ -60,6 +60,492 @@ using DynamORM.Mapper;
 
 namespace DynamORM
 {
+    /// <summary>Cache data reader in memory.</summary>
+    internal class DynamicCachedReader : DynamicObject, IDataReader
+    {
+        #region Constructor and Data
+
+        private DataTable _schema;
+        private int _fields;
+        private int _rows;
+        private int _position;
+        private int _cachePos;
+
+        private IList<string> _names;
+        private IDictionary<string, int> _ordinals;
+        private IList<Type> _types;
+        private IList<object> _cache;
+
+        private DynamicCachedReader()
+        {
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="DynamicCachedReader"/> class.</summary>
+        /// <param name="reader">Reader to cache.</param>
+        public DynamicCachedReader(IDataReader reader)
+        {
+            InitDataReader(reader);
+        }
+
+        #endregion Constructor and Data
+
+        #region Helpers
+
+        /// <summary>Create data reader from enumerable.</summary>
+        /// <typeparam name="T">Type of enumerated objects.</typeparam>
+        /// <param name="objects">List of objects.</param>
+        /// <returns>Instance of <see cref="DynamicCachedReader"/> containing objects data.</returns>
+        public static DynamicCachedReader FromEnumerable<T>(IEnumerable<T> objects)
+        {
+            var mapper = DynamicMapperCache.GetMapper<T>();
+
+            if (mapper == null)
+                throw new InvalidCastException(string.Format("Object type '{0}' can't be mapped.", typeof(T).FullName));
+
+            var r = new DynamicCachedReader();
+            r.Init(mapper.ColumnsMap.Count + 1);
+            r.CreateSchemaTable(mapper);
+            r.FillFromEnumerable(objects, mapper);
+
+            return r;
+        }
+
+        private void InitDataReader(IDataReader reader)
+        {
+            _schema = reader.GetSchemaTable();
+
+            Init(reader.FieldCount);
+
+            int i = 0;
+
+            for (i = 0; i < _fields; i++)
+            {
+                _names.Add(reader.GetName(i));
+                _types.Add(reader.GetFieldType(i));
+
+                if (!_ordinals.ContainsKey(reader.GetName(i).ToUpper()))
+                    _ordinals.Add(reader.GetName(i).ToUpper(), i);
+            }
+
+            while (reader.Read())
+            {
+                for (i = 0; i < _fields; i++)
+                    _cache.Add(reader[i]);
+
+                _rows++;
+            }
+
+            IsClosed = false;
+            _position = -1;
+            _cachePos = -1;
+
+            reader.Close();
+        }
+
+        private void FillFromEnumerable<T>(IEnumerable<T> objects, DynamicTypeMap mapper)
+        {
+            foreach (var elem in objects)
+            {
+                foreach (var col in mapper.ColumnsMap)
+                {
+                    object val = null;
+
+                    if (col.Value.Get != null)
+                        val = col.Value.Get(elem);
+
+                    _cache.Add(val);
+                }
+
+                _cache.Add(elem);
+
+                _rows++;
+            }
+        }
+
+        private void CreateSchemaTable(DynamicTypeMap mapper)
+        {
+            _schema = new DataTable("DYNAMIC");
+            _schema.Columns.Add(new DataColumn("ColumnName", typeof(string)));
+            _schema.Columns.Add(new DataColumn("ColumnOrdinal", typeof(int)));
+            _schema.Columns.Add(new DataColumn("ColumnSize", typeof(int)));
+            _schema.Columns.Add(new DataColumn("NumericPrecision", typeof(short)));
+            _schema.Columns.Add(new DataColumn("NumericScale", typeof(short)));
+            _schema.Columns.Add(new DataColumn("DataType", typeof(Type)));
+            _schema.Columns.Add(new DataColumn("ProviderType", typeof(int)));
+            _schema.Columns.Add(new DataColumn("NativeType", typeof(int)));
+            _schema.Columns.Add(new DataColumn("AllowDBNull", typeof(bool)));
+            _schema.Columns.Add(new DataColumn("IsUnique", typeof(bool)));
+            _schema.Columns.Add(new DataColumn("IsKey", typeof(bool)));
+            _schema.Columns.Add(new DataColumn("IsAutoIncrement", typeof(bool)));
+
+            int ordinal = 0;
+            DataRow dr = null;
+
+            foreach (var column in mapper.ColumnsMap)
+            {
+                dr = _schema.NewRow();
+
+                dr[0] = column.Value.Column.NullOr(x => x.Name ?? column.Value.Name, column.Value.Name);
+                dr[1] = ordinal;
+                dr[2] = column.Value.Column.NullOr(x => x.Size ?? int.MaxValue, int.MaxValue);
+                dr[3] = column.Value.Column.NullOr(x => x.Precision ?? 0, 0);
+                dr[4] = column.Value.Column.NullOr(x => x.Scale ?? 0, 0);
+                dr[5] = column.Value.Column.NullOr(x => x.Type.HasValue ? x.Type.Value.ToType() : column.Value.Type, column.Value.Type);
+                dr[6] = column.Value.Column.NullOr(x => x.Type ?? column.Value.Type.ToDbType(), column.Value.Type.ToDbType());
+                dr[7] = column.Value.Column.NullOr(x => x.Type ?? column.Value.Type.ToDbType(), column.Value.Type.ToDbType());
+                dr[8] = !column.Value.Column.NullOr(x => x.IsKey, false);
+                dr[9] = false;
+                dr[10] = column.Value.Column.NullOr(x => x.IsKey, false);
+                dr[11] = false;
+
+                _schema.Rows.Add(dr);
+
+                _names.Add(dr[0].ToString());
+                _ordinals.Add(dr[0].ToString().ToUpper(), ordinal++);
+                _types.Add((Type)dr[5]);
+
+                dr.AcceptChanges();
+            }
+
+            dr = _schema.NewRow();
+
+            dr[0] = "#O";
+            dr[1] = ordinal;
+            dr[2] = int.MaxValue;
+            dr[3] = 0;
+            dr[4] = 0;
+            dr[5] = mapper.Type;
+            dr[6] = DbType.Object;
+            dr[7] = DbType.Object;
+            dr[8] = true;
+            dr[9] = false;
+            dr[10] = false;
+            dr[11] = false;
+
+            _schema.Rows.Add(dr);
+
+            _names.Add("#O");
+            _ordinals.Add("#O".ToUpper(), ordinal++);
+            _types.Add(mapper.Type);
+
+            dr.AcceptChanges();
+        }
+
+        private void Init(int fieldCount)
+        {
+            _rows = 0;
+            _fields = fieldCount;
+            _names = new List<string>(_fields);
+            _ordinals = new Dictionary<string, int>(_fields);
+            _types = new List<Type>(_fields);
+            _cache = new List<object>(_fields * 100);
+        }
+
+        #endregion Helpers
+
+        #region IDataReader Members
+
+        /// <summary>Closes the System.Data.IDataReader Object.</summary>
+        public void Close()
+        {
+            IsClosed = true;
+            _position = _rows;
+            _cachePos = -1;
+        }
+
+        /// <summary>Gets a value indicating the depth of nesting for the current row.</summary>
+        /// <remarks>This implementation use this field to indicate row count.</remarks>
+        public int Depth
+        {
+            get { return _rows; }
+        }
+
+        /// <summary>Returns a System.Data.DataTable that describes the column metadata of the
+        /// System.Data.IDataReader.</summary><returns>A System.Data.DataTable that describes
+        /// the column metadata.</returns><exception cref="System.InvalidOperationException">
+        /// The System.Data.IDataReader is closed.</exception>
+        public DataTable GetSchemaTable()
+        {
+            return _schema;
+        }
+
+        /// <summary>Gets a value indicating whether the data reader is closed.</summary>
+        public bool IsClosed { get; private set; }
+
+        /// <summary>Advances the data reader to the next result, when reading the results of batch SQL statements.</summary>
+        /// <returns>Returns true if there are more rows; otherwise, false.</returns>
+        public bool NextResult()
+        {
+            _cachePos = (++_position) * _fields;
+
+            return _position < _rows;
+        }
+
+        /// <summary>Advances the System.Data.IDataReader to the next record.</summary>
+        /// <returns>Returns true if there are more rows; otherwise, false.</returns>
+        public bool Read()
+        {
+            _cachePos = (++_position) * _fields;
+
+            return _position < _rows;
+        }
+
+        /// <summary>Gets the number of rows changed, inserted, or deleted by execution of the SQL statement.</summary>
+        /// <returns>The number of rows changed, inserted, or deleted; 0 if no rows were affected or the statement
+        /// failed; and -1 for SELECT statements.</returns>
+        public int RecordsAffected { get { return 0; } }
+
+        #endregion IDataReader Members
+
+        #region IDisposable Members
+
+        /// <summary>Performs application-defined tasks associated with
+        /// freeing, releasing, or resetting unmanaged resources.</summary>
+        public void Dispose()
+        {
+            _names.Clear();
+            _types.Clear();
+            _cache.Clear();
+            _schema.Dispose();
+        }
+
+        #endregion IDisposable Members
+
+        #region IDataRecord Members
+
+        /// <summary>Gets the number of columns in the current row.</summary>
+        /// <remarks>When not positioned in a valid record set, 0; otherwise, the number of columns in the current record. The default is -1.</remarks>
+        public int FieldCount { get { return _fields; } }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public bool GetBoolean(int i)
+        {
+            return (bool)_cache[_cachePos + i];
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public byte GetByte(int i)
+        {
+            return (byte)_cache[_cachePos + i];
+        }
+
+        /// <summary>Reads a stream of bytes from the specified column offset into the buffer
+        /// as an array, starting at the given buffer offset.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <param name="fieldOffset">The index within the field from which to start the read operation.</param>
+        /// <param name="buffer">The buffer into which to read the stream of bytes.</param>
+        /// <param name="bufferoffset">The index for buffer to start the read operation.</param>
+        /// <param name="length">The number of bytes to read.</param>
+        /// <returns>The actual number of bytes read.</returns>
+        public long GetBytes(int i, long fieldOffset, byte[] buffer, int bufferoffset, int length)
+        {
+            using (MemoryStream ms = new MemoryStream((byte[])_cache[_cachePos + i]))
+                return ms.Read(buffer, bufferoffset, length);
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public char GetChar(int i)
+        {
+            return (char)_cache[_cachePos + i];
+        }
+
+        /// <summary>Reads a stream of characters from the specified column offset into the buffer
+        /// as an array, starting at the given buffer offset.</summary>
+        /// <param name="i">The zero-based column ordinal.</param>
+        /// <param name="fieldoffset">The index within the row from which to start the read operation.</param>
+        /// <param name="buffer">The buffer into which to read the stream of bytes.</param>
+        /// <param name="bufferoffset">The index for buffer to start the read operation.</param>
+        /// <param name="length">The number of bytes to read.</param>
+        /// <returns>The actual number of characters read.</returns>
+        public long GetChars(int i, long fieldoffset, char[] buffer, int bufferoffset, int length)
+        {
+            using (MemoryStream ms = new MemoryStream((byte[])_cache[_cachePos + i]))
+            {
+                byte[] buff = new byte[buffer.Length];
+                long ret = ms.Read(buff, bufferoffset, length);
+
+                for (int n = bufferoffset; n < ret; n++)
+                    buffer[n] = (char)buff[n];
+
+                return ret;
+            }
+        }
+
+        /// <summary>Returns an System.Data.IDataReader for the specified column ordinal.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>An System.Data.IDataReader.</returns>
+        public IDataReader GetData(int i)
+        {
+            return null;
+        }
+
+        /// <summary>Gets the data type information for the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>The data type information for the specified field.</returns>
+        public string GetDataTypeName(int i)
+        {
+            return _types[i].Name;
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public DateTime GetDateTime(int i)
+        {
+            return (DateTime)_cache[_cachePos + i];
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public decimal GetDecimal(int i)
+        {
+            return (decimal)_cache[_cachePos + i];
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public double GetDouble(int i)
+        {
+            return (double)_cache[_cachePos + i];
+        }
+
+        /// <summary>Gets the System.Type information corresponding to the type of System.Object
+        /// that would be returned from System.Data.IDataRecord.GetValue(System.Int32).</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>The System.Type information corresponding to the type of System.Object that
+        /// would be returned from System.Data.IDataRecord.GetValue(System.Int32).</returns>
+        public Type GetFieldType(int i)
+        {
+            return _types[i];
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public float GetFloat(int i)
+        {
+            return (float)_cache[_cachePos + i];
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public Guid GetGuid(int i)
+        {
+            return (Guid)_cache[_cachePos + i];
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public short GetInt16(int i)
+        {
+            return (short)_cache[_cachePos + i];
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public int GetInt32(int i)
+        {
+            return (int)_cache[_cachePos + i];
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public long GetInt64(int i)
+        {
+            return (long)_cache[_cachePos + i];
+        }
+
+        /// <summary>Gets the name for the field to find.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>The name of the field or the empty string (""), if there is no value to return.</returns>
+        public string GetName(int i)
+        {
+            return _names[i];
+        }
+
+        /// <summary>Return the index of the named field.</summary>
+        /// <param name="name">The name of the field to find.</param>
+        /// <returns>The index of the named field.</returns>
+        public int GetOrdinal(string name)
+        {
+            if (_ordinals.ContainsKey(name.ToUpper()))
+                return _ordinals[name.ToUpper()];
+
+            return -1;
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public string GetString(int i)
+        {
+            return (string)_cache[_cachePos + i];
+        }
+
+        /// <summary>Return the value of the specified field.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Field value upon return.</returns>
+        public object GetValue(int i)
+        {
+            return _cache[_cachePos + i];
+        }
+
+        /// <summary>Gets all the attribute fields in the collection for the current record.</summary>
+        /// <param name="values">An array of System.Object to copy the attribute fields into.</param>
+        /// <returns>The number of instances of System.Object in the array.</returns>
+        public int GetValues(object[] values)
+        {
+            for (int i = 0; i < _fields; i++)
+                values[i] = _cache[_cachePos + i];
+
+            return _fields;
+        }
+
+        /// <summary>Return whether the specified field is set to null.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Returns true if the specified field is set to null; otherwise, false.</returns>
+        public bool IsDBNull(int i)
+        {
+            return _cache[_cachePos + i] == null || _cache[_cachePos + i] == DBNull.Value;
+        }
+
+        /// <summary>Gets or sets specified value in current record.</summary>
+        /// <param name="name">Name of column.</param>
+        /// <returns>Value of specified column.</returns>
+        public object this[string name]
+        {
+            get
+            {
+                if (_ordinals.ContainsKey(name.ToUpper()))
+                    return _cache[_cachePos + _ordinals[name.ToUpper()]];
+
+                throw new IndexOutOfRangeException(String.Format("Field '{0}' not found.", name));
+            }
+        }
+
+        /// <summary>Gets or sets specified value in current record.</summary>
+        /// <param name="i">The index of the field to find.</param>
+        /// <returns>Value of specified column.</returns>
+        public object this[int i]
+        {
+            get { return _cache[_cachePos + i]; }
+        }
+
+        #endregion IDataRecord Members
+    }
+
     /// <summary>Small utility class to manage single columns.</summary>
     public class DynamicColumn
     {
@@ -1059,6 +1545,15 @@ namespace DynamORM
         /// <param name="options">Connection options. <see cref="DynamicDatabaseOptions.SingleConnection"/> required.</param>
         public DynamicDatabase(IDbConnection connection, DynamicDatabaseOptions options)
         {
+            // Try to find correct provider if possible
+            Type t = connection.GetType();
+            if (t == typeof(System.Data.SqlClient.SqlConnection))
+                _provider = System.Data.SqlClient.SqlClientFactory.Instance;
+            else if (t == typeof(System.Data.Odbc.OdbcConnection))
+                _provider = System.Data.Odbc.OdbcFactory.Instance;
+            else if (t == typeof(System.Data.OleDb.OleDbConnection))
+                _provider = System.Data.OleDb.OleDbFactory.Instance;
+
             IsDisposed = false;
             InitCommon(connection.ConnectionString, options);
             TransactionPool.Add(connection, new Stack<IDbTransaction>());
@@ -1203,6 +1698,15 @@ namespace DynamORM
         public virtual IDynamicSelectQueryBuilder From<T>()
         {
             return new DynamicSelectQueryBuilder(this).From(x => x(typeof(T)));
+        }
+
+        /// <summary>Adds to the <code>FROM</code> clause using <see cref="Type"/>.</summary>
+        /// <typeparam name="T">Type which can be represented in database.</typeparam>
+        /// <param name="alias">Table alias.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicSelectQueryBuilder From<T>(string alias)
+        {
+            return new DynamicSelectQueryBuilder(this).From(x => x(typeof(T)).As(alias));
         }
 
         /// <summary>Adds to the <code>FROM</code> clause using <see cref="Type"/>.</summary>
@@ -2001,13 +2505,17 @@ namespace DynamORM
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Query(string sql, params object[] args)
         {
+            DynamicCachedReader cache = null;
             using (IDbConnection con = Open())
             using (IDbCommand cmd = con.CreateCommand())
-            using (IDataReader rdr = cmd
-                .SetCommand(sql)
-                .AddParameters(this, args)
-                .ExecuteReader())
-                while (rdr.Read())
+            {
+                using (IDataReader rdr = cmd
+                    .SetCommand(sql)
+                    .AddParameters(this, args)
+                    .ExecuteReader())
+                    cache = new DynamicCachedReader(rdr);
+
+                while (cache.Read())
                 {
                     dynamic val = null;
 
@@ -2015,7 +2523,7 @@ namespace DynamORM
                     // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
                     try
                     {
-                        val = rdr.RowToDynamic();
+                        val = cache.RowToDynamic();
                     }
                     catch (ArgumentException argex)
                     {
@@ -2028,6 +2536,7 @@ namespace DynamORM
 
                     yield return val;
                 }
+            }
         }
 
         /// <summary>Enumerate the reader and yield the result.</summary>
@@ -2035,12 +2544,16 @@ namespace DynamORM
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Query(IDynamicQueryBuilder builder)
         {
+            DynamicCachedReader cache = null;
             using (IDbConnection con = Open())
             using (IDbCommand cmd = con.CreateCommand())
-            using (IDataReader rdr = cmd
-                .SetCommand(builder)
-                .ExecuteReader())
-                while (rdr.Read())
+            {
+                using (IDataReader rdr = cmd
+                    .SetCommand(builder)
+                    .ExecuteReader())
+                    cache = new DynamicCachedReader(rdr);
+
+                while (cache.Read())
                 {
                     dynamic val = null;
 
@@ -2048,7 +2561,7 @@ namespace DynamORM
                     // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
                     try
                     {
-                        val = rdr.RowToDynamic();
+                        val = cache.RowToDynamic();
                     }
                     catch (ArgumentException argex)
                     {
@@ -2061,6 +2574,7 @@ namespace DynamORM
 
                     yield return val;
                 }
+            }
         }
 
         #endregion Query
@@ -2210,8 +2724,12 @@ namespace DynamORM
         /// If your database doesn't get those values in upper case (like most of the databases) you should override this method.</returns>
         protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(IDbCommand cmd)
         {
+            DataTable st = null;
+
             using (IDataReader rdr = cmd.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
-            using (DataTable st = rdr.GetSchemaTable())
+                st = rdr.GetSchemaTable();
+
+            using (st)
                 foreach (DataRow col in st.Rows)
                 {
                     dynamic c = col.RowToDynamicUpper();
@@ -2219,7 +2737,7 @@ namespace DynamORM
                     yield return new DynamicSchemaColumn
                     {
                         Name = c.COLUMNNAME,
-                        Type = DynamicExtensions.TypeMap.TryGetNullable((Type)c.DATATYPE) ?? DbType.String,
+                        Type = ReadSchemaType(c),
                         IsKey = c.ISKEY ?? false,
                         IsUnique = c.ISUNIQUE ?? false,
                         Size = (int)(c.COLUMNSIZE ?? 0),
@@ -2227,6 +2745,31 @@ namespace DynamORM
                         Scale = (byte)(c.NUMERICSCALE ?? 0)
                     };
                 }
+        }
+
+        /// <summary>Reads the type of column from the schema.</summary>
+        /// <param name="schema">The schema.</param>
+        /// <returns>GEneric parameter type.</returns>
+        protected virtual DbType ReadSchemaType(dynamic schema)
+        {
+            Type type = (Type)schema.DATATYPE;
+
+            // Small hack for SQL Server Provider
+            if (type == typeof(string) && Provider != null && Provider.GetType() == typeof(System.Data.SqlClient.SqlClientFactory))
+            {
+                var map = (schema as IDictionary<string, object>);
+                string typeName = (map.TryGetValue("DATATYPENAME") ?? string.Empty).ToString();
+
+                switch (typeName)
+                {
+                    case "varchar":
+                        return DbType.AnsiString;
+                    case "nvarchar":
+                        return DbType.String;
+                }
+            }
+
+            return DynamicExtensions.TypeMap.TryGetNullable(type) ?? DbType.String;
         }
 
         private Dictionary<string, DynamicSchemaColumn> BuildAndCacheSchema(string tableName, DynamicTypeMap mapper, string owner = null)
@@ -3107,6 +3650,8 @@ namespace DynamORM
 
                 if (p.DbType == DbType.String)
                     p.Size = item.ToString().Length > 4000 ? -1 : 4000;
+                else if (p.DbType == DbType.AnsiString)
+                    p.Size = item.ToString().Length > 8000 ? -1 : 8000;
             }
 
             cmd.Parameters.Add(p);
@@ -3149,7 +3694,9 @@ namespace DynamORM
             {
                 p.DbType = TypeMap.TryGetNullable(value.GetType()) ?? DbType.String;
 
-                if (p.DbType == DbType.String)
+                if (p.DbType == DbType.AnsiString)
+                    p.Size = value.ToString().Length > 8000 ? -1 : 8000;
+                else if (p.DbType == DbType.String)
                     p.Size = value.ToString().Length > 4000 ? -1 : 4000;
 
                 p.Value = value;
@@ -3200,7 +3747,9 @@ namespace DynamORM
             {
                 p.DbType = TypeMap.TryGetNullable(item.Value.GetType()) ?? DbType.String;
 
-                if (p.DbType == DbType.String)
+                if (p.DbType == DbType.AnsiString)
+                    p.Size = item.Value.ToString().Length > 8000 ? -1 : 8000;
+                else if (p.DbType == DbType.String)
                     p.Size = item.Value.ToString().Length > 4000 ? -1 : 4000;
 
                 p.Value = item.Value;
@@ -3337,7 +3886,7 @@ namespace DynamORM
             param.Direction = parameterDirection;
             param.DbType = databaseType;
             param.Size = size;
-            param.Value = value;
+            param.Value = value ?? DBNull.Value;
             command.Parameters.Add(param);
 
             return command;
@@ -3356,7 +3905,7 @@ namespace DynamORM
             param.ParameterName = parameterName;
             param.DbType = databaseType;
             param.Size = size;
-            param.Value = value;
+            param.Value = value ?? DBNull.Value;
             command.Parameters.Add(param);
 
             return command;
@@ -3373,7 +3922,7 @@ namespace DynamORM
             IDbDataParameter param = command.CreateParameter();
             param.ParameterName = parameterName;
             param.DbType = databaseType;
-            param.Value = value;
+            param.Value = value ?? DBNull.Value;
             command.Parameters.Add(param);
 
             return command;
@@ -3768,8 +4317,14 @@ namespace DynamORM
             IDynamicSelectQueryBuilder sub = b.SubQuery();
 
             subquery(b, sub);
-
-            (b as DynamicQueryBuilder).ParseCommand(sub as DynamicQueryBuilder, b.Parameters);
+            try
+            {
+                (b as DynamicQueryBuilder).ParseCommand(sub as DynamicQueryBuilder, b.Parameters);
+            }
+            catch (ArgumentException)
+            {
+                // This might occur if join was made to subquery
+            }
 
             return b;
         }
@@ -4164,11 +4719,22 @@ namespace DynamORM
         /// provided <see cref="System.Data.DbType"/>.</returns>
         public static Type ToType(this DbType dbt)
         {
+            if (dbt == DbType.String)
+                return typeof(string);
+
             foreach (KeyValuePair<Type, DbType> tdbt in TypeMap)
                 if (tdbt.Value == dbt)
                     return tdbt.Key;
 
             return typeof(object);
+        }
+
+        /// <summary>Determines whether the specified value is has only ASCII chars.</summary>
+        /// <param name="value">The value to check.</param>
+        /// <returns>Returns <c>true</c> if the specified value has only ASCII cars; otherwise, <c>false</c>.</returns>
+        public static bool IsASCII(this string value)
+        {
+            return Encoding.UTF8.GetByteCount(value) == value.Length;
         }
 
         #endregion Type extensions
@@ -4241,6 +4807,14 @@ namespace DynamORM
         {
             while (r.Read())
                 yield return r.RowToDynamic();
+        }
+
+        internal static IDataReader CachedReader(this IDataReader r)
+        {
+            if (r is DynamicCachedReader)
+                return r;
+
+            return new DynamicCachedReader(r);
         }
 
         #endregion IDataReader extensions
@@ -4501,6 +5075,7 @@ namespace DynamORM
                                 bool isOut = info.ArgumentNames[i].StartsWith("out_");
                                 bool isRet = info.ArgumentNames[i].StartsWith("ret_");
                                 bool isBoth = info.ArgumentNames[i].StartsWith("both_");
+
                                 string paramName = isOut || isRet ?
                                     info.ArgumentNames[i].Substring(4) :
                                     isBoth ? info.ArgumentNames[i].Substring(5) :
@@ -4537,13 +5112,21 @@ namespace DynamORM
                     mainResult = types[0].GetDefaultValue();
 
                     if (types[0] == typeof(IDataReader))
-                        mainResult = cmd.ExecuteReader();
+                    {
+                        using (IDataReader rdr = cmd.ExecuteReader())
+                            mainResult = rdr.CachedReader();
+                    }
                     else if (types[0].IsGenericEnumerable())
                     {
                         Type argType = types[0].GetGenericArguments().First();
                         if (argType == typeof(object))
+                        {
+                            IDataReader cache = null;
                             using (IDataReader rdr = cmd.ExecuteReader())
-                                mainResult = rdr.EnumerateReader().ToList();
+                                cache = rdr.CachedReader();
+
+                            mainResult = cache.EnumerateReader().ToList();
+                        }
                         else if (argType.IsValueType)
                         {
                             Type listType = typeof(List<>).MakeGenericType(new Type[] { argType });
@@ -4551,9 +5134,12 @@ namespace DynamORM
 
                             object defVal = listType.GetDefaultValue();
 
+                            IDataReader cache = null;
                             using (IDataReader rdr = cmd.ExecuteReader())
-                                while (rdr.Read())
-                                    listInstance.Add(rdr[0] == DBNull.Value ? defVal : argType.CastObject(rdr[0]));
+                                cache = rdr.CachedReader();
+
+                            while (cache.Read())
+                                listInstance.Add(cache[0] == DBNull.Value ? defVal : argType.CastObject(cache[0]));
 
                             mainResult = listInstance;
                         }
@@ -4563,8 +5149,11 @@ namespace DynamORM
                             if (mapper == null)
                                 throw new InvalidCastException(string.Format("Don't konw what to do with this type: '{0}'.", argType.ToString()));
 
+                            IDataReader cache = null;
                             using (IDataReader rdr = cmd.ExecuteReader())
-                                mainResult = rdr.EnumerateReader().MapEnumerable(argType).ToList();
+                                cache = rdr.CachedReader();
+
+                            mainResult = cache.EnumerateReader().MapEnumerable(argType).ToList();
                         }
                     }
                     else if (types[0].IsValueType)
@@ -7282,7 +7871,10 @@ namespace DynamORM
 
                     // If there are parameters to transform, but cannot store them, it is an error
                     if (node.Parameters.Count != 0 && pars == null)
-                        throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
+                        return string.Format("({0})", str);
+
+                    // TODO: Make special condiion
+                    //throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
 
                     // Copy parameters to new comand
                     foreach (KeyValuePair<string, IParameter> parameter in node.Parameters)
@@ -7762,7 +8354,7 @@ namespace DynamORM
                     ITableInfo tableInfo = !string.IsNullOrEmpty(tableName) ?
                         Tables.FirstOrDefault(x => !string.IsNullOrEmpty(x.Alias) && x.Alias.ToLower() == tableName) ??
                         Tables.FirstOrDefault(x => x.Name.ToLower() == tableName.ToLower()) ?? Tables.FirstOrDefault() :
-                        this is DynamicModifyBuilder ? Tables.FirstOrDefault() : null;
+                        this is DynamicModifyBuilder || Tables.Count == 1 ? Tables.FirstOrDefault() : null;
 
                     // Try to get column from schema
                     if (tableInfo != null && tableInfo.Schema != null)
@@ -7901,12 +8493,16 @@ namespace DynamORM
                 /// <returns>Enumerator of objects expanded from query.</returns>
                 public virtual IEnumerable<dynamic> Execute()
                 {
+                    DynamicCachedReader cache = null;
                     using (IDbConnection con = Database.Open())
                     using (IDbCommand cmd = con.CreateCommand())
-                    using (IDataReader rdr = cmd
-                        .SetCommand(this)
-                        .ExecuteReader())
-                        while (rdr.Read())
+                    {
+                        using (IDataReader rdr = cmd
+                            .SetCommand(this)
+                            .ExecuteReader())
+                            cache = new DynamicCachedReader(rdr);
+
+                        while (cache.Read())
                         {
                             dynamic val = null;
 
@@ -7914,7 +8510,7 @@ namespace DynamORM
                             // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
                             try
                             {
-                                val = rdr.RowToDynamic();
+                                val = cache.RowToDynamic();
                             }
                             catch (ArgumentException argex)
                             {
@@ -7927,6 +8523,7 @@ namespace DynamORM
 
                             yield return val;
                         }
+                    }
                 }
 
                 /// <summary>Execute this builder and map to given type.</summary>
@@ -7934,6 +8531,7 @@ namespace DynamORM
                 /// <returns>Enumerator of objects expanded from query.</returns>
                 public virtual IEnumerable<T> Execute<T>() where T : class
                 {
+                    DynamicCachedReader cache = null;
                     DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
 
                     if (mapper == null)
@@ -7945,27 +8543,29 @@ namespace DynamORM
                         using (IDataReader rdr = cmd
                             .SetCommand(this)
                             .ExecuteReader())
-                            while (rdr.Read())
+                            cache = new DynamicCachedReader(rdr);
+
+                        while (cache.Read())
+                        {
+                            dynamic val = null;
+
+                            // Work around to avoid yield being in try...catchblock:
+                            // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
+                            try
                             {
-                                dynamic val = null;
-
-                                // Work around to avoid yield being in try...catchblock:
-                                // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
-                                try
-                                {
-                                    val = rdr.RowToDynamic();
-                                }
-                                catch (ArgumentException argex)
-                                {
-                                    StringBuilder sb = new StringBuilder();
-                                    cmd.Dump(sb);
-
-                                    throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
-                                        argex.InnerException.NullOr(a => a, argex));
-                                }
-
-                                yield return mapper.Create(val) as T;
+                                val = cache.RowToDynamic();
                             }
+                            catch (ArgumentException argex)
+                            {
+                                StringBuilder sb = new StringBuilder();
+                                cmd.Dump(sb);
+
+                                throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
+                                    argex.InnerException.NullOr(a => a, argex));
+                            }
+
+                            yield return mapper.Create(val) as T;
+                        }
                     }
                 }
 
@@ -7979,6 +8579,23 @@ namespace DynamORM
                         .SetCommand(this)
                         .ExecuteReader())
                         reader(rdr);
+                }
+
+                /// <summary>Execute this builder as a data reader, but
+                /// first makes a full reader copy in memory.</summary>
+                /// <param name="reader">Action containing reader.</param>
+                public virtual void ExecuteCachedDataReader(Action<IDataReader> reader)
+                {
+                    DynamicCachedReader cache = null;
+
+                    using (IDbConnection con = Database.Open())
+                    using (IDbCommand cmd = con.CreateCommand())
+                    using (IDataReader rdr = cmd
+                        .SetCommand(this)
+                        .ExecuteReader())
+                        cache = new DynamicCachedReader(rdr);
+
+                    reader(cache);
                 }
 
                 /// <summary>Returns a single result.</summary>

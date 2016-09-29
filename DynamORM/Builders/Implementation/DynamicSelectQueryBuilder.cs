@@ -128,12 +128,16 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Execute()
         {
+            DynamicCachedReader cache = null;
             using (IDbConnection con = Database.Open())
             using (IDbCommand cmd = con.CreateCommand())
-            using (IDataReader rdr = cmd
-                .SetCommand(this)
-                .ExecuteReader())
-                while (rdr.Read())
+            {
+                using (IDataReader rdr = cmd
+                    .SetCommand(this)
+                    .ExecuteReader())
+                    cache = new DynamicCachedReader(rdr);
+
+                while (cache.Read())
                 {
                     dynamic val = null;
 
@@ -141,7 +145,7 @@ namespace DynamORM.Builders.Implementation
                     // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
                     try
                     {
-                        val = rdr.RowToDynamic();
+                        val = cache.RowToDynamic();
                     }
                     catch (ArgumentException argex)
                     {
@@ -154,6 +158,7 @@ namespace DynamORM.Builders.Implementation
 
                     yield return val;
                 }
+            }
         }
 
         /// <summary>Execute this builder and map to given type.</summary>
@@ -161,6 +166,7 @@ namespace DynamORM.Builders.Implementation
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<T> Execute<T>() where T : class
         {
+            DynamicCachedReader cache = null;
             DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
 
             if (mapper == null)
@@ -172,27 +178,29 @@ namespace DynamORM.Builders.Implementation
                 using (IDataReader rdr = cmd
                     .SetCommand(this)
                     .ExecuteReader())
-                    while (rdr.Read())
+                    cache = new DynamicCachedReader(rdr);
+
+                while (cache.Read())
+                {
+                    dynamic val = null;
+
+                    // Work around to avoid yield being in try...catchblock:
+                    // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
+                    try
                     {
-                        dynamic val = null;
-
-                        // Work around to avoid yield being in try...catchblock:
-                        // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
-                        try
-                        {
-                            val = rdr.RowToDynamic();
-                        }
-                        catch (ArgumentException argex)
-                        {
-                            StringBuilder sb = new StringBuilder();
-                            cmd.Dump(sb);
-
-                            throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
-                                argex.InnerException.NullOr(a => a, argex));
-                        }
-
-                        yield return mapper.Create(val) as T;
+                        val = cache.RowToDynamic();
                     }
+                    catch (ArgumentException argex)
+                    {
+                        StringBuilder sb = new StringBuilder();
+                        cmd.Dump(sb);
+
+                        throw new ArgumentException(string.Format("{0}{1}{2}", argex.Message, Environment.NewLine, sb),
+                            argex.InnerException.NullOr(a => a, argex));
+                    }
+
+                    yield return mapper.Create(val) as T;
+                }
             }
         }
 
@@ -206,6 +214,23 @@ namespace DynamORM.Builders.Implementation
                 .SetCommand(this)
                 .ExecuteReader())
                 reader(rdr);
+        }
+
+        /// <summary>Execute this builder as a data reader, but 
+        /// first makes a full reader copy in memory.</summary>
+        /// <param name="reader">Action containing reader.</param>
+        public virtual void ExecuteCachedDataReader(Action<IDataReader> reader)
+        {
+            DynamicCachedReader cache = null;
+
+            using (IDbConnection con = Database.Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            using (IDataReader rdr = cmd
+                .SetCommand(this)
+                .ExecuteReader())
+                cache = new DynamicCachedReader(rdr);
+
+            reader(cache);
         }
 
         /// <summary>Returns a single result.</summary>

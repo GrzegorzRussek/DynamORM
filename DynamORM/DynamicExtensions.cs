@@ -286,6 +286,8 @@ namespace DynamORM
 
                 if (p.DbType == DbType.String)
                     p.Size = item.ToString().Length > 4000 ? -1 : 4000;
+                else if (p.DbType == DbType.AnsiString)
+                    p.Size = item.ToString().Length > 8000 ? -1 : 8000;
             }
 
             cmd.Parameters.Add(p);
@@ -328,7 +330,9 @@ namespace DynamORM
             {
                 p.DbType = TypeMap.TryGetNullable(value.GetType()) ?? DbType.String;
 
-                if (p.DbType == DbType.String)
+                if (p.DbType == DbType.AnsiString)
+                    p.Size = value.ToString().Length > 8000 ? -1 : 8000;
+                else if (p.DbType == DbType.String)
                     p.Size = value.ToString().Length > 4000 ? -1 : 4000;
 
                 p.Value = value;
@@ -379,7 +383,9 @@ namespace DynamORM
             {
                 p.DbType = TypeMap.TryGetNullable(item.Value.GetType()) ?? DbType.String;
 
-                if (p.DbType == DbType.String)
+                if (p.DbType == DbType.AnsiString)
+                    p.Size = item.Value.ToString().Length > 8000 ? -1 : 8000;
+                else if (p.DbType == DbType.String)
                     p.Size = item.Value.ToString().Length > 4000 ? -1 : 4000;
 
                 p.Value = item.Value;
@@ -516,7 +522,7 @@ namespace DynamORM
             param.Direction = parameterDirection;
             param.DbType = databaseType;
             param.Size = size;
-            param.Value = value;
+            param.Value = value ?? DBNull.Value;
             command.Parameters.Add(param);
 
             return command;
@@ -535,7 +541,7 @@ namespace DynamORM
             param.ParameterName = parameterName;
             param.DbType = databaseType;
             param.Size = size;
-            param.Value = value;
+            param.Value = value ?? DBNull.Value;
             command.Parameters.Add(param);
 
             return command;
@@ -552,7 +558,7 @@ namespace DynamORM
             IDbDataParameter param = command.CreateParameter();
             param.ParameterName = parameterName;
             param.DbType = databaseType;
-            param.Value = value;
+            param.Value = value ?? DBNull.Value;
             command.Parameters.Add(param);
 
             return command;
@@ -947,8 +953,14 @@ namespace DynamORM
             IDynamicSelectQueryBuilder sub = b.SubQuery();
 
             subquery(b, sub);
-
-            (b as DynamicQueryBuilder).ParseCommand(sub as DynamicQueryBuilder, b.Parameters);
+            try
+            {
+                (b as DynamicQueryBuilder).ParseCommand(sub as DynamicQueryBuilder, b.Parameters);
+            }
+            catch (ArgumentException)
+            {
+                // This might occur if join was made to subquery
+            }
 
             return b;
         }
@@ -1343,11 +1355,22 @@ namespace DynamORM
         /// provided <see cref="System.Data.DbType"/>.</returns>
         public static Type ToType(this DbType dbt)
         {
+            if (dbt == DbType.String)
+                return typeof(string);
+
             foreach (KeyValuePair<Type, DbType> tdbt in TypeMap)
                 if (tdbt.Value == dbt)
                     return tdbt.Key;
 
             return typeof(object);
+        }
+
+        /// <summary>Determines whether the specified value is has only ASCII chars.</summary>
+        /// <param name="value">The value to check.</param>
+        /// <returns>Returns <c>true</c> if the specified value has only ASCII cars; otherwise, <c>false</c>.</returns>
+        public static bool IsASCII(this string value)
+        {
+            return Encoding.UTF8.GetByteCount(value) == value.Length;
         }
 
         #endregion Type extensions
@@ -1420,6 +1443,14 @@ namespace DynamORM
         {
             while (r.Read())
                 yield return r.RowToDynamic();
+        }
+
+        internal static IDataReader CachedReader(this IDataReader r)
+        {
+            if (r is DynamicCachedReader)
+                return r;
+
+            return new DynamicCachedReader(r);
         }
 
         #endregion IDataReader extensions

@@ -410,7 +410,10 @@ namespace DynamORM.Builders.Implementation
 
             // If there are parameters to transform, but cannot store them, it is an error
             if (node.Parameters.Count != 0 && pars == null)
-                throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
+                return string.Format("({0})", str);
+
+            // TODO: Make special condiion
+            //throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
 
             // Copy parameters to new comand
             foreach (KeyValuePair<string, IParameter> parameter in node.Parameters)
@@ -890,7 +893,7 @@ namespace DynamORM.Builders.Implementation
             ITableInfo tableInfo = !string.IsNullOrEmpty(tableName) ?
                 Tables.FirstOrDefault(x => !string.IsNullOrEmpty(x.Alias) && x.Alias.ToLower() == tableName) ??
                 Tables.FirstOrDefault(x => x.Name.ToLower() == tableName.ToLower()) ?? Tables.FirstOrDefault() :
-                this is DynamicModifyBuilder ? Tables.FirstOrDefault() : null;
+                this is DynamicModifyBuilder || Tables.Count == 1 ? Tables.FirstOrDefault() : null;
 
             // Try to get column from schema
             if (tableInfo != null && tableInfo.Schema != null)

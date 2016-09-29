@@ -388,6 +388,21 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>
+        /// Tests from method using invoke with sub query.
+        /// </summary>
+        [Test]
+        public void TestInnerJoin4()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.usr))
+                .SubQuery((b, s) => b.Join(usr => usr(s.From(x => x.dbo.UserClients).Where(x => x.Deleted == 0)).Inner().As(usr.uc).On(usr.Id_User == usr.uc.User_Id && usr.uc.Users != null)))
+                .Select(usr => usr.All(), uc => uc.Users);
+
+            Assert.AreEqual(string.Format("SELECT usr.*, uc.\"Users\" FROM \"dbo\".\"Users\" AS usr INNER JOIN (SELECT * FROM \"dbo\".\"UserClients\" WHERE (\"Deleted\" = [${0}])) AS uc ON ((usr.\"Id_User\" = uc.\"User_Id\") AND (uc.\"Users\" IS NOT NULL))", cmd.Parameters.Keys.First()), cmd.CommandText());
+        }
+
+        /// <summary>
         /// Tests left outer join method.
         /// </summary>
         [Test]

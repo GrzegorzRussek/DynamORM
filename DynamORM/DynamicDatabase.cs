@@ -170,6 +170,15 @@ namespace DynamORM
         /// <param name="options">Connection options. <see cref="DynamicDatabaseOptions.SingleConnection"/> required.</param>
         public DynamicDatabase(IDbConnection connection, DynamicDatabaseOptions options)
         {
+            // Try to find correct provider if possible
+            Type t = connection.GetType();
+            if (t == typeof(System.Data.SqlClient.SqlConnection))
+                _provider = System.Data.SqlClient.SqlClientFactory.Instance;
+            else if (t == typeof(System.Data.Odbc.OdbcConnection))
+                _provider = System.Data.Odbc.OdbcFactory.Instance;
+            else if (t == typeof(System.Data.OleDb.OleDbConnection))
+                _provider = System.Data.OleDb.OleDbFactory.Instance;
+
             IsDisposed = false;
             InitCommon(connection.ConnectionString, options);
             TransactionPool.Add(connection, new Stack<IDbTransaction>());
@@ -314,6 +323,15 @@ namespace DynamORM
         public virtual IDynamicSelectQueryBuilder From<T>()
         {
             return new DynamicSelectQueryBuilder(this).From(x => x(typeof(T)));
+        }
+        
+        /// <summary>Adds to the <code>FROM</code> clause using <see cref="Type"/>.</summary>
+        /// <typeparam name="T">Type which can be represented in database.</typeparam>
+        /// <param name="alias">Table alias.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicSelectQueryBuilder From<T>(string alias)
+        {
+            return new DynamicSelectQueryBuilder(this).From(x => x(typeof(T)).As(alias));
         }
 
         /// <summary>Adds to the <code>FROM</code> clause using <see cref="Type"/>.</summary>
@@ -1112,13 +1130,17 @@ namespace DynamORM
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Query(string sql, params object[] args)
         {
+            DynamicCachedReader cache = null;
             using (IDbConnection con = Open())
             using (IDbCommand cmd = con.CreateCommand())
-            using (IDataReader rdr = cmd
-                .SetCommand(sql)
-                .AddParameters(this, args)
-                .ExecuteReader())
-                while (rdr.Read())
+            {
+                using (IDataReader rdr = cmd
+                    .SetCommand(sql)
+                    .AddParameters(this, args)
+                    .ExecuteReader())
+                    cache = new DynamicCachedReader(rdr);
+
+                while (cache.Read())
                 {
                     dynamic val = null;
 
@@ -1126,7 +1148,7 @@ namespace DynamORM
                     // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
                     try
                     {
-                        val = rdr.RowToDynamic();
+                        val = cache.RowToDynamic();
                     }
                     catch (ArgumentException argex)
                     {
@@ -1139,6 +1161,7 @@ namespace DynamORM
 
                     yield return val;
                 }
+            }
         }
 
         /// <summary>Enumerate the reader and yield the result.</summary>
@@ -1146,12 +1169,16 @@ namespace DynamORM
         /// <returns>Enumerator of objects expanded from query.</returns>
         public virtual IEnumerable<dynamic> Query(IDynamicQueryBuilder builder)
         {
+            DynamicCachedReader cache = null;
             using (IDbConnection con = Open())
             using (IDbCommand cmd = con.CreateCommand())
-            using (IDataReader rdr = cmd
-                .SetCommand(builder)
-                .ExecuteReader())
-                while (rdr.Read())
+            {
+                using (IDataReader rdr = cmd
+                    .SetCommand(builder)
+                    .ExecuteReader())
+                    cache = new DynamicCachedReader(rdr);
+
+                while (cache.Read())
                 {
                     dynamic val = null;
 
@@ -1159,7 +1186,7 @@ namespace DynamORM
                     // http://stackoverflow.com/questions/346365/why-cant-yield-return-appear-inside-a-try-block-with-a-catch
                     try
                     {
-                        val = rdr.RowToDynamic();
+                        val = cache.RowToDynamic();
                     }
                     catch (ArgumentException argex)
                     {
@@ -1172,6 +1199,7 @@ namespace DynamORM
 
                     yield return val;
                 }
+            }
         }
 
         #endregion Query
@@ -1321,8 +1349,12 @@ namespace DynamORM
         /// If your database doesn't get those values in upper case (like most of the databases) you should override this method.</returns>
         protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(IDbCommand cmd)
         {
+            DataTable st = null;
+
             using (IDataReader rdr = cmd.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
-            using (DataTable st = rdr.GetSchemaTable())
+                st = rdr.GetSchemaTable();
+
+            using (st)
                 foreach (DataRow col in st.Rows)
                 {
                     dynamic c = col.RowToDynamicUpper();
@@ -1330,7 +1362,7 @@ namespace DynamORM
                     yield return new DynamicSchemaColumn
                     {
                         Name = c.COLUMNNAME,
-                        Type = DynamicExtensions.TypeMap.TryGetNullable((Type)c.DATATYPE) ?? DbType.String,
+                        Type = ReadSchemaType(c),
                         IsKey = c.ISKEY ?? false,
                         IsUnique = c.ISUNIQUE ?? false,
                         Size = (int)(c.COLUMNSIZE ?? 0),
@@ -1338,6 +1370,30 @@ namespace DynamORM
                         Scale = (byte)(c.NUMERICSCALE ?? 0)
                     };
                 }
+        }
+
+        /// <summary>Reads the type of column from the schema.</summary>
+        /// <param name="schema">The schema.</param>
+        /// <returns>GEneric parameter type.</returns>
+        protected virtual DbType ReadSchemaType(dynamic schema)
+        {
+            Type type = (Type)schema.DATATYPE;
+            
+            // Small hack for SQL Server Provider
+            if (type == typeof(string) && Provider != null && Provider.GetType() == typeof(System.Data.SqlClient.SqlClientFactory))
+            {
+                var map = (schema as IDictionary<string, object>);
+                string typeName = (map.TryGetValue("DATATYPENAME") ?? string.Empty).ToString();
+
+                switch (typeName){
+                    case "varchar":
+                        return DbType.AnsiString;
+                    case "nvarchar":
+                        return DbType.String;
+                }
+            }
+
+            return DynamicExtensions.TypeMap.TryGetNullable(type) ?? DbType.String;
         }
 
         private Dictionary<string, DynamicSchemaColumn> BuildAndCacheSchema(string tableName, DynamicTypeMap mapper, string owner = null)
