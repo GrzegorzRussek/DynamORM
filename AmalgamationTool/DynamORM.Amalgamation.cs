@@ -2749,7 +2749,7 @@ namespace DynamORM
 
         /// <summary>Reads the type of column from the schema.</summary>
         /// <param name="schema">The schema.</param>
-        /// <returns>GEneric parameter type.</returns>
+        /// <returns>Generic parameter type.</returns>
         protected virtual DbType ReadSchemaType(dynamic schema)
         {
             Type type = (Type)schema.DATATYPE;
@@ -2757,7 +2757,7 @@ namespace DynamORM
             // Small hack for SQL Server Provider
             if (type == typeof(string) && Provider != null && Provider.GetType() == typeof(System.Data.SqlClient.SqlClientFactory))
             {
-                var map = (schema as IDictionary<string, object>);
+                var map = schema as IDictionary<string, object>;
                 string typeName = (map.TryGetValue("DATATYPENAME") ?? string.Empty).ToString();
 
                 switch (typeName)
@@ -7874,7 +7874,7 @@ namespace DynamORM
                         return string.Format("({0})", str);
 
                     // TODO: Make special condiion
-                    //throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
+                    ////throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
 
                     // Copy parameters to new comand
                     foreach (KeyValuePair<string, IParameter> parameter in node.Parameters)

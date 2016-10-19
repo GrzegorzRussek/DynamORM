@@ -13,10 +13,10 @@ namespace Tester
                 DynamORM.DynamicDatabaseOptions.SingleConnection | DynamORM.DynamicDatabaseOptions.SingleTransaction | DynamORM.DynamicDatabaseOptions.SupportStoredProcedures |
                 DynamORM.DynamicDatabaseOptions.SupportSchema | DynamORM.DynamicDatabaseOptions.SupportTop);
 
-            //return new DynamORM.DynamicDatabase(System.Data.SQLite.SQLiteFactory.Instance,
-            //    "Data Source=test.db3;",
-            //    DynamORM.DynamicDatabaseOptions.SingleConnection | DynamORM.DynamicDatabaseOptions.SingleTransaction |
-            //    DynamORM.DynamicDatabaseOptions.SupportSchema | DynamORM.DynamicDatabaseOptions.SupportLimitOffset);
+            ////return new DynamORM.DynamicDatabase(System.Data.SQLite.SQLiteFactory.Instance,
+            ////    "Data Source=test.db3;",
+            ////    DynamORM.DynamicDatabaseOptions.SingleConnection | DynamORM.DynamicDatabaseOptions.SingleTransaction |
+            ////    DynamORM.DynamicDatabaseOptions.SupportSchema | DynamORM.DynamicDatabaseOptions.SupportLimitOffset);
         }
 
         private static void Main(string[] args)

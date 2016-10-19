@@ -1374,7 +1374,7 @@ namespace DynamORM
 
         /// <summary>Reads the type of column from the schema.</summary>
         /// <param name="schema">The schema.</param>
-        /// <returns>GEneric parameter type.</returns>
+        /// <returns>Generic parameter type.</returns>
         protected virtual DbType ReadSchemaType(dynamic schema)
         {
             Type type = (Type)schema.DATATYPE;
@@ -1382,10 +1382,11 @@ namespace DynamORM
             // Small hack for SQL Server Provider
             if (type == typeof(string) && Provider != null && Provider.GetType() == typeof(System.Data.SqlClient.SqlClientFactory))
             {
-                var map = (schema as IDictionary<string, object>);
+                var map = schema as IDictionary<string, object>;
                 string typeName = (map.TryGetValue("DATATYPENAME") ?? string.Empty).ToString();
 
-                switch (typeName){
+                switch (typeName)
+                {
                     case "varchar":
                         return DbType.AnsiString;
                     case "nvarchar":

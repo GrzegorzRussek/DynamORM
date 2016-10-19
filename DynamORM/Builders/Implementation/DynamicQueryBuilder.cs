@@ -413,7 +413,7 @@ namespace DynamORM.Builders.Implementation
                 return string.Format("({0})", str);
 
             // TODO: Make special condiion
-            //throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
+            ////throw new InvalidOperationException(string.Format("The parameters in this command '{0}' cannot be added to a null collection.", node.Parameters));
 
             // Copy parameters to new comand
             foreach (KeyValuePair<string, IParameter> parameter in node.Parameters)
