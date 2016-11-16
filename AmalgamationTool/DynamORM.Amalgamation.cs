@@ -6674,6 +6674,47 @@ namespace DynamORM
 
             #endregion GroupBy
 
+            #region Having
+
+            /// <summary>
+            /// Adds to the 'Having' clause the contents obtained from parsing the dynamic lambda expression given. The condition
+            /// is parsed to the appropriate syntax, Having the specific customs virtual methods supported by the parser are used
+            /// as needed.
+            /// <para>- If several Having() methods are chained their contents are, by default, concatenated with an 'AND' operator.</para>
+            /// <para>- The 'And()' and 'Or()' virtual method can be used to concatenate with an 'OR' or an 'AND' operator, as in:
+            /// 'Having( x => x.Or( condition ) )'.</para>
+            /// </summary>
+            /// <param name="func">The specification.</param>
+            /// <returns>This instance to permit chaining.</returns>
+            IDynamicSelectQueryBuilder Having(Func<dynamic, object> func);
+
+            /// <summary>Add Having condition.</summary>
+            /// <param name="column">Condition column with operator and value.</param>
+            /// <returns>Builder instance.</returns>
+            IDynamicSelectQueryBuilder Having(DynamicColumn column);
+
+            /// <summary>Add Having condition.</summary>
+            /// <param name="column">Condition column.</param>
+            /// <param name="op">Condition operator.</param>
+            /// <param name="value">Condition value.</param>
+            /// <returns>Builder instance.</returns>
+            IDynamicSelectQueryBuilder Having(string column, DynamicColumn.CompareOperator op, object value);
+
+            /// <summary>Add Having condition.</summary>
+            /// <param name="column">Condition column.</param>
+            /// <param name="value">Condition value.</param>
+            /// <returns>Builder instance.</returns>
+            IDynamicSelectQueryBuilder Having(string column, object value);
+
+            /// <summary>Add Having condition.</summary>
+            /// <param name="conditions">Set conditions as properties and values of an object.</param>
+            /// <param name="schema">If <c>true</c> use schema to determine key columns and ignore those which
+            /// aren't keys.</param>
+            /// <returns>Builder instance.</returns>
+            IDynamicSelectQueryBuilder Having(object conditions, bool schema = false);
+
+            #endregion Having
+
             #region OrderBy
 
             /// <summary>
@@ -6857,6 +6898,211 @@ namespace DynamORM
 
         namespace Extensions
         {
+            internal static class DynamicHavingQueryExtensions
+            {
+                #region Where
+
+                internal static T InternalHaving<T>(this T builder, Func<dynamic, object> func) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
+                {
+                    return builder.InternalHaving(false, false, func);
+                }
+
+                internal static T InternalHaving<T>(this T builder, bool addBeginBrace, bool addEndBrace, Func<dynamic, object> func) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
+                {
+                    if (func == null) throw new ArgumentNullException("Array of functions cannot be null.");
+
+                    using (DynamicParser parser = DynamicParser.Parse(func))
+                    {
+                        string condition = null;
+                        bool and = true;
+
+                        object result = parser.Result;
+                        if (result is string)
+                        {
+                            condition = (string)result;
+
+                            if (condition.ToUpper().IndexOf("OR") == 0)
+                            {
+                                and = false;
+                                condition = condition.Substring(3);
+                            }
+                            else if (condition.ToUpper().IndexOf("AND") == 0)
+                                condition = condition.Substring(4);
+                        }
+                        else if (!(result is DynamicParser.Node) && !result.GetType().IsValueType)
+                            return builder.InternalHaving(result);
+                        else
+                        {
+                            // Intercepting the 'x => x.And()' and 'x => x.Or()' virtual methods...
+                            if (result is DynamicParser.Node.Method && ((DynamicParser.Node.Method)result).Host is DynamicParser.Node.Argument)
+                            {
+                                DynamicParser.Node.Method node = (DynamicParser.Node.Method)result;
+                                string name = node.Name.ToUpper();
+                                if (name == "AND" || name == "OR")
+                                {
+                                    object[] args = ((DynamicParser.Node.Method)node).Arguments;
+                                    if (args == null) throw new ArgumentNullException("arg", string.Format("{0} is not a parameterless method.", name));
+                                    if (args.Length != 1) throw new ArgumentException(string.Format("{0} requires one and only one parameter: {1}.", name, args.Sketch()));
+
+                                    and = name == "AND" ? true : false;
+                                    result = args[0];
+                                }
+                            }
+
+                            // Just parsing the contents now...
+                            condition = builder.Parse(result, pars: builder.Parameters).Validated("Where condition");
+                        }
+
+                        if (addBeginBrace) builder.HavingOpenBracketsCount++;
+                        if (addEndBrace) builder.HavingOpenBracketsCount--;
+
+                        if (builder.HavingCondition == null)
+                            builder.HavingCondition = string.Format("{0}{1}{2}",
+                                addBeginBrace ? "(" : string.Empty, condition, addEndBrace ? ")" : string.Empty);
+                        else
+                            builder.HavingCondition = string.Format("{0} {1} {2}{3}{4}", builder.HavingCondition, and ? "AND" : "OR",
+                                addBeginBrace ? "(" : string.Empty, condition, addEndBrace ? ")" : string.Empty);
+                    }
+
+                    return builder;
+                }
+
+                internal static T InternalHaving<T>(this T builder, DynamicColumn column) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
+                {
+                    bool virt = builder.VirtualMode;
+                    if (column.VirtualColumn.HasValue)
+                        builder.VirtualMode = column.VirtualColumn.Value;
+
+                    Action<IParameter> modParam = (p) =>
+                    {
+                        if (column.Schema.HasValue)
+                            p.Schema = column.Schema;
+
+                        if (!p.Schema.HasValue)
+                            p.Schema = column.Schema ?? builder.GetColumnFromSchema(column.ColumnName);
+                    };
+
+                    builder.CreateTemporaryParameterAction(modParam);
+
+                    // It's kind of uglu, but... well it works.
+                    if (column.Or)
+                        switch (column.Operator)
+                        {
+                            default:
+                            case DynamicColumn.CompareOperator.Eq: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) == column.Value)); break;
+                            case DynamicColumn.CompareOperator.Not: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) != column.Value)); break;
+                            case DynamicColumn.CompareOperator.Like: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).Like(column.Value))); break;
+                            case DynamicColumn.CompareOperator.NotLike: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).NotLike(column.Value))); break;
+                            case DynamicColumn.CompareOperator.In: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).In(column.Value))); break;
+                            case DynamicColumn.CompareOperator.Lt: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) < column.Value)); break;
+                            case DynamicColumn.CompareOperator.Lte: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) <= column.Value)); break;
+                            case DynamicColumn.CompareOperator.Gt: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) > column.Value)); break;
+                            case DynamicColumn.CompareOperator.Gte: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) >= column.Value)); break;
+                            case DynamicColumn.CompareOperator.Between: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).Between(column.Value))); break;
+                        }
+                    else
+                        switch (column.Operator)
+                        {
+                            default:
+                            case DynamicColumn.CompareOperator.Eq: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) == column.Value); break;
+                            case DynamicColumn.CompareOperator.Not: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) != column.Value); break;
+                            case DynamicColumn.CompareOperator.Like: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).Like(column.Value)); break;
+                            case DynamicColumn.CompareOperator.NotLike: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).NotLike(column.Value)); break;
+                            case DynamicColumn.CompareOperator.In: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).In(column.Value)); break;
+                            case DynamicColumn.CompareOperator.Lt: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) < column.Value); break;
+                            case DynamicColumn.CompareOperator.Lte: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) <= column.Value); break;
+                            case DynamicColumn.CompareOperator.Gt: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) > column.Value); break;
+                            case DynamicColumn.CompareOperator.Gte: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) >= column.Value); break;
+                            case DynamicColumn.CompareOperator.Between: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).Between(column.Value)); break;
+                        }
+
+                    builder.OnCreateTemporaryParameter.Remove(modParam);
+                    builder.VirtualMode = virt;
+
+                    return builder;
+                }
+
+                internal static T InternalHaving<T>(this T builder, string column, DynamicColumn.CompareOperator op, object value) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
+                {
+                    if (value is DynamicColumn)
+                    {
+                        DynamicColumn v = (DynamicColumn)value;
+
+                        if (string.IsNullOrEmpty(v.ColumnName))
+                            v.ColumnName = column;
+
+                        return builder.InternalHaving(v);
+                    }
+                    else if (value is IEnumerable<DynamicColumn>)
+                    {
+                        foreach (DynamicColumn v in (IEnumerable<DynamicColumn>)value)
+                            builder.InternalHaving(v);
+
+                        return builder;
+                    }
+
+                    return builder.InternalHaving(new DynamicColumn
+                    {
+                        ColumnName = column,
+                        Operator = op,
+                        Value = value
+                    });
+                }
+
+                internal static T InternalHaving<T>(this T builder, string column, object value) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
+                {
+                    return builder.InternalHaving(column, DynamicColumn.CompareOperator.Eq, value);
+                }
+
+                internal static T InternalHaving<T>(this T builder, object conditions, bool schema = false) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
+                {
+                    if (conditions is DynamicColumn)
+                        return builder.InternalHaving((DynamicColumn)conditions);
+                    else if (conditions is IEnumerable<DynamicColumn>)
+                    {
+                        foreach (DynamicColumn v in (IEnumerable<DynamicColumn>)conditions)
+                            builder.InternalHaving(v);
+
+                        return builder;
+                    }
+
+                    IDictionary<string, object> dict = conditions.ToDictionary();
+                    DynamicTypeMap mapper = DynamicMapperCache.GetMapper(conditions.GetType());
+                    string table = dict.TryGetValue("_table").NullOr(x => x.ToString(), string.Empty);
+
+                    foreach (KeyValuePair<string, object> condition in dict)
+                    {
+                        if (mapper.Ignored.Contains(condition.Key) || condition.Key == "_table")
+                            continue;
+
+                        string colName = mapper != null ? mapper.PropertyMap.TryGetValue(condition.Key) ?? condition.Key : condition.Key;
+
+                        DynamicSchemaColumn? col = null;
+
+                        // This should be used on typed queries or update/delete steatements, which usualy operate on a single table.
+                        if (schema)
+                        {
+                            col = builder.GetColumnFromSchema(colName, mapper, table);
+
+                            if ((!col.HasValue || !col.Value.IsKey) &&
+                                (mapper == null || mapper.ColumnsMap.TryGetValue(colName).NullOr(m => m.Ignore || m.Column.NullOr(c => !c.IsKey, true), true)))
+                                continue;
+
+                            colName = col.HasValue ? col.Value.Name : colName;
+                        }
+
+                        if (!string.IsNullOrEmpty(table))
+                            builder.InternalHaving(x => x(builder.FixObjectName(string.Format("{0}.{1}", table, colName))) == condition.Value);
+                        else
+                            builder.InternalHaving(x => x(builder.FixObjectName(colName)) == condition.Value);
+                    }
+
+                    return builder;
+                }
+
+                #endregion Where
+            }
+
             internal static class DynamicModifyBuilderExtensions
             {
                 internal static T Table<T>(this T builder, Func<dynamic, object> func) where T : DynamicModifyBuilder
@@ -7033,8 +7279,8 @@ namespace DynamORM
                             condition = builder.Parse(result, pars: builder.Parameters).Validated("Where condition");
                         }
 
-                        if (addBeginBrace) builder.OpenBracketsCount++;
-                        if (addEndBrace) builder.OpenBracketsCount--;
+                        if (addBeginBrace) builder.WhereOpenBracketsCount++;
+                        if (addEndBrace) builder.WhereOpenBracketsCount--;
 
                         if (builder.WhereCondition == null)
                             builder.WhereCondition = string.Format("{0}{1}{2}",
@@ -7512,7 +7758,17 @@ namespace DynamORM
                     string WhereCondition { get; set; }
 
                     /// <summary>Gets or sets the amount of not closed brackets in where statement.</summary>
-                    int OpenBracketsCount { get; set; }
+                    int WhereOpenBracketsCount { get; set; }
+                }
+
+                /// <summary>Empty interface to allow having query builder implementation use universal approach.</summary>
+                internal interface IQueryWithHaving
+                {
+                    /// <summary>Gets or sets the having condition.</summary>
+                    string HavingCondition { get; set; }
+
+                    /// <summary>Gets or sets the amount of not closed brackets in having statement.</summary>
+                    int HavingOpenBracketsCount { get; set; }
                 }
 
                 private DynamicQueryBuilder _parent = null;
@@ -7679,7 +7935,7 @@ namespace DynamORM
                     OnCreateParameter = new List<Action<IParameter, IDbDataParameter>>();
 
                     WhereCondition = null;
-                    OpenBracketsCount = 0;
+                    WhereOpenBracketsCount = 0;
 
                     Database = db;
                     if (Database != null)
@@ -7705,7 +7961,7 @@ namespace DynamORM
                 public string WhereCondition { get; set; }
 
                 /// <summary>Gets or sets the amount of not closed brackets in where statement.</summary>
-                public int OpenBracketsCount { get; set; }
+                public int WhereOpenBracketsCount { get; set; }
 
                 #endregion IQueryWithWhere
 
@@ -7749,10 +8005,22 @@ namespace DynamORM
                     // End not ended where statement
                     if (this is IQueryWithWhere)
                     {
-                        while (OpenBracketsCount > 0)
+                        while (WhereOpenBracketsCount > 0)
                         {
                             WhereCondition += ")";
-                            OpenBracketsCount--;
+                            WhereOpenBracketsCount--;
+                        }
+                    }
+
+                    // End not ended having statement
+                    if (this is IQueryWithHaving)
+                    {
+                        IQueryWithHaving h = this as IQueryWithHaving;
+
+                        while (h.HavingOpenBracketsCount > 0)
+                        {
+                            h.HavingCondition += ")";
+                            h.HavingOpenBracketsCount--;
                         }
                     }
 
@@ -8170,6 +8438,12 @@ namespace DynamORM
                                     return "COUNT(*)";
 
                                 return string.Format("COUNT({0})", Parse(node.Arguments[0], ref columnSchema, pars: Parameters, nulls: true));
+
+                            case "COUNT0":
+                                if (node.Arguments != null && node.Arguments.Length > 0)
+                                    throw new ArgumentException("COUNT0 method doesn't expect arguments");
+
+                                return "COUNT(0)";
                         }
                     }
 
@@ -8407,7 +8681,7 @@ namespace DynamORM
             }
 
             /// <summary>Implementation of dynamic select query builder.</summary>
-            internal class DynamicSelectQueryBuilder : DynamicQueryBuilder, IDynamicSelectQueryBuilder, DynamicQueryBuilder.IQueryWithWhere
+            internal class DynamicSelectQueryBuilder : DynamicQueryBuilder, IDynamicSelectQueryBuilder, DynamicQueryBuilder.IQueryWithWhere, DynamicQueryBuilder.IQueryWithHaving
             {
                 private int? _limit = null;
                 private int? _offset = null;
@@ -8418,6 +8692,16 @@ namespace DynamORM
                 private string _join;
                 private string _groupby;
                 private string _orderby;
+
+                #region IQueryWithHaving
+
+                /// <summary>Gets or sets the having condition.</summary>
+                public string HavingCondition { get; set; }
+
+                /// <summary>Gets or sets the amount of not closed brackets in having statement.</summary>
+                public int HavingOpenBracketsCount { get; set; }
+
+                #endregion IQueryWithHaving
 
                 /// <summary>
                 /// Gets a value indicating whether this instance has select columns.
@@ -8478,6 +8762,7 @@ namespace DynamORM
                     if (_join != null) sb.AppendFormat(" {0}", _join);
                     if (WhereCondition != null) sb.AppendFormat(" WHERE {0}", WhereCondition);
                     if (_groupby != null) sb.AppendFormat(" GROUP BY {0}", _groupby);
+                    if (HavingCondition != null) sb.AppendFormat(" HAVING {0}", HavingCondition);
                     if (_orderby != null) sb.AppendFormat(" ORDER BY {0}", _orderby);
                     if (_limit.HasValue && !lused && (Database.Options & DynamicDatabaseOptions.SupportLimitOffset) == DynamicDatabaseOptions.SupportLimitOffset)
                         sb.AppendFormat(" LIMIT {0}", _limit);
@@ -9376,6 +9661,62 @@ namespace DynamORM
                 }
 
                 #endregion GroupBy
+
+                #region Having
+
+                /// <summary>
+                /// Adds to the 'Having' clause the contents obtained from parsing the dynamic lambda expression given. The condition
+                /// is parsed to the appropriate syntax, Having the specific customs virtual methods supported by the parser are used
+                /// as needed.
+                /// <para>- If several Having() methods are chained their contents are, by default, concatenated with an 'AND' operator.</para>
+                /// <para>- The 'And()' and 'Or()' virtual method can be used to concatenate with an 'OR' or an 'AND' operator, as in:
+                /// 'Having( x => x.Or( condition ) )'.</para>
+                /// </summary>
+                /// <param name="func">The specification.</param>
+                /// <returns>This instance to permit chaining.</returns>
+                public virtual IDynamicSelectQueryBuilder Having(Func<dynamic, object> func)
+                {
+                    return this.InternalHaving(func);
+                }
+
+                /// <summary>Add Having condition.</summary>
+                /// <param name="column">Condition column with operator and value.</param>
+                /// <returns>Builder instance.</returns>
+                public virtual IDynamicSelectQueryBuilder Having(DynamicColumn column)
+                {
+                    return this.InternalHaving(column);
+                }
+
+                /// <summary>Add Having condition.</summary>
+                /// <param name="column">Condition column.</param>
+                /// <param name="op">Condition operator.</param>
+                /// <param name="value">Condition value.</param>
+                /// <returns>Builder instance.</returns>
+                public virtual IDynamicSelectQueryBuilder Having(string column, DynamicColumn.CompareOperator op, object value)
+                {
+                    return this.InternalHaving(column, op, value);
+                }
+
+                /// <summary>Add Having condition.</summary>
+                /// <param name="column">Condition column.</param>
+                /// <param name="value">Condition value.</param>
+                /// <returns>Builder instance.</returns>
+                public virtual IDynamicSelectQueryBuilder Having(string column, object value)
+                {
+                    return this.InternalHaving(column, value);
+                }
+
+                /// <summary>Add Having condition.</summary>
+                /// <param name="conditions">Set conditions as properties and values of an object.</param>
+                /// <param name="schema">If <c>true</c> use schema to determine key columns and ignore those which
+                /// aren't keys.</param>
+                /// <returns>Builder instance.</returns>
+                public virtual IDynamicSelectQueryBuilder Having(object conditions, bool schema = false)
+                {
+                    return this.InternalHaving(conditions, schema);
+                }
+
+                #endregion Having
 
                 #region OrderBy
 

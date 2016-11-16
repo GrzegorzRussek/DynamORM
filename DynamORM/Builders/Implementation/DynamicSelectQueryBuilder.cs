@@ -42,7 +42,7 @@ using DynamORM.Mapper;
 namespace DynamORM.Builders.Implementation
 {
     /// <summary>Implementation of dynamic select query builder.</summary>
-    internal class DynamicSelectQueryBuilder : DynamicQueryBuilder, IDynamicSelectQueryBuilder, DynamicQueryBuilder.IQueryWithWhere
+    internal class DynamicSelectQueryBuilder : DynamicQueryBuilder, IDynamicSelectQueryBuilder, DynamicQueryBuilder.IQueryWithWhere, DynamicQueryBuilder.IQueryWithHaving
     {
         private int? _limit = null;
         private int? _offset = null;
@@ -53,6 +53,16 @@ namespace DynamORM.Builders.Implementation
         private string _join;
         private string _groupby;
         private string _orderby;
+
+        #region IQueryWithHaving
+
+        /// <summary>Gets or sets the having condition.</summary>
+        public string HavingCondition { get; set; }
+
+        /// <summary>Gets or sets the amount of not closed brackets in having statement.</summary>
+        public int HavingOpenBracketsCount { get; set; }
+
+        #endregion IQueryWithHaving
 
         /// <summary>
         /// Gets a value indicating whether this instance has select columns.
@@ -113,6 +123,7 @@ namespace DynamORM.Builders.Implementation
             if (_join != null) sb.AppendFormat(" {0}", _join);
             if (WhereCondition != null) sb.AppendFormat(" WHERE {0}", WhereCondition);
             if (_groupby != null) sb.AppendFormat(" GROUP BY {0}", _groupby);
+            if (HavingCondition != null) sb.AppendFormat(" HAVING {0}", HavingCondition);
             if (_orderby != null) sb.AppendFormat(" ORDER BY {0}", _orderby);
             if (_limit.HasValue && !lused && (Database.Options & DynamicDatabaseOptions.SupportLimitOffset) == DynamicDatabaseOptions.SupportLimitOffset)
                 sb.AppendFormat(" LIMIT {0}", _limit);
@@ -1011,6 +1022,62 @@ namespace DynamORM.Builders.Implementation
         }
 
         #endregion GroupBy
+
+        #region Having
+
+        /// <summary>
+        /// Adds to the 'Having' clause the contents obtained from parsing the dynamic lambda expression given. The condition
+        /// is parsed to the appropriate syntax, Having the specific customs virtual methods supported by the parser are used
+        /// as needed.
+        /// <para>- If several Having() methods are chained their contents are, by default, concatenated with an 'AND' operator.</para>
+        /// <para>- The 'And()' and 'Or()' virtual method can be used to concatenate with an 'OR' or an 'AND' operator, as in:
+        /// 'Having( x => x.Or( condition ) )'.</para>
+        /// </summary>
+        /// <param name="func">The specification.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicSelectQueryBuilder Having(Func<dynamic, object> func)
+        {
+            return this.InternalHaving(func);
+        }
+
+        /// <summary>Add Having condition.</summary>
+        /// <param name="column">Condition column with operator and value.</param>
+        /// <returns>Builder instance.</returns>
+        public virtual IDynamicSelectQueryBuilder Having(DynamicColumn column)
+        {
+            return this.InternalHaving(column);
+        }
+
+        /// <summary>Add Having condition.</summary>
+        /// <param name="column">Condition column.</param>
+        /// <param name="op">Condition operator.</param>
+        /// <param name="value">Condition value.</param>
+        /// <returns>Builder instance.</returns>
+        public virtual IDynamicSelectQueryBuilder Having(string column, DynamicColumn.CompareOperator op, object value)
+        {
+            return this.InternalHaving(column, op, value);
+        }
+
+        /// <summary>Add Having condition.</summary>
+        /// <param name="column">Condition column.</param>
+        /// <param name="value">Condition value.</param>
+        /// <returns>Builder instance.</returns>
+        public virtual IDynamicSelectQueryBuilder Having(string column, object value)
+        {
+            return this.InternalHaving(column, value);
+        }
+
+        /// <summary>Add Having condition.</summary>
+        /// <param name="conditions">Set conditions as properties and values of an object.</param>
+        /// <param name="schema">If <c>true</c> use schema to determine key columns and ignore those which
+        /// aren't keys.</param>
+        /// <returns>Builder instance.</returns>
+        public virtual IDynamicSelectQueryBuilder Having(object conditions, bool schema = false)
+        {
+            return this.InternalHaving(conditions, schema);
+        }
+
+        #endregion Having
 
         #region OrderBy
 

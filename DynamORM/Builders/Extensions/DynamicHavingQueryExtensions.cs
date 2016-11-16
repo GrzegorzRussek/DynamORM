@@ -38,16 +38,16 @@ using DynamORM.Mapper;
 
 namespace DynamORM.Builders.Extensions
 {
-    internal static class DynamicWhereQueryExtensions
+    internal static class DynamicHavingQueryExtensions
     {
         #region Where
 
-        internal static T InternalWhere<T>(this T builder, Func<dynamic, object> func) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithWhere
+        internal static T InternalHaving<T>(this T builder, Func<dynamic, object> func) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
         {
-            return builder.InternalWhere(false, false, func);
+            return builder.InternalHaving(false, false, func);
         }
 
-        internal static T InternalWhere<T>(this T builder, bool addBeginBrace, bool addEndBrace, Func<dynamic, object> func) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithWhere
+        internal static T InternalHaving<T>(this T builder, bool addBeginBrace, bool addEndBrace, Func<dynamic, object> func) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
         {
             if (func == null) throw new ArgumentNullException("Array of functions cannot be null.");
 
@@ -70,7 +70,7 @@ namespace DynamORM.Builders.Extensions
                         condition = condition.Substring(4);
                 }
                 else if (!(result is DynamicParser.Node) && !result.GetType().IsValueType)
-                    return builder.InternalWhere(result);
+                    return builder.InternalHaving(result);
                 else
                 {
                     // Intercepting the 'x => x.And()' and 'x => x.Or()' virtual methods...
@@ -93,21 +93,21 @@ namespace DynamORM.Builders.Extensions
                     condition = builder.Parse(result, pars: builder.Parameters).Validated("Where condition");
                 }
 
-                if (addBeginBrace) builder.WhereOpenBracketsCount++;
-                if (addEndBrace) builder.WhereOpenBracketsCount--;
+                if (addBeginBrace) builder.HavingOpenBracketsCount++;
+                if (addEndBrace) builder.HavingOpenBracketsCount--;
 
-                if (builder.WhereCondition == null)
-                    builder.WhereCondition = string.Format("{0}{1}{2}",
+                if (builder.HavingCondition == null)
+                    builder.HavingCondition = string.Format("{0}{1}{2}",
                         addBeginBrace ? "(" : string.Empty, condition, addEndBrace ? ")" : string.Empty);
                 else
-                    builder.WhereCondition = string.Format("{0} {1} {2}{3}{4}", builder.WhereCondition, and ? "AND" : "OR",
+                    builder.HavingCondition = string.Format("{0} {1} {2}{3}{4}", builder.HavingCondition, and ? "AND" : "OR",
                         addBeginBrace ? "(" : string.Empty, condition, addEndBrace ? ")" : string.Empty);
             }
 
             return builder;
         }
 
-        internal static T InternalWhere<T>(this T builder, DynamicColumn column) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithWhere
+        internal static T InternalHaving<T>(this T builder, DynamicColumn column) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
         {
             bool virt = builder.VirtualMode;
             if (column.VirtualColumn.HasValue)
@@ -129,31 +129,31 @@ namespace DynamORM.Builders.Extensions
                 switch (column.Operator)
                 {
                     default:
-                    case DynamicColumn.CompareOperator.Eq: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) == column.Value)); break;
-                    case DynamicColumn.CompareOperator.Not: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) != column.Value)); break;
-                    case DynamicColumn.CompareOperator.Like: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).Like(column.Value))); break;
-                    case DynamicColumn.CompareOperator.NotLike: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).NotLike(column.Value))); break;
-                    case DynamicColumn.CompareOperator.In: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).In(column.Value))); break;
-                    case DynamicColumn.CompareOperator.Lt: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) < column.Value)); break;
-                    case DynamicColumn.CompareOperator.Lte: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) <= column.Value)); break;
-                    case DynamicColumn.CompareOperator.Gt: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) > column.Value)); break;
-                    case DynamicColumn.CompareOperator.Gte: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) >= column.Value)); break;
-                    case DynamicColumn.CompareOperator.Between: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).Between(column.Value))); break;
+                    case DynamicColumn.CompareOperator.Eq: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) == column.Value)); break;
+                    case DynamicColumn.CompareOperator.Not: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) != column.Value)); break;
+                    case DynamicColumn.CompareOperator.Like: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).Like(column.Value))); break;
+                    case DynamicColumn.CompareOperator.NotLike: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).NotLike(column.Value))); break;
+                    case DynamicColumn.CompareOperator.In: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).In(column.Value))); break;
+                    case DynamicColumn.CompareOperator.Lt: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) < column.Value)); break;
+                    case DynamicColumn.CompareOperator.Lte: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) <= column.Value)); break;
+                    case DynamicColumn.CompareOperator.Gt: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) > column.Value)); break;
+                    case DynamicColumn.CompareOperator.Gte: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)) >= column.Value)); break;
+                    case DynamicColumn.CompareOperator.Between: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x.Or(x(builder.FixObjectName(column.ColumnName)).Between(column.Value))); break;
                 }
             else
                 switch (column.Operator)
                 {
                     default:
-                    case DynamicColumn.CompareOperator.Eq: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) == column.Value); break;
-                    case DynamicColumn.CompareOperator.Not: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) != column.Value); break;
-                    case DynamicColumn.CompareOperator.Like: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).Like(column.Value)); break;
-                    case DynamicColumn.CompareOperator.NotLike: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).NotLike(column.Value)); break;
-                    case DynamicColumn.CompareOperator.In: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).In(column.Value)); break;
-                    case DynamicColumn.CompareOperator.Lt: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) < column.Value); break;
-                    case DynamicColumn.CompareOperator.Lte: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) <= column.Value); break;
-                    case DynamicColumn.CompareOperator.Gt: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) > column.Value); break;
-                    case DynamicColumn.CompareOperator.Gte: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) >= column.Value); break;
-                    case DynamicColumn.CompareOperator.Between: builder.InternalWhere(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).Between(column.Value)); break;
+                    case DynamicColumn.CompareOperator.Eq: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) == column.Value); break;
+                    case DynamicColumn.CompareOperator.Not: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) != column.Value); break;
+                    case DynamicColumn.CompareOperator.Like: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).Like(column.Value)); break;
+                    case DynamicColumn.CompareOperator.NotLike: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).NotLike(column.Value)); break;
+                    case DynamicColumn.CompareOperator.In: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).In(column.Value)); break;
+                    case DynamicColumn.CompareOperator.Lt: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) < column.Value); break;
+                    case DynamicColumn.CompareOperator.Lte: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) <= column.Value); break;
+                    case DynamicColumn.CompareOperator.Gt: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) > column.Value); break;
+                    case DynamicColumn.CompareOperator.Gte: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)) >= column.Value); break;
+                    case DynamicColumn.CompareOperator.Between: builder.InternalHaving(column.BeginBlock, column.EndBlock, x => x(builder.FixObjectName(column.ColumnName)).Between(column.Value)); break;
                 }
 
             builder.OnCreateTemporaryParameter.Remove(modParam);
@@ -162,7 +162,7 @@ namespace DynamORM.Builders.Extensions
             return builder;
         }
 
-        internal static T InternalWhere<T>(this T builder, string column, DynamicColumn.CompareOperator op, object value) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithWhere
+        internal static T InternalHaving<T>(this T builder, string column, DynamicColumn.CompareOperator op, object value) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
         {
             if (value is DynamicColumn)
             {
@@ -171,17 +171,17 @@ namespace DynamORM.Builders.Extensions
                 if (string.IsNullOrEmpty(v.ColumnName))
                     v.ColumnName = column;
 
-                return builder.InternalWhere(v);
+                return builder.InternalHaving(v);
             }
             else if (value is IEnumerable<DynamicColumn>)
             {
                 foreach (DynamicColumn v in (IEnumerable<DynamicColumn>)value)
-                    builder.InternalWhere(v);
+                    builder.InternalHaving(v);
 
                 return builder;
             }
 
-            return builder.InternalWhere(new DynamicColumn
+            return builder.InternalHaving(new DynamicColumn
             {
                 ColumnName = column,
                 Operator = op,
@@ -189,19 +189,19 @@ namespace DynamORM.Builders.Extensions
             });
         }
 
-        internal static T InternalWhere<T>(this T builder, string column, object value) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithWhere
+        internal static T InternalHaving<T>(this T builder, string column, object value) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
         {
-            return builder.InternalWhere(column, DynamicColumn.CompareOperator.Eq, value);
+            return builder.InternalHaving(column, DynamicColumn.CompareOperator.Eq, value);
         }
 
-        internal static T InternalWhere<T>(this T builder, object conditions, bool schema = false) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithWhere
+        internal static T InternalHaving<T>(this T builder, object conditions, bool schema = false) where T : DynamicQueryBuilder, DynamicQueryBuilder.IQueryWithHaving
         {
             if (conditions is DynamicColumn)
-                return builder.InternalWhere((DynamicColumn)conditions);
+                return builder.InternalHaving((DynamicColumn)conditions);
             else if (conditions is IEnumerable<DynamicColumn>)
             {
                 foreach (DynamicColumn v in (IEnumerable<DynamicColumn>)conditions)
-                    builder.InternalWhere(v);
+                    builder.InternalHaving(v);
 
                 return builder;
             }
@@ -232,9 +232,9 @@ namespace DynamORM.Builders.Extensions
                 }
 
                 if (!string.IsNullOrEmpty(table))
-                    builder.InternalWhere(x => x(builder.FixObjectName(string.Format("{0}.{1}", table, colName))) == condition.Value);
+                    builder.InternalHaving(x => x(builder.FixObjectName(string.Format("{0}.{1}", table, colName))) == condition.Value);
                 else
-                    builder.InternalWhere(x => x(builder.FixObjectName(colName)) == condition.Value);
+                    builder.InternalHaving(x => x(builder.FixObjectName(colName)) == condition.Value);
             }
 
             return builder;

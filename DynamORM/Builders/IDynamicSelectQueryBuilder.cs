@@ -193,6 +193,47 @@ namespace DynamORM.Builders
 
         #endregion GroupBy
 
+        #region Having
+
+        /// <summary>
+        /// Adds to the 'Having' clause the contents obtained from parsing the dynamic lambda expression given. The condition
+        /// is parsed to the appropriate syntax, Having the specific customs virtual methods supported by the parser are used
+        /// as needed.
+        /// <para>- If several Having() methods are chained their contents are, by default, concatenated with an 'AND' operator.</para>
+        /// <para>- The 'And()' and 'Or()' virtual method can be used to concatenate with an 'OR' or an 'AND' operator, as in:
+        /// 'Having( x => x.Or( condition ) )'.</para>
+        /// </summary>
+        /// <param name="func">The specification.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        IDynamicSelectQueryBuilder Having(Func<dynamic, object> func);
+
+        /// <summary>Add Having condition.</summary>
+        /// <param name="column">Condition column with operator and value.</param>
+        /// <returns>Builder instance.</returns>
+        IDynamicSelectQueryBuilder Having(DynamicColumn column);
+
+        /// <summary>Add Having condition.</summary>
+        /// <param name="column">Condition column.</param>
+        /// <param name="op">Condition operator.</param>
+        /// <param name="value">Condition value.</param>
+        /// <returns>Builder instance.</returns>
+        IDynamicSelectQueryBuilder Having(string column, DynamicColumn.CompareOperator op, object value);
+
+        /// <summary>Add Having condition.</summary>
+        /// <param name="column">Condition column.</param>
+        /// <param name="value">Condition value.</param>
+        /// <returns>Builder instance.</returns>
+        IDynamicSelectQueryBuilder Having(string column, object value);
+
+        /// <summary>Add Having condition.</summary>
+        /// <param name="conditions">Set conditions as properties and values of an object.</param>
+        /// <param name="schema">If <c>true</c> use schema to determine key columns and ignore those which
+        /// aren't keys.</param>
+        /// <returns>Builder instance.</returns>
+        IDynamicSelectQueryBuilder Having(object conditions, bool schema = false);
+
+        #endregion Having
+
         #region OrderBy
 
         /// <summary>

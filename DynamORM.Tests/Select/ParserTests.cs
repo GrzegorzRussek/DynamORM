@@ -26,10 +26,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+using System.Linq;
 using DynamORM.Builders;
 using DynamORM.Builders.Implementation;
 using NUnit.Framework;
-using System.Linq;
 
 namespace DynamORM.Tests.Select
 {
@@ -223,6 +223,20 @@ namespace DynamORM.Tests.Select
                 .Where(u => u.c.UserName == "admin");
 
             Assert.AreEqual(string.Format("SELECT * FROM \"dbo\".\"Users\" AS c WHERE (c.\"UserName\" = [${0}])", cmd.Parameters.Keys.First()), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests where method with alias.
+        /// </summary>
+        [Test]
+        public void TestHavingAlias()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.c))
+                .Having(u => u.Sum(u.c.ClientsCount) > 10);
+
+            Assert.AreEqual(string.Format("SELECT * FROM \"dbo\".\"Users\" AS c HAVING (Sum(c.\"ClientsCount\") > [${0}])", cmd.Parameters.Keys.First()), cmd.CommandText());
         }
 
         /// <summary>
@@ -733,6 +747,25 @@ namespace DynamORM.Tests.Select
 
             Assert.AreEqual(string.Format("SELECT Coalesce(c.\"ServerHash\", [${0}]) AS \"Hash\" FROM \"dbo\".\"Users\" AS c",
                 cmd.Parameters.Keys.ToArray()[0]), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests select escaped case.
+        /// </summary>
+        [Test]
+        public void TestCoalesceCalculatedArgs()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.c))
+                .Select(u => u.Coalesce(u.c.Test1 + "_", u.c.Test2 + "_", u.c.Test3 + "_").As(u.Hash));
+
+            Assert.AreEqual(string.Format("SELECT Coalesce((c.\"Test1\" + [${0}]), (c.\"Test2\" + [${1}]), (c.\"Test3\" + [${2}])) AS \"Hash\" FROM \"dbo\".\"Users\" AS c",
+                cmd.Parameters.Keys.ToArray()[0], cmd.Parameters.Keys.ToArray()[1], cmd.Parameters.Keys.ToArray()[2]), cmd.CommandText());
+
+            //var c = Database.Open().CreateCommand();
+            //cmd.FillCommand(c);
+            //c.Dispose();
         }
 
         /// <summary>

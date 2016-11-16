@@ -64,6 +64,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Builders\Extensions\DynamicHavingQueryExtensions.cs" />
     <Compile Include="Builders\IDynamicInsertQueryBuilder.cs" />
     <Compile Include="Builders\IDynamicSelectQueryBuilder.cs" />
     <Compile Include="Builders\IDynamicUpdateQueryBuilder.cs" />

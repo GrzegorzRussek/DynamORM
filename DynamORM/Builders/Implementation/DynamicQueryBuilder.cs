@@ -51,7 +51,17 @@ namespace DynamORM.Builders.Implementation
             string WhereCondition { get; set; }
 
             /// <summary>Gets or sets the amount of not closed brackets in where statement.</summary>
-            int OpenBracketsCount { get; set; }
+            int WhereOpenBracketsCount { get; set; }
+        }
+
+        /// <summary>Empty interface to allow having query builder implementation use universal approach.</summary>
+        internal interface IQueryWithHaving
+        {
+            /// <summary>Gets or sets the having condition.</summary>
+            string HavingCondition { get; set; }
+
+            /// <summary>Gets or sets the amount of not closed brackets in having statement.</summary>
+            int HavingOpenBracketsCount { get; set; }
         }
 
         private DynamicQueryBuilder _parent = null;
@@ -218,7 +228,7 @@ namespace DynamORM.Builders.Implementation
             OnCreateParameter = new List<Action<IParameter, IDbDataParameter>>();
 
             WhereCondition = null;
-            OpenBracketsCount = 0;
+            WhereOpenBracketsCount = 0;
 
             Database = db;
             if (Database != null)
@@ -244,7 +254,7 @@ namespace DynamORM.Builders.Implementation
         public string WhereCondition { get; set; }
 
         /// <summary>Gets or sets the amount of not closed brackets in where statement.</summary>
-        public int OpenBracketsCount { get; set; }
+        public int WhereOpenBracketsCount { get; set; }
 
         #endregion IQueryWithWhere
 
@@ -288,10 +298,22 @@ namespace DynamORM.Builders.Implementation
             // End not ended where statement
             if (this is IQueryWithWhere)
             {
-                while (OpenBracketsCount > 0)
+                while (WhereOpenBracketsCount > 0)
                 {
                     WhereCondition += ")";
-                    OpenBracketsCount--;
+                    WhereOpenBracketsCount--;
+                }
+            }
+
+            // End not ended having statement
+            if (this is IQueryWithHaving)
+            {
+                IQueryWithHaving h = this as IQueryWithHaving;
+
+                while (h.HavingOpenBracketsCount > 0)
+                {
+                    h.HavingCondition += ")";
+                    h.HavingOpenBracketsCount--;
                 }
             }
 
@@ -639,7 +661,7 @@ namespace DynamORM.Builders.Implementation
 
                             return string.Format("{0} IN({1})", parent, sbin.ToString());
                         }
-                    
+
                     case "NOTIN":
                         {
                             if (node.Arguments == null || node.Arguments.Length == 0)
@@ -709,6 +731,12 @@ namespace DynamORM.Builders.Implementation
                             return "COUNT(*)";
 
                         return string.Format("COUNT({0})", Parse(node.Arguments[0], ref columnSchema, pars: Parameters, nulls: true));
+
+                    case "COUNT0":
+                        if (node.Arguments != null && node.Arguments.Length > 0)
+                            throw new ArgumentException("COUNT0 method doesn't expect arguments");
+
+                        return "COUNT(0)";
                 }
             }
 
