@@ -45,6 +45,9 @@ namespace DynamORM
         /// <summary>Gets or sets a value indicating whether column should have unique value.</summary>
         public bool IsUnique { get; set; }
 
+        /// <summary>Gets or sets a value indicating whether column allows null or not.</summary>
+        public bool AllowNull { get; set; }
+
         /// <summary>Gets or sets column size.</summary>
         public int Size { get; set; }
 

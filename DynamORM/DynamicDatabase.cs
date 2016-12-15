@@ -667,6 +667,14 @@ namespace DynamORM
             return new DynamicDeleteQueryBuilder(this).Table(typeof(T));
         }
 
+        /// <summary>Adds to the <code>DELETE FROM</code> clause using <see cref="Type"/>.</summary>
+        /// <param name="t">Type which can be represented in database.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicDeleteQueryBuilder Delete(Type t)
+        {
+            return new DynamicDeleteQueryBuilder(this).Table(t);
+        }
+
         /// <summary>Bulk delete objects in database.</summary>
         /// <typeparam name="T">Type of objects to delete.</typeparam>
         /// <param name="e">Enumerable containing instances of objects to delete.</param>
@@ -1365,6 +1373,7 @@ namespace DynamORM
                         Type = ReadSchemaType(c),
                         IsKey = c.ISKEY ?? false,
                         IsUnique = c.ISUNIQUE ?? false,
+                        AllowNull = c.ALLOWNULL ?? false,
                         Size = (int)(c.COLUMNSIZE ?? 0),
                         Precision = (byte)(c.NUMERICPRECISION ?? 0),
                         Scale = (byte)(c.NUMERICSCALE ?? 0)
@@ -1456,6 +1465,9 @@ namespace DynamORM
                             IsUnique = DynamicExtensions.CoalesceNullable<bool>(
                                 v.Value.Column != null ? v.Value.Column.IsUnique : null,
                                 col.HasValue ? col.Value.IsUnique : false).Value,
+                            AllowNull = DynamicExtensions.CoalesceNullable<bool>(
+                                v.Value.Column != null ? v.Value.Column.AllowNull : true, 
+                                col.HasValue ? col.Value.AllowNull : true).Value,
                             Size = DynamicExtensions.CoalesceNullable<int>(
                                 v.Value.Column != null ? v.Value.Column.Size : null,
                                 col.HasValue ? col.Value.Size : 0).Value,
@@ -1481,6 +1493,7 @@ namespace DynamORM
                             IsKey = DynamicExtensions.CoalesceNullable<bool>(v.Value.Column != null ? v.Value.Column.IsKey : false, false).Value,
                             Type = DynamicExtensions.CoalesceNullable<DbType>(v.Value.Column != null ? v.Value.Column.Type : null, DynamicExtensions.TypeMap.TryGetNullable(v.Value.Type) ?? DbType.String).Value,
                             IsUnique = DynamicExtensions.CoalesceNullable<bool>(v.Value.Column != null ? v.Value.Column.IsUnique : null, false).Value,
+                            AllowNull = DynamicExtensions.CoalesceNullable<bool>(v.Value.Column != null ? v.Value.Column.AllowNull : true, true).Value,
                             Size = DynamicExtensions.CoalesceNullable<int>(v.Value.Column != null ? v.Value.Column.Size : null, 0).Value,
                             Precision = DynamicExtensions.CoalesceNullable<byte>(v.Value.Column != null ? v.Value.Column.Precision : null, 0).Value,
                             Scale = DynamicExtensions.CoalesceNullable<byte>(v.Value.Column != null ? v.Value.Column.Scale : null, 0).Value,

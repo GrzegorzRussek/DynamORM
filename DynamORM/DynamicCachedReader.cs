@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Dynamic;
@@ -9,7 +10,7 @@ using DynamORM.Mapper;
 namespace DynamORM
 {
     /// <summary>Cache data reader in memory.</summary>
-    internal class DynamicCachedReader : DynamicObject, IDataReader
+    public class DynamicCachedReader : DynamicObject, IDataReader
     {
         #region Constructor and Data
 
@@ -28,11 +29,14 @@ namespace DynamORM
         {
         }
 
-        /// <summary>Initializes a new instance of the <see cref="DynamicCachedReader"/> class.</summary>
+        /// <summary>Initializes a new instance of the <see cref="DynamicCachedReader" /> class.</summary>
         /// <param name="reader">Reader to cache.</param>
-        public DynamicCachedReader(IDataReader reader)
+        /// <param name="offset">The offset row.</param>
+        /// <param name="limit">The limit to number of tows. -1 is no limit.</param>
+        /// <param name="progress">The progress delegate.</param>
+        public DynamicCachedReader(IDataReader reader, int offset = 0, int limit = -1, Func<DynamicCachedReader, int, bool> progress = null)
         {
-            InitDataReader(reader);
+            InitDataReader(reader, offset, limit, progress);
         }
 
         #endregion Constructor and Data
@@ -55,12 +59,40 @@ namespace DynamORM
             r.CreateSchemaTable(mapper);
             r.FillFromEnumerable(objects, mapper);
 
+            r.IsClosed = false;
+            r._position = -1;
+            r._cachePos = -1;
+
             return r;
         }
 
-        private void InitDataReader(IDataReader reader)
+        /// <summary>Create data reader from enumerable.</summary>
+        /// <param name="elementType">Type of enumerated objects.</param>
+        /// <param name="objects">List of objects.</param>
+        /// <returns>Instance of <see cref="DynamicCachedReader"/> containing objects data.</returns>
+        public static DynamicCachedReader FromEnumerable(Type elementType, IEnumerable objects)
+        {
+            var mapper = DynamicMapperCache.GetMapper(elementType);
+
+            if (mapper == null)
+                throw new InvalidCastException(string.Format("Object type '{0}' can't be mapped.", elementType.FullName));
+
+            var r = new DynamicCachedReader();
+            r.Init(mapper.ColumnsMap.Count + 1);
+            r.CreateSchemaTable(mapper);
+            r.FillFromEnumerable(elementType, objects, mapper);
+
+            r.IsClosed = false;
+            r._position = -1;
+            r._cachePos = -1;
+
+            return r;
+        }
+
+        private void InitDataReader(IDataReader reader, int offset = 0, int limit = -1, Func<DynamicCachedReader, int, bool> progress = null)
         {
             _schema = reader.GetSchemaTable();
+            RecordsAffected = reader.RecordsAffected;
 
             Init(reader.FieldCount);
 
@@ -75,22 +107,59 @@ namespace DynamORM
                     _ordinals.Add(reader.GetName(i).ToUpper(), i);
             }
 
+            int current = 0;
             while (reader.Read())
             {
+                if (current < offset)
+                {
+                    current++;
+                    continue;
+                }
+
                 for (i = 0; i < _fields; i++)
                     _cache.Add(reader[i]);
 
                 _rows++;
+                current++;
+
+                if (limit >= 0 && _rows >= limit)
+                    break;
+
+                if (progress != null && !progress(this, _rows))
+                    break;
             }
 
             IsClosed = false;
             _position = -1;
             _cachePos = -1;
 
+            if (progress != null)
+                progress(this, _rows);
+
             reader.Close();
         }
 
         private void FillFromEnumerable<T>(IEnumerable<T> objects, DynamicTypeMap mapper)
+        {
+            foreach (var elem in objects)
+            {
+                foreach (var col in mapper.ColumnsMap)
+                {
+                    object val = null;
+
+                    if (col.Value.Get != null)
+                        val = col.Value.Get(elem);
+
+                    _cache.Add(val);
+                }
+
+                _cache.Add(elem);
+
+                _rows++;
+            }
+        }
+
+        private void FillFromEnumerable(Type elementType, IEnumerable objects, DynamicTypeMap mapper)
         {
             foreach (var elem in objects)
             {
@@ -141,8 +210,8 @@ namespace DynamORM
                 dr[5] = column.Value.Column.NullOr(x => x.Type.HasValue ? x.Type.Value.ToType() : column.Value.Type, column.Value.Type);
                 dr[6] = column.Value.Column.NullOr(x => x.Type ?? column.Value.Type.ToDbType(), column.Value.Type.ToDbType());
                 dr[7] = column.Value.Column.NullOr(x => x.Type ?? column.Value.Type.ToDbType(), column.Value.Type.ToDbType());
-                dr[8] = !column.Value.Column.NullOr(x => x.IsKey, false);
-                dr[9] = false;
+                dr[8] = column.Value.Column.NullOr(x => x.IsKey, false) ? true : column.Value.Column.NullOr(x => x.AllowNull, true);
+                dr[9] = column.Value.Column.NullOr(x => x.IsUnique, false);
                 dr[10] = column.Value.Column.NullOr(x => x.IsKey, false);
                 dr[11] = false;
 
@@ -187,6 +256,19 @@ namespace DynamORM
             _ordinals = new Dictionary<string, int>(_fields);
             _types = new List<Type>(_fields);
             _cache = new List<object>(_fields * 100);
+        }
+
+        /// <summary>Sets the current position in reader.</summary>
+        /// <param name="pos">The position.</param>
+        public void SetPosition(int pos)
+        {
+            if (pos >= -1 && pos < _rows)
+            {
+                _position = pos;
+                _cachePos = _position * _fields;
+            }
+            else
+                throw new IndexOutOfRangeException();
         }
 
         #endregion Helpers
@@ -241,7 +323,7 @@ namespace DynamORM
         /// <summary>Gets the number of rows changed, inserted, or deleted by execution of the SQL statement.</summary>
         /// <returns>The number of rows changed, inserted, or deleted; 0 if no rows were affected or the statement
         /// failed; and -1 for SELECT statements.</returns>
-        public int RecordsAffected { get { return 0; } }
+        public int RecordsAffected { get; private set; }
 
         #endregion IDataReader Members
 

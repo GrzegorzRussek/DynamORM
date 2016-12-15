@@ -45,6 +45,10 @@ namespace DynamORM.Mapper
         /// <summary>Gets or sets a value indicating whether column is a key.</summary>
         public bool IsKey { get; set; }
 
+        /// <summary>Gets or sets a value indicating whether column allows null or not.</summary>
+        /// <remarks>Information only.</remarks>
+        public bool AllowNull { get; set; }
+
         /// <summary>Gets or sets a value indicating whether column should have unique value.</summary>
         /// <remarks>Used when overriding schema.</remarks>
         public bool? IsUnique { get; set; }
@@ -74,11 +78,13 @@ namespace DynamORM.Mapper
         /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
         public ColumnAttribute()
         {
+            AllowNull = true;
         }
 
         /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
         /// <param name="name">Name of column.</param>
         public ColumnAttribute(string name)
+            : this()
         {
             Name = name;
         }
@@ -86,6 +92,7 @@ namespace DynamORM.Mapper
         /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
         /// <param name="isKey">Set column as a key column.</param>
         public ColumnAttribute(bool isKey)
+            : this()
         {
             IsKey = isKey;
         }

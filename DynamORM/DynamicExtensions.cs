@@ -1445,12 +1445,18 @@ namespace DynamORM
                 yield return r.RowToDynamic();
         }
 
-        internal static IDataReader CachedReader(this IDataReader r)
+        /// <summary>Creates cached reader object from non cached reader.</summary>
+        /// <param name="r">The reader to cache.</param>
+        /// <param name="offset">The offset row.</param>
+        /// <param name="limit">The limit to number of tows. -1 is no limit.</param>
+        /// <param name="progress">The progress delegate.</param>
+        /// <returns>Returns new instance of cached reader or current instance of a reader.</returns>
+        public static IDataReader CachedReader(this IDataReader r, int offset = 0, int limit = -1, Func<DynamicCachedReader, int, bool> progress = null)
         {
             if (r is DynamicCachedReader)
                 return r;
 
-            return new DynamicCachedReader(r);
+            return new DynamicCachedReader(r, offset, limit, progress);
         }
 
         #endregion IDataReader extensions

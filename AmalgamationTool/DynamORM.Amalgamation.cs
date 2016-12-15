@@ -61,7 +61,7 @@ using DynamORM.Mapper;
 namespace DynamORM
 {
     /// <summary>Cache data reader in memory.</summary>
-    internal class DynamicCachedReader : DynamicObject, IDataReader
+    public class DynamicCachedReader : DynamicObject, IDataReader
     {
         #region Constructor and Data
 
@@ -80,11 +80,14 @@ namespace DynamORM
         {
         }
 
-        /// <summary>Initializes a new instance of the <see cref="DynamicCachedReader"/> class.</summary>
+        /// <summary>Initializes a new instance of the <see cref="DynamicCachedReader" /> class.</summary>
         /// <param name="reader">Reader to cache.</param>
-        public DynamicCachedReader(IDataReader reader)
+        /// <param name="offset">The offset row.</param>
+        /// <param name="limit">The limit to number of tows. -1 is no limit.</param>
+        /// <param name="progress">The progress delegate.</param>
+        public DynamicCachedReader(IDataReader reader, int offset = 0, int limit = -1, Func<DynamicCachedReader, int, bool> progress = null)
         {
-            InitDataReader(reader);
+            InitDataReader(reader, offset, limit, progress);
         }
 
         #endregion Constructor and Data
@@ -107,12 +110,40 @@ namespace DynamORM
             r.CreateSchemaTable(mapper);
             r.FillFromEnumerable(objects, mapper);
 
+            r.IsClosed = false;
+            r._position = -1;
+            r._cachePos = -1;
+
             return r;
         }
 
-        private void InitDataReader(IDataReader reader)
+        /// <summary>Create data reader from enumerable.</summary>
+        /// <param name="elementType">Type of enumerated objects.</param>
+        /// <param name="objects">List of objects.</param>
+        /// <returns>Instance of <see cref="DynamicCachedReader"/> containing objects data.</returns>
+        public static DynamicCachedReader FromEnumerable(Type elementType, IEnumerable objects)
+        {
+            var mapper = DynamicMapperCache.GetMapper(elementType);
+
+            if (mapper == null)
+                throw new InvalidCastException(string.Format("Object type '{0}' can't be mapped.", elementType.FullName));
+
+            var r = new DynamicCachedReader();
+            r.Init(mapper.ColumnsMap.Count + 1);
+            r.CreateSchemaTable(mapper);
+            r.FillFromEnumerable(elementType, objects, mapper);
+
+            r.IsClosed = false;
+            r._position = -1;
+            r._cachePos = -1;
+
+            return r;
+        }
+
+        private void InitDataReader(IDataReader reader, int offset = 0, int limit = -1, Func<DynamicCachedReader, int, bool> progress = null)
         {
             _schema = reader.GetSchemaTable();
+            RecordsAffected = reader.RecordsAffected;
 
             Init(reader.FieldCount);
 
@@ -127,22 +158,59 @@ namespace DynamORM
                     _ordinals.Add(reader.GetName(i).ToUpper(), i);
             }
 
+            int current = 0;
             while (reader.Read())
             {
+                if (current < offset)
+                {
+                    current++;
+                    continue;
+                }
+
                 for (i = 0; i < _fields; i++)
                     _cache.Add(reader[i]);
 
                 _rows++;
+                current++;
+
+                if (limit >= 0 && _rows >= limit)
+                    break;
+
+                if (progress != null && !progress(this, _rows))
+                    break;
             }
 
             IsClosed = false;
             _position = -1;
             _cachePos = -1;
 
+            if (progress != null)
+                progress(this, _rows);
+
             reader.Close();
         }
 
         private void FillFromEnumerable<T>(IEnumerable<T> objects, DynamicTypeMap mapper)
+        {
+            foreach (var elem in objects)
+            {
+                foreach (var col in mapper.ColumnsMap)
+                {
+                    object val = null;
+
+                    if (col.Value.Get != null)
+                        val = col.Value.Get(elem);
+
+                    _cache.Add(val);
+                }
+
+                _cache.Add(elem);
+
+                _rows++;
+            }
+        }
+
+        private void FillFromEnumerable(Type elementType, IEnumerable objects, DynamicTypeMap mapper)
         {
             foreach (var elem in objects)
             {
@@ -193,8 +261,8 @@ namespace DynamORM
                 dr[5] = column.Value.Column.NullOr(x => x.Type.HasValue ? x.Type.Value.ToType() : column.Value.Type, column.Value.Type);
                 dr[6] = column.Value.Column.NullOr(x => x.Type ?? column.Value.Type.ToDbType(), column.Value.Type.ToDbType());
                 dr[7] = column.Value.Column.NullOr(x => x.Type ?? column.Value.Type.ToDbType(), column.Value.Type.ToDbType());
-                dr[8] = !column.Value.Column.NullOr(x => x.IsKey, false);
-                dr[9] = false;
+                dr[8] = column.Value.Column.NullOr(x => x.IsKey, false) ? true : column.Value.Column.NullOr(x => x.AllowNull, true);
+                dr[9] = column.Value.Column.NullOr(x => x.IsUnique, false);
                 dr[10] = column.Value.Column.NullOr(x => x.IsKey, false);
                 dr[11] = false;
 
@@ -239,6 +307,19 @@ namespace DynamORM
             _ordinals = new Dictionary<string, int>(_fields);
             _types = new List<Type>(_fields);
             _cache = new List<object>(_fields * 100);
+        }
+
+        /// <summary>Sets the current position in reader.</summary>
+        /// <param name="pos">The position.</param>
+        public void SetPosition(int pos)
+        {
+            if (pos >= -1 && pos < _rows)
+            {
+                _position = pos;
+                _cachePos = _position * _fields;
+            }
+            else
+                throw new IndexOutOfRangeException();
         }
 
         #endregion Helpers
@@ -293,7 +374,7 @@ namespace DynamORM
         /// <summary>Gets the number of rows changed, inserted, or deleted by execution of the SQL statement.</summary>
         /// <returns>The number of rows changed, inserted, or deleted; 0 if no rows were affected or the statement
         /// failed; and -1 for SELECT statements.</returns>
-        public int RecordsAffected { get { return 0; } }
+        public int RecordsAffected { get; private set; }
 
         #endregion IDataReader Members
 
@@ -2042,6 +2123,14 @@ namespace DynamORM
             return new DynamicDeleteQueryBuilder(this).Table(typeof(T));
         }
 
+        /// <summary>Adds to the <code>DELETE FROM</code> clause using <see cref="Type"/>.</summary>
+        /// <param name="t">Type which can be represented in database.</param>
+        /// <returns>This instance to permit chaining.</returns>
+        public virtual IDynamicDeleteQueryBuilder Delete(Type t)
+        {
+            return new DynamicDeleteQueryBuilder(this).Table(t);
+        }
+
         /// <summary>Bulk delete objects in database.</summary>
         /// <typeparam name="T">Type of objects to delete.</typeparam>
         /// <param name="e">Enumerable containing instances of objects to delete.</param>
@@ -2740,6 +2829,7 @@ namespace DynamORM
                         Type = ReadSchemaType(c),
                         IsKey = c.ISKEY ?? false,
                         IsUnique = c.ISUNIQUE ?? false,
+                        AllowNull = c.ALLOWNULL ?? false,
                         Size = (int)(c.COLUMNSIZE ?? 0),
                         Precision = (byte)(c.NUMERICPRECISION ?? 0),
                         Scale = (byte)(c.NUMERICSCALE ?? 0)
@@ -2831,6 +2921,9 @@ namespace DynamORM
                             IsUnique = DynamicExtensions.CoalesceNullable<bool>(
                                 v.Value.Column != null ? v.Value.Column.IsUnique : null,
                                 col.HasValue ? col.Value.IsUnique : false).Value,
+                            AllowNull = DynamicExtensions.CoalesceNullable<bool>(
+                                v.Value.Column != null ? v.Value.Column.AllowNull : true,
+                                col.HasValue ? col.Value.AllowNull : true).Value,
                             Size = DynamicExtensions.CoalesceNullable<int>(
                                 v.Value.Column != null ? v.Value.Column.Size : null,
                                 col.HasValue ? col.Value.Size : 0).Value,
@@ -2856,6 +2949,7 @@ namespace DynamORM
                             IsKey = DynamicExtensions.CoalesceNullable<bool>(v.Value.Column != null ? v.Value.Column.IsKey : false, false).Value,
                             Type = DynamicExtensions.CoalesceNullable<DbType>(v.Value.Column != null ? v.Value.Column.Type : null, DynamicExtensions.TypeMap.TryGetNullable(v.Value.Type) ?? DbType.String).Value,
                             IsUnique = DynamicExtensions.CoalesceNullable<bool>(v.Value.Column != null ? v.Value.Column.IsUnique : null, false).Value,
+                            AllowNull = DynamicExtensions.CoalesceNullable<bool>(v.Value.Column != null ? v.Value.Column.AllowNull : true, true).Value,
                             Size = DynamicExtensions.CoalesceNullable<int>(v.Value.Column != null ? v.Value.Column.Size : null, 0).Value,
                             Precision = DynamicExtensions.CoalesceNullable<byte>(v.Value.Column != null ? v.Value.Column.Precision : null, 0).Value,
                             Scale = DynamicExtensions.CoalesceNullable<byte>(v.Value.Column != null ? v.Value.Column.Scale : null, 0).Value,
@@ -4809,12 +4903,18 @@ namespace DynamORM
                 yield return r.RowToDynamic();
         }
 
-        internal static IDataReader CachedReader(this IDataReader r)
+        /// <summary>Creates cached reader object from non cached reader.</summary>
+        /// <param name="r">The reader to cache.</param>
+        /// <param name="offset">The offset row.</param>
+        /// <param name="limit">The limit to number of tows. -1 is no limit.</param>
+        /// <param name="progress">The progress delegate.</param>
+        /// <returns>Returns new instance of cached reader or current instance of a reader.</returns>
+        public static IDataReader CachedReader(this IDataReader r, int offset = 0, int limit = -1, Func<DynamicCachedReader, int, bool> progress = null)
         {
             if (r is DynamicCachedReader)
                 return r;
 
-            return new DynamicCachedReader(r);
+            return new DynamicCachedReader(r, offset, limit, progress);
         }
 
         #endregion IDataReader extensions
@@ -5307,6 +5407,9 @@ namespace DynamORM
 
         /// <summary>Gets or sets a value indicating whether column should have unique value.</summary>
         public bool IsUnique { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether column allows null or not.</summary>
+        public bool AllowNull { get; set; }
 
         /// <summary>Gets or sets column size.</summary>
         public int Size { get; set; }
@@ -12463,6 +12566,10 @@ namespace DynamORM
             /// <summary>Gets or sets a value indicating whether column is a key.</summary>
             public bool IsKey { get; set; }
 
+            /// <summary>Gets or sets a value indicating whether column allows null or not.</summary>
+            /// <remarks>Information only.</remarks>
+            public bool AllowNull { get; set; }
+
             /// <summary>Gets or sets a value indicating whether column should have unique value.</summary>
             /// <remarks>Used when overriding schema.</remarks>
             public bool? IsUnique { get; set; }
@@ -12492,11 +12599,13 @@ namespace DynamORM
             /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
             public ColumnAttribute()
             {
+                AllowNull = true;
             }
 
             /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
             /// <param name="name">Name of column.</param>
             public ColumnAttribute(string name)
+                : this()
             {
                 Name = name;
             }
@@ -12504,6 +12613,7 @@ namespace DynamORM
             /// <summary>Initializes a new instance of the <see cref="ColumnAttribute" /> class.</summary>
             /// <param name="isKey">Set column as a key column.</param>
             public ColumnAttribute(bool isKey)
+                : this()
             {
                 IsKey = isKey;
             }
