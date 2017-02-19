@@ -398,9 +398,11 @@ namespace DynamORM.Builders.Implementation
             if (node is Delegate)
             {
                 using (DynamicParser p = DynamicParser.Parse((Delegate)node))
+                {
                     node = p.Result;
 
-                return Parse(node, ref columnSchema, pars, rawstr, decorate: decorate); // Intercept containers as in (x => "string")
+                    return Parse(node, ref columnSchema, pars, rawstr, decorate: decorate); // Intercept containers as in (x => "string")
+                }
             }
 
             return Dispatch(node, ref columnSchema, pars, decorate, isMultiPart);

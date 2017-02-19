@@ -170,39 +170,41 @@ namespace DynamORM.Builders.Implementation
                 object result = null;
 
                 using (DynamicParser p = DynamicParser.Parse(f))
+                {
                     result = p.Result;
 
-                if (result == null)
-                    throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
+                    if (result == null)
+                        throw new ArgumentException(string.Format("Specification #{0} resolves to null.", index));
 
-                string main = null;
-                string value = null;
-                string str = null;
+                    string main = null;
+                    string value = null;
+                    string str = null;
 
-                // When 'x => x.Table.Column = value' or 'x => x.Column = value'...
-                if (result is DynamicParser.Node.SetMember)
-                {
-                    DynamicParser.Node.SetMember node = (DynamicParser.Node.SetMember)result;
+                    // When 'x => x.Table.Column = value' or 'x => x.Column = value'...
+                    if (result is DynamicParser.Node.SetMember)
+                    {
+                        DynamicParser.Node.SetMember node = (DynamicParser.Node.SetMember)result;
 
-                    DynamicSchemaColumn? col = GetColumnFromSchema(node.Name);
-                    main = Database.DecorateName(node.Name);
-                    value = Parse(node.Value, ref col, pars: Parameters, nulls: true);
+                        DynamicSchemaColumn? col = GetColumnFromSchema(node.Name);
+                        main = Database.DecorateName(node.Name);
+                        value = Parse(node.Value, ref col, pars: Parameters, nulls: true);
 
-                    str = string.Format("{0} = {1}", main, value);
-                    _columns = _columns == null ? str : string.Format("{0}, {1}", _columns, str);
-                    continue;
+                        str = string.Format("{0} = {1}", main, value);
+                        _columns = _columns == null ? str : string.Format("{0}, {1}", _columns, str);
+                        continue;
+                    }
+                    else if (!(result is DynamicParser.Node) && !result.GetType().IsValueType)
+                    {
+                        Values(result);
+                        continue;
+                    }
+
+                    // Other specifications are considered invalid...
+                    string err = string.Format("Specification '{0}' is invalid.", result);
+                    str = Parse(result);
+                    if (str.Contains("=")) err += " May have you used a '==' instead of a '=' operator?";
+                    throw new ArgumentException(err);
                 }
-                else if (!(result is DynamicParser.Node) && !result.GetType().IsValueType)
-                {
-                    Values(result);
-                    continue;
-                }
-
-                // Other specifications are considered invalid...
-                string err = string.Format("Specification '{0}' is invalid.", result);
-                str = Parse(result);
-                if (str.Contains("=")) err += " May have you used a '==' instead of a '=' operator?";
-                throw new ArgumentException(err);
             }
 
             return this;

@@ -974,6 +974,7 @@ namespace DynamORM.Builders.Implementation
             index++;
             if (f == null)
                 throw new ArgumentNullException(string.Format("Specification #{0} cannot be null.", index));
+
             using (DynamicParser parser = DynamicParser.Parse(f))
             {
                 object result = parser.Result;

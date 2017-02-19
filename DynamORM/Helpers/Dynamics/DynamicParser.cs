@@ -411,6 +411,38 @@ namespace DynamORM.Helpers.Dynamics
                         return "{DynamicParser::Node::SetMember::Disposed}";
                     return string.Format("({0}.{1} = {2})", Host.Sketch(), Name.Sketch(), Value.Sketch());
                 }
+               
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+                public override void Dispose(bool disposing)
+                {
+                    if (disposing)
+                    {
+                        try
+                        {
+                            if (Value != null)
+                            {
+                                var node = Value as Node;
+                                if (node != null)
+                                {
+                                    if (node.IsNodeAncestor(this))
+                                        node.Host = null;
+
+                                    node.Dispose(disposing);
+                                }
+
+                                Value = null;
+                            }
+                        }
+                        catch
+                        {
+                        }
+
+                    }
+
+                    base.Dispose(disposing);
+                }
             }
 
             #endregion SetMember
@@ -491,6 +523,42 @@ namespace DynamORM.Helpers.Dynamics
 
                     return string.Format("{0}{1}", Host.Sketch(), Indexes == null ? "[empty]" : Indexes.Sketch());
                 }
+
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+                public override void Dispose(bool disposing)
+                {
+                    if (disposing)
+                    {
+                        try
+                        {
+                            if (Indexes != null)
+                            {
+                                for (int i = 0; i < Indexes.Length; i++)
+                                {
+                                    var node = Indexes[i] as Node;
+                                    if (node != null)
+                                    {
+                                        if (node.IsNodeAncestor(this))
+                                            node.Host = null;
+
+                                        node.Dispose(disposing);
+                                    }
+                                }
+
+                                Array.Clear(Indexes, 0, Indexes.Length);
+                            }
+                        }
+                        catch
+                        {
+                        }
+
+                        Indexes = null;
+                    }
+
+                    base.Dispose(disposing);
+                }
             }
 
             #endregion GetIndex
@@ -555,6 +623,38 @@ namespace DynamORM.Helpers.Dynamics
 
                     return string.Format("({0}{1} = {2})", Host.Sketch(), Indexes == null ? "[empty]" : Indexes.Sketch(), Value.Sketch());
                 }
+
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+                public override void Dispose(bool disposing)
+                {
+                    if (disposing)
+                    {
+                        try
+                        {
+                            if (Value != null)
+                            {
+                                var node = Value as Node;
+                                if (node != null)
+                                {
+                                    if (node.IsNodeAncestor(this))
+                                        node.Host = null;
+
+                                    node.Dispose(disposing);
+                                }
+
+                                Value = null;
+                            }
+                        }
+                        catch
+                        {
+                        }
+
+                    }
+
+                    base.Dispose(disposing);
+                }
             }
 
             #endregion SetIndex
@@ -617,6 +717,42 @@ namespace DynamORM.Helpers.Dynamics
                     }
 
                     base.GetObjectData(info, context);
+                }
+
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+                public override void Dispose(bool disposing)
+                {
+                    if (disposing)
+                    {
+                        try
+                        {
+                            if (Arguments != null)
+                            {
+                                for (int i = 0; i < Arguments.Length; i++)
+                                {
+                                    var node = Arguments[i] as Node;
+                                    if (node != null)
+                                    {
+                                        if (node.IsNodeAncestor(this)) 
+                                            node.Host = null;
+
+                                        node.Dispose(disposing);
+                                    }
+                                }
+
+                                Array.Clear(Arguments, 0, Arguments.Length);
+                            }
+                        }
+                        catch 
+                        { 
+                        }
+
+                        Arguments = null;
+                    }
+
+                    base.Dispose(disposing);
                 }
 
                 /// <summary>Returns a <see cref="System.String" /> that represents this instance.</summary>
@@ -702,6 +838,44 @@ namespace DynamORM.Helpers.Dynamics
 
                     return string.Format("{0}.{1}{2}", Host.Sketch(), Name.Sketch(), Arguments == null ? "()" : Arguments.Sketch(brackets: "()".ToCharArray()));
                 }
+
+
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+                public override void Dispose(bool disposing)
+                {
+                    if (disposing)
+                    {
+                        try
+                        {
+                            if (Arguments != null)
+                            {
+                                for (int i = 0; i < Arguments.Length; i++)
+                                {
+                                    var node = Arguments[i] as Node;
+                                    if (node != null)
+                                    {
+                                        if (node.IsNodeAncestor(this))
+                                            node.Host = null;
+
+                                        node.Dispose(disposing);
+                                    }
+                                }
+
+                                Array.Clear(Arguments, 0, Arguments.Length);
+                            }
+                        }
+                        catch
+                        {
+                        }
+
+                        Arguments = null;
+                    }
+
+                    base.Dispose(disposing);
+                }
+
             }
 
             #endregion Method
@@ -785,14 +959,31 @@ namespace DynamORM.Helpers.Dynamics
                 {
                     base.Dispose(disposing);
 
-                    if (disposing && Right != null && Right is Node)
+                    if (disposing)
                     {
-                        Node n = (Node)Right;
+                        if (Left != null)
+                        {
+                            if (Left is Node)
+                            {
+                                Node n = (Node)Left;
 
-                        if (!n.IsDisposed)
-                            n.Dispose(disposing);
+                                if (!n.IsDisposed)
+                                    n.Dispose(disposing);
+                            }
+                        }
 
-                        Right = null;
+                        if (Right != null)
+                        {
+                            if (Right is Node)
+                            {
+                                Node n = (Node)Right;
+
+                                if (!n.IsDisposed)
+                                    n.Dispose(disposing);
+                            }
+
+                            Right = null;
+                        }
                     }
                 }
             }
@@ -812,7 +1003,7 @@ namespace DynamORM.Helpers.Dynamics
                 public ExpressionType Operation { get; private set; }
 
                 /// <summary>Gets host of the <see cref="Node"/>.</summary>
-                public Node Target { get { return Host; } }
+                public Node Target { get; private set; }
 
                 /// <summary>
                 /// Initializes a new instance of the <see cref="Unary"/> class.
@@ -823,6 +1014,7 @@ namespace DynamORM.Helpers.Dynamics
                     : base(target)
                 {
                     Operation = operation;
+                    Target = target;
                 }
 
                 /// <summary>
@@ -856,6 +1048,37 @@ namespace DynamORM.Helpers.Dynamics
                         return "{DynamicParser::Node::Binary::Disposed}";
 
                     return string.Format("({0} {1})", Operation, Host.Sketch());
+                }
+                
+                /// <summary>Performs application-defined tasks associated with
+                /// freeing, releasing, or resetting unmanaged resources.</summary>
+                /// <param name="disposing">If set to <c>true</c> dispose object.</param>
+                public override void Dispose(bool disposing)
+                {
+                    if (disposing)
+                    {
+                        try
+                        {
+                            if (Target != null)
+                            {
+                                var node = Target as Node;
+                                if (node != null)
+                                {
+                                    if (node.IsNodeAncestor(this))
+                                        node.Host = null;
+
+                                    node.Dispose(disposing);
+                                }
+
+                                Target = null;
+                            }
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    base.Dispose(disposing);
                 }
             }
 
@@ -986,6 +1209,27 @@ namespace DynamORM.Helpers.Dynamics
 
                 string type = info.GetString("HostType");
                 Host = type == "NULL" ? null : (Node)info.GetValue("HostItem", Type.GetType(type));
+            }
+
+            /// <summary>Returns whether the given node is an ancestor of this instance.</summary>
+            /// <param name="node">The node to test.</param>
+            /// <returns>True if the given node is an ancestor of this instance.</returns>
+            public bool IsNodeAncestor(Node node)
+            {
+                if (node != null)
+                {
+                    Node parent = Host; 
+                    
+                    while (parent != null)
+                    {
+                        if (object.ReferenceEquals(parent, node)) 
+                            return true;
+
+                        parent = parent.Host;
+                    }
+                }
+
+                return false;
             }
 
             /// <summary>Returns a <see cref="System.String" /> that represents this instance.</summary>
@@ -1148,7 +1392,15 @@ namespace DynamORM.Helpers.Dynamics
                     throw new ArgumentException(string.Format("Argument '{0}' must be dynamic.", p.Name));
             }
 
-            _uncertainResult = f.DynamicInvoke(_arguments.ToArray());
+            try
+            {
+                _uncertainResult = f.DynamicInvoke(_arguments.ToArray());
+            }
+            catch (TargetInvocationException e)
+            {
+                if (e.InnerException != null) throw e.InnerException;
+                else throw e;
+            }
         }
 
         /// <summary>
@@ -1203,15 +1455,19 @@ namespace DynamORM.Helpers.Dynamics
         {
             IsDisposed = true;
 
-            if (_uncertainResult != null && _uncertainResult is Node)
+            if (_uncertainResult != null)
             {
-                ((Node)_uncertainResult).Dispose();
+                if (_uncertainResult is Node)
+                    ((Node)_uncertainResult).Dispose();
+
                 _uncertainResult = null;
             }
 
-            if (Last != null && !Last.IsDisposed)
+            if (Last != null)
             {
-                Last.Dispose();
+                if (!Last.IsDisposed)
+                    Last.Dispose();
+
                 Last = null;
             }
 

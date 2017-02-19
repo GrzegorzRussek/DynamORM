@@ -276,10 +276,13 @@ namespace DynamORM
 
                 IsDisposed = true;
 
-                _command.Parameters.Clear();
+                if (_command != null)
+                {
+                    _command.Parameters.Clear();
 
-                _command.Dispose();
-                _command = null;
+                    _command.Dispose();
+                    _command = null;
+                }
             }
         }
 

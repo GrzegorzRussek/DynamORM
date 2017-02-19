@@ -273,8 +273,8 @@ namespace DynamORM
             {
                 TableName = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
                     type.Name : mapper.Table.Name;
-                OwnerName = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
-                    type.Name : mapper.Table.Name;
+                OwnerName = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Owner) ?
+                    null : mapper.Table.Owner;
             }
 
             BuildAndCacheSchema(keys);

@@ -805,25 +805,32 @@ namespace DynamORM
         /// <returns>Returns dumped <see cref="System.Data.IDbCommand"/> instance.</returns>
         public static IDbCommand Dump(this IDbCommand command, TextWriter writer)
         {
-            writer.WriteLine("Type: {0}; Timeout: {1}; Query: {2}", command.CommandType, command.CommandTimeout, command.CommandText);
-
-            if (command.Parameters.Count > 0)
+            try
             {
-                writer.WriteLine("Parameters:");
+                writer.WriteLine("Type: {0}; Timeout: {1}; Query: {2}", command.CommandType, command.CommandTimeout, command.CommandText);
 
-                foreach (IDbDataParameter param in command.Parameters)
+                if (command.Parameters.Count > 0)
                 {
-                    writer.WriteLine(" '{0}' ({1} (s:{2} p:{3} s:{4})) = '{5}' ({6});",
-                        param.ParameterName,
-                        param.DbType,
-                        param.Scale,
-                        param.Precision,
-                        param.Scale,
-                        param.Value is byte[] ? ConvertByteArrayToHexString((byte[])param.Value) : param.Value ?? "NULL",
-                        param.Value != null ? param.Value.GetType().Name : "DBNull");
-                }
+                    writer.WriteLine("Parameters:");
 
-                writer.WriteLine();
+                    foreach (IDbDataParameter param in command.Parameters)
+                    {
+                        writer.WriteLine(" '{0}' ({1} (s:{2} p:{3} s:{4})) = '{5}' ({6});",
+                            param.ParameterName,
+                            param.DbType,
+                            param.Scale,
+                            param.Precision,
+                            param.Scale,
+                            param.Value is byte[] ? ConvertByteArrayToHexString((byte[])param.Value) : param.Value ?? "NULL",
+                            param.Value != null ? param.Value.GetType().Name : "DBNull");
+                    }
+
+                    writer.WriteLine();
+                }
+            }
+            catch (NullReferenceException)
+            {
+                writer.WriteLine("Command disposed.");
             }
 
             return command;
@@ -1403,7 +1410,7 @@ namespace DynamORM
         {
             TValue val;
 
-            if (key != null && dict.TryGetValue(key, out val))
+            if (key != null && dict != null && dict.TryGetValue(key, out val))
                 return val;
 
             return default(TValue);
