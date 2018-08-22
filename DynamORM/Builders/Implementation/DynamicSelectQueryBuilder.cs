@@ -227,7 +227,7 @@ namespace DynamORM.Builders.Implementation
                 reader(rdr);
         }
 
-        /// <summary>Execute this builder as a data reader, but 
+        /// <summary>Execute this builder as a data reader, but
         /// first makes a full reader copy in memory.</summary>
         /// <param name="reader">Action containing reader.</param>
         public virtual void ExecuteCachedDataReader(Action<IDataReader> reader)

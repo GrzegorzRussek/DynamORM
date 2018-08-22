@@ -1605,7 +1605,7 @@ namespace DynamORM
             return defaultValue;
         }
 
-        /// <summary>Delegate fro try parse function of a type.</summary>
+        /// <summary>Delegate from try parse function of a type.</summary>
         /// <typeparam name="T">Type which implements this function.</typeparam>
         /// <param name="value">Value to parse.</param>
         /// <param name="result">Resulting value.</param>

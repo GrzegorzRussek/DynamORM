@@ -324,7 +324,7 @@ namespace DynamORM
         {
             return new DynamicSelectQueryBuilder(this).From(x => x(typeof(T)));
         }
-        
+
         /// <summary>Adds to the <code>FROM</code> clause using <see cref="Type"/>.</summary>
         /// <typeparam name="T">Type which can be represented in database.</typeparam>
         /// <param name="alias">Table alias.</param>
@@ -1387,7 +1387,7 @@ namespace DynamORM
         protected virtual DbType ReadSchemaType(dynamic schema)
         {
             Type type = (Type)schema.DATATYPE;
-            
+
             // Small hack for SQL Server Provider
             if (type == typeof(string) && Provider != null && Provider.GetType() == typeof(System.Data.SqlClient.SqlClientFactory))
             {
@@ -1398,6 +1398,7 @@ namespace DynamORM
                 {
                     case "varchar":
                         return DbType.AnsiString;
+
                     case "nvarchar":
                         return DbType.String;
                 }
@@ -1466,7 +1467,7 @@ namespace DynamORM
                                 v.Value.Column != null ? v.Value.Column.IsUnique : null,
                                 col.HasValue ? col.Value.IsUnique : false).Value,
                             AllowNull = DynamicExtensions.CoalesceNullable<bool>(
-                                v.Value.Column != null ? v.Value.Column.AllowNull : true, 
+                                v.Value.Column != null ? v.Value.Column.AllowNull : true,
                                 col.HasValue ? col.Value.AllowNull : true).Value,
                             Size = DynamicExtensions.CoalesceNullable<int>(
                                 v.Value.Column != null ? v.Value.Column.Size : null,

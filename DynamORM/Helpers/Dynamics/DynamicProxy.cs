@@ -80,8 +80,8 @@ namespace DynamORM.Helpers.Dynamics
                         {
                             Type type = v.ReturnType == typeof(void) ?
                                 Expression.GetActionType(v.GetParameters().Select(t => t.ParameterType).ToArray()) :
-                                Expression.GetDelegateType(v.GetParameters().Select(t => t.ParameterType).Concat(new[] { v.ReturnType }).ToArray()); 
-                            
+                                Expression.GetDelegateType(v.GetParameters().Select(t => t.ParameterType).Concat(new[] { v.ReturnType }).ToArray());
+
                             return Delegate.CreateDelegate(type, _proxy, v.Name);
                         }
                         catch (ArgumentException)

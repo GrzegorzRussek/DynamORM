@@ -33,7 +33,7 @@ using System.Data;
 namespace DynamORM.Builders
 {
     /// <summary>Dynamic select query builder interface.</summary>
-    /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
+    /// <remarks>This interface it publicly available. Implementation should be hidden.</remarks>
     public interface IDynamicSelectQueryBuilder : IDynamicQueryBuilder ////, IEnumerable<object>
     {
         /// <summary>Execute this builder.</summary>

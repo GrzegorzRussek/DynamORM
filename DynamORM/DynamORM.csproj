@@ -104,11 +104,14 @@
     <Compile Include="Mapper\DynamicPropertyInvoker.cs" />
     <Compile Include="Mapper\DynamicTypeMap.cs" />
     <Compile Include="Mapper\IgnoreAttribute.cs" />
+    <Compile Include="Validation\RequiredAttribute.cs" />
     <Compile Include="Mapper\TableAttribute.cs" />
     <Compile Include="Mapper\DynamicCast.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="DynamicExpando.cs" />
     <Compile Include="Helpers\IFinalizerDisposable.cs" />
+    <Compile Include="Validation\ValidateResult.cs" />
+    <Compile Include="Validation\ValidationResult.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

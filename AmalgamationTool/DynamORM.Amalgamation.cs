@@ -48,12 +48,14 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Text.RegularExpressions;
 using DynamORM.Builders;
 using DynamORM.Builders.Extensions;
 using DynamORM.Builders.Implementation;
 using DynamORM.Helpers;
 using DynamORM.Helpers.Dynamics;
 using DynamORM.Mapper;
+using DynamORM.Validation;
 
 [module: System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:FileMayOnlyContainASingleClass", Justification = "This is a generated file which generates all the necessary support classes.")]
 [module: System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1403:FileMayOnlyContainASingleNamespace", Justification = "This is a generated file which generates all the necessary support classes.")]
@@ -2857,6 +2859,7 @@ namespace DynamORM
                 {
                     case "varchar":
                         return DbType.AnsiString;
+
                     case "nvarchar":
                         return DbType.String;
                 }
@@ -5066,7 +5069,7 @@ namespace DynamORM
             return defaultValue;
         }
 
-        /// <summary>Delegate fro try parse function of a type.</summary>
+        /// <summary>Delegate from try parse function of a type.</summary>
         /// <typeparam name="T">Type which implements this function.</typeparam>
         /// <param name="value">Value to parse.</param>
         /// <param name="result">Resulting value.</param>
@@ -6510,7 +6513,7 @@ namespace DynamORM
     namespace Builders
     {
         /// <summary>Dynamic delete query builder interface.</summary>
-        /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
+        /// <remarks>This interface it publicly available. Implementation should be hidden.</remarks>
         public interface IDynamicDeleteQueryBuilder : IDynamicQueryBuilder
         {
             /// <summary>Execute this builder.</summary>
@@ -6556,7 +6559,7 @@ namespace DynamORM
         }
 
         /// <summary>Dynamic insert query builder interface.</summary>
-        /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
+        /// <remarks>This interface it publicly available. Implementation should be hidden.</remarks>
         public interface IDynamicInsertQueryBuilder : IDynamicQueryBuilder
         {
             /// <summary>Execute this builder.</summary>
@@ -6587,7 +6590,7 @@ namespace DynamORM
         }
 
         /// <summary>Dynamic query builder base interface.</summary>
-        /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
+        /// <remarks>This interface it publicly available. Implementation should be hidden.</remarks>
         public interface IDynamicQueryBuilder : IExtendedDisposable
         {
             /// <summary>Gets <see cref="DynamicDatabase"/> instance.</summary>
@@ -6627,7 +6630,7 @@ namespace DynamORM
         }
 
         /// <summary>Dynamic select query builder interface.</summary>
-        /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
+        /// <remarks>This interface it publicly available. Implementation should be hidden.</remarks>
         public interface IDynamicSelectQueryBuilder : IDynamicQueryBuilder ////, IEnumerable<object>
         {
             /// <summary>Execute this builder.</summary>
@@ -6881,7 +6884,7 @@ namespace DynamORM
         }
 
         /// <summary>Dynamic update query builder interface.</summary>
-        /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
+        /// <remarks>This interface it publicly available. Implementation should be hidden.</remarks>
         public interface IDynamicUpdateQueryBuilder : IDynamicQueryBuilder
         {
             /// <summary>Execute this builder.</summary>
@@ -12420,7 +12423,15 @@ namespace DynamORM
                             throw new ArgumentException(string.Format("Argument '{0}' must be dynamic.", p.Name));
                     }
 
-                    _uncertainResult = f.DynamicInvoke(_arguments.ToArray());
+                    try
+                    {
+                        _uncertainResult = f.DynamicInvoke(_arguments.ToArray());
+                    }
+                    catch (TargetInvocationException e)
+                    {
+                        if (e.InnerException != null) throw e.InnerException;
+                        else throw e;
+                    }
                 }
 
                 /// <summary>
@@ -13097,8 +13108,11 @@ namespace DynamORM
                 public int Ordinal { get; set; }
             }
 
-            private Type _arrayType;
-            private bool _genericEnumerable;
+            /// <summary>Gets the array type of property if main type is a form of collection.</summary>
+            public Type ArrayType { get; private set; }
+
+            /// <summary>Gets a value indicating whether this property is in fact a generic list.</summary>
+            public bool IsGnericEnumerable { get; private set; }
 
             /// <summary>Gets the type of property.</summary>
             public Type Type { get; private set; }
@@ -13115,6 +13129,9 @@ namespace DynamORM
             /// <summary>Gets type column description.</summary>
             public ColumnAttribute Column { get; private set; }
 
+            /// <summary>Gets type list of property requirements.</summary>
+            public List<RequiredAttribute> Requirements { get; private set; }
+
             /// <summary>Gets a value indicating whether this <see cref="DynamicPropertyInvoker"/> is ignored in some cases.</summary>
             public bool Ignore { get; private set; }
 
@@ -13130,21 +13147,22 @@ namespace DynamORM
                 Type = property.PropertyType;
 
                 object[] ignore = property.GetCustomAttributes(typeof(IgnoreAttribute), false);
+                Requirements = property.GetCustomAttributes(typeof(RequiredAttribute), false).Cast<RequiredAttribute>().ToList();
 
                 Ignore = ignore != null && ignore.Length > 0;
 
-                _arrayType = Type.IsArray ? Type.GetElementType() :
-                    Type.IsGenericEnumerable() ? Type.GetGenericArguments().First() :
+                IsGnericEnumerable = Type.IsGenericEnumerable();
+
+                ArrayType = Type.IsArray ? Type.GetElementType() :
+                    IsGnericEnumerable ? Type.GetGenericArguments().First() :
                     Type;
 
-                _genericEnumerable = Type.IsGenericEnumerable();
+                IsDataContract = ArrayType.GetCustomAttributes(false).Any(x => x.GetType().Name == "DataContractAttribute");
 
-                IsDataContract = _arrayType.GetCustomAttributes(false).Any(x => x.GetType().Name == "DataContractAttribute");
-
-                if (_arrayType.IsArray)
+                if (ArrayType.IsArray)
                     throw new InvalidOperationException("Jagged arrays are not supported");
 
-                if (_arrayType.IsGenericEnumerable())
+                if (ArrayType.IsGenericEnumerable())
                     throw new InvalidOperationException("Enumerables of enumerables are not supported");
 
                 Column = attr;
@@ -13199,20 +13217,20 @@ namespace DynamORM
                 {
                     if (!Type.IsAssignableFrom(val.GetType()))
                     {
-                        if (Type.IsArray || _genericEnumerable)
+                        if (Type.IsArray || IsGnericEnumerable)
                         {
                             if (val != null)
                             {
-                                var lst = (val as IEnumerable<object>).Select(x => GetElementVal(_arrayType, x)).ToList();
+                                var lst = (val as IEnumerable<object>).Select(x => GetElementVal(ArrayType, x)).ToList();
 
-                                value = Array.CreateInstance(_arrayType, lst.Count);
+                                value = Array.CreateInstance(ArrayType, lst.Count);
 
                                 int i = 0;
                                 foreach (var e in lst)
                                     ((Array)value).SetValue(e, i++);
                             }
                             else
-                                value = Array.CreateInstance(_arrayType, 0);
+                                value = Array.CreateInstance(ArrayType, 0);
                         }
                         else
                             value = GetElementVal(Type, val);
@@ -13248,7 +13266,17 @@ namespace DynamORM
                 else if (type.IsEnum && val.GetType().IsValueType)
                     return Enum.ToObject(type, val);
                 else if (type.IsEnum)
-                    return Enum.Parse(type, val.ToString());
+                    try
+                    {
+                        return Enum.Parse(type, val.ToString());
+                    }
+                    catch (ArgumentException)
+                    {
+                        if (nullable)
+                            return null;
+
+                        throw;
+                    }
                 else if (Type == typeof(string) && val.GetType() == typeof(Guid))
                     return val.ToString();
                 else if (Type == typeof(Guid) && val.GetType() == typeof(string))
@@ -13259,7 +13287,17 @@ namespace DynamORM
                 else if (IsDataContract)
                     return val.Map(type);
                 else
-                    return Convert.ChangeType(val, type);
+                    try
+                    {
+                        return Convert.ChangeType(val, type);
+                    }
+                    catch
+                    {
+                        if (nullable)
+                            return null;
+
+                        throw;
+                    }
             }
 
             #region Type command cache
@@ -13377,6 +13415,57 @@ namespace DynamORM
                 return destination;
             }
 
+            /// <summary>Validates the object.</summary>
+            /// <param name="val">The value.</param>
+            /// <returns>List of not valid results.</returns>
+            public IList<ValidationResult> ValidateObject(object val)
+            {
+                var result = new List<ValidationResult>();
+
+                if (val == null || val.GetType() != Type)
+                    return null;
+
+                foreach (var prop in ColumnsMap.Values)
+                {
+                    if (prop.Requirements == null || !prop.Requirements.Any())
+                        continue;
+
+                    var v = prop.Get(val);
+
+                    foreach (var r in prop.Requirements)
+                    {
+                        var valid = r.ValidateSimpleValue(prop, v);
+
+                        if (valid == ValidateResult.Valid)
+                        {
+                            if (prop.Type.IsArray || prop.IsGnericEnumerable)
+                            {
+                                var map = DynamicMapperCache.GetMapper(prop.ArrayType);
+                                foreach (var item in val as IEnumerable<object>)
+                                    result.AddRange(map.ValidateObject(item));
+                            }
+
+                            continue;
+                        }
+
+                        if (valid == ValidateResult.NotSupported)
+                        {
+                            result.AddRange(DynamicMapperCache.GetMapper(prop.Type).ValidateObject(v));
+                            continue;
+                        }
+
+                        result.Add(new ValidationResult()
+                        {
+                            Property = prop,
+                            Requirement = r,
+                            Value = v,
+                        });
+                    }
+                }
+
+                return result;
+            }
+
             private IEnumerable<MemberInfo> GetAllMembers(Type type)
             {
                 if (type.IsInterface)
@@ -13449,6 +13538,169 @@ namespace DynamORM
             /// <remarks>If database doesn't support schema, you still have to
             /// set this to true to get schema from type.</remarks>
             public bool Override { get; set; }
+        }
+    }
+
+    namespace Validation
+    {
+        /// <summary>Required attribute can be used to validate fields in objects using mapper class.</summary>
+        [AttributeUsage(AttributeTargets.Property)]
+        public class RequiredAttribute : Attribute
+        {
+            /// <summary>Gets or sets minimum value or length of field.</summary>
+            public decimal? Min { get; set; }
+
+            /// <summary>Gets or sets maximum value or length of field.</summary>
+            public decimal? Max { get; set; }
+
+            /// <summary>Gets or sets pattern to verify.</summary>
+            public Regex Pattern { get; set; }
+
+            /// <summary>Gets or sets a value indicating whether property value is required or not.</summary>
+            public bool Required { get; set; }
+
+            /// <summary>Initializes a new instance of the <see cref="RequiredAttribute" /> class.</summary>
+            /// <param name="required">This field will be required.</param>
+            public RequiredAttribute(bool required = true)
+            {
+                Required = required;
+            }
+
+            /// <summary>Initializes a new instance of the <see cref="RequiredAttribute" /> class.</summary>
+            /// <param name="val">Limiting value to set.</param>
+            /// <param name="max">Whether set maximum parameter (true) or minimum parameter (false).</param>
+            /// <param name="required">This field will be required.</param>
+            public RequiredAttribute(float val, bool max, bool required = true)
+            {
+                if (max)
+                    Max = (decimal)val;
+                else
+                    Min = (decimal)val;
+                Required = required;
+            }
+
+            /// <summary>Initializes a new instance of the <see cref="RequiredAttribute" /> class.</summary>
+            /// <param name="min">Minimum value to set.</param>
+            /// <param name="max">Maximum value to set.</param>
+            /// <param name="required">This field will be required.</param>
+            public RequiredAttribute(float min, float max, bool required = true)
+            {
+                Min = (decimal)min;
+                Max = (decimal)max;
+                Required = required;
+            }
+
+            /// <summary>Initializes a new instance of the <see cref="RequiredAttribute" /> class.</summary>
+            /// <param name="min">Minimum value to set.</param>
+            /// <param name="max">Maximum value to set.</param>
+            /// <param name="pattern">Pattern to check.</param>
+            /// <param name="required">This field will be required.</param>
+            public RequiredAttribute(float min, float max, string pattern, bool required = true)
+            {
+                Min = (decimal)min;
+                Max = (decimal)max;
+                Pattern = new Regex(pattern, RegexOptions.Compiled);
+                Required = required;
+            }
+
+            internal ValidateResult ValidateSimpleValue(DynamicPropertyInvoker dpi, object val)
+            {
+                if (val == null && Required)
+                    return ValidateResult.ValueIsMissing;
+
+                if (dpi.Type.IsValueType)
+                {
+                    if (val is decimal || val is long || val is int || val is float || val is double || val is short || val is byte ||
+                        val is decimal? || val is long? || val is int? || val is float? || val is double? || val is short? || val is byte?)
+                    {
+                        decimal dec = Convert.ToDecimal(val);
+
+                        if (Min.HasValue && Min.Value > dec)
+                            return ValidateResult.ValueTooSmall;
+
+                        if (Max.HasValue && Max.Value < dec)
+                            return ValidateResult.ValueTooLarge;
+
+                        return ValidateResult.Valid;
+                    }
+                    else
+                    {
+                        var str = val.ToString();
+
+                        if (Min.HasValue && Min.Value > str.Length)
+                            return ValidateResult.ValueTooShort;
+
+                        if (Max.HasValue && Max.Value < str.Length)
+                            return ValidateResult.ValueTooLong;
+
+                        if (Pattern != null && !Pattern.IsMatch(str))
+                            return ValidateResult.ValueDontMatchPattern;
+
+                        return ValidateResult.Valid;
+                    }
+                }
+                else if (dpi.Type.IsArray || dpi.IsGnericEnumerable)
+                {
+                    var cnt = (val as IEnumerable<object>).Count();
+
+                    if (Min.HasValue && Min.Value > cnt)
+                        return ValidateResult.TooFewElementsInCollection;
+
+                    if (Max.HasValue && Max.Value < cnt)
+                        return ValidateResult.TooManyElementsInCollection;
+
+                    return ValidateResult.Valid;
+                }
+
+                return ValidateResult.NotSupported;
+            }
+        }
+
+        /// <summary>Validation result enum.</summary>
+        public enum ValidateResult
+        {
+            /// <summary>The valid value.</summary>
+            Valid,
+
+            /// <summary>The value is missing.</summary>
+            ValueIsMissing,
+
+            /// <summary>The value too small.</summary>
+            ValueTooSmall,
+
+            /// <summary>The value too large.</summary>
+            ValueTooLarge,
+
+            /// <summary>The too few elements in collection.</summary>
+            TooFewElementsInCollection,
+
+            /// <summary>The too many elements in collection.</summary>
+            TooManyElementsInCollection,
+
+            /// <summary>The value too short.</summary>
+            ValueTooShort,
+
+            /// <summary>The value too long.</summary>
+            ValueTooLong,
+
+            /// <summary>The value don't match pattern.</summary>
+            ValueDontMatchPattern,
+
+            /// <summary>The not supported.</summary>
+            NotSupported,
+        }
+
+        /// <summary>Validation result.</summary>
+        public class ValidationResult
+        {
+            /// <summary>Gets the property invoker.</summary>
+            public DynamicPropertyInvoker Property { get; internal set; }
+
+            /// <summary>Gets the requirement definition.</summary>
+            public RequiredAttribute Requirement { get; internal set; }
+
+            /// <summary>Gets the value that is broken.</summary>
+            public object Value { get; internal set; }
         }
     }
 }

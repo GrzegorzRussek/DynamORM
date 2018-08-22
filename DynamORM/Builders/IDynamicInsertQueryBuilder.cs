@@ -31,7 +31,7 @@ using System;
 namespace DynamORM.Builders
 {
     /// <summary>Dynamic insert query builder interface.</summary>
-    /// <remarks>This interface it publically available. Implementation should be hidden.</remarks>
+    /// <remarks>This interface it publicly available. Implementation should be hidden.</remarks>
     public interface IDynamicInsertQueryBuilder : IDynamicQueryBuilder
     {
         /// <summary>Execute this builder.</summary>

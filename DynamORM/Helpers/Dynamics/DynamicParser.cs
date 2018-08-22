@@ -411,7 +411,7 @@ namespace DynamORM.Helpers.Dynamics
                         return "{DynamicParser::Node::SetMember::Disposed}";
                     return string.Format("({0}.{1} = {2})", Host.Sketch(), Name.Sketch(), Value.Sketch());
                 }
-               
+
                 /// <summary>Performs application-defined tasks associated with
                 /// freeing, releasing, or resetting unmanaged resources.</summary>
                 /// <param name="disposing">If set to <c>true</c> dispose object.</param>
@@ -438,7 +438,6 @@ namespace DynamORM.Helpers.Dynamics
                         catch
                         {
                         }
-
                     }
 
                     base.Dispose(disposing);
@@ -650,7 +649,6 @@ namespace DynamORM.Helpers.Dynamics
                         catch
                         {
                         }
-
                     }
 
                     base.Dispose(disposing);
@@ -735,7 +733,7 @@ namespace DynamORM.Helpers.Dynamics
                                     var node = Arguments[i] as Node;
                                     if (node != null)
                                     {
-                                        if (node.IsNodeAncestor(this)) 
+                                        if (node.IsNodeAncestor(this))
                                             node.Host = null;
 
                                         node.Dispose(disposing);
@@ -745,8 +743,8 @@ namespace DynamORM.Helpers.Dynamics
                                 Array.Clear(Arguments, 0, Arguments.Length);
                             }
                         }
-                        catch 
-                        { 
+                        catch
+                        {
                         }
 
                         Arguments = null;
@@ -839,7 +837,6 @@ namespace DynamORM.Helpers.Dynamics
                     return string.Format("{0}.{1}{2}", Host.Sketch(), Name.Sketch(), Arguments == null ? "()" : Arguments.Sketch(brackets: "()".ToCharArray()));
                 }
 
-
                 /// <summary>Performs application-defined tasks associated with
                 /// freeing, releasing, or resetting unmanaged resources.</summary>
                 /// <param name="disposing">If set to <c>true</c> dispose object.</param>
@@ -875,7 +872,6 @@ namespace DynamORM.Helpers.Dynamics
 
                     base.Dispose(disposing);
                 }
-
             }
 
             #endregion Method
@@ -1049,7 +1045,7 @@ namespace DynamORM.Helpers.Dynamics
 
                     return string.Format("({0} {1})", Operation, Host.Sketch());
                 }
-                
+
                 /// <summary>Performs application-defined tasks associated with
                 /// freeing, releasing, or resetting unmanaged resources.</summary>
                 /// <param name="disposing">If set to <c>true</c> dispose object.</param>
@@ -1218,11 +1214,11 @@ namespace DynamORM.Helpers.Dynamics
             {
                 if (node != null)
                 {
-                    Node parent = Host; 
-                    
+                    Node parent = Host;
+
                     while (parent != null)
                     {
-                        if (object.ReferenceEquals(parent, node)) 
+                        if (object.ReferenceEquals(parent, node))
                             return true;
 
                         parent = parent.Host;

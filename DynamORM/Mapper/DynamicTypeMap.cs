@@ -31,6 +31,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using DynamORM.Validation;
 
 namespace DynamORM.Mapper
 {
@@ -136,6 +137,57 @@ namespace DynamORM.Mapper
             }
 
             return destination;
+        }
+
+        /// <summary>Validates the object.</summary>
+        /// <param name="val">The value.</param>
+        /// <returns>List of not valid results.</returns>
+        public IList<ValidationResult> ValidateObject(object val)
+        {
+            var result = new List<ValidationResult>();
+
+            if (val == null || val.GetType() != Type)
+                return null;
+
+            foreach (var prop in ColumnsMap.Values)
+            {
+                if (prop.Requirements == null || !prop.Requirements.Any())
+                    continue;
+
+                var v = prop.Get(val);
+
+                foreach (var r in prop.Requirements)
+                {
+                    var valid = r.ValidateSimpleValue(prop, v);
+
+                    if (valid == ValidateResult.Valid)
+                    {
+                        if (prop.Type.IsArray || prop.IsGnericEnumerable)
+                        {
+                            var map = DynamicMapperCache.GetMapper(prop.ArrayType);
+                            foreach (var item in val as IEnumerable<object>)
+                                result.AddRange(map.ValidateObject(item));
+                        }
+
+                        continue;
+                    }
+
+                    if (valid == ValidateResult.NotSupported)
+                    {
+                        result.AddRange(DynamicMapperCache.GetMapper(prop.Type).ValidateObject(v));
+                        continue;
+                    }
+
+                    result.Add(new ValidationResult()
+                    {
+                        Property = prop,
+                        Requirement = r,
+                        Value = v,
+                    });
+                }
+            }
+
+            return result;
         }
 
         private IEnumerable<MemberInfo> GetAllMembers(Type type)

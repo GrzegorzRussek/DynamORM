@@ -32,6 +32,7 @@ using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using DynamORM.Validation;
 
 namespace DynamORM.Mapper
 {
@@ -47,8 +48,11 @@ namespace DynamORM.Mapper
             public int Ordinal { get; set; }
         }
 
-        private Type _arrayType;
-        private bool _genericEnumerable;
+        /// <summary>Gets the array type of property if main type is a form of collection.</summary>
+        public Type ArrayType { get; private set; }
+
+        /// <summary>Gets a value indicating whether this property is in fact a generic list.</summary>
+        public bool IsGnericEnumerable { get; private set; }
 
         /// <summary>Gets the type of property.</summary>
         public Type Type { get; private set; }
@@ -65,6 +69,9 @@ namespace DynamORM.Mapper
         /// <summary>Gets type column description.</summary>
         public ColumnAttribute Column { get; private set; }
 
+        /// <summary>Gets type list of property requirements.</summary>
+        public List<RequiredAttribute> Requirements { get; private set; }
+
         /// <summary>Gets a value indicating whether this <see cref="DynamicPropertyInvoker"/> is ignored in some cases.</summary>
         public bool Ignore { get; private set; }
 
@@ -80,21 +87,22 @@ namespace DynamORM.Mapper
             Type = property.PropertyType;
 
             object[] ignore = property.GetCustomAttributes(typeof(IgnoreAttribute), false);
+            Requirements = property.GetCustomAttributes(typeof(RequiredAttribute), false).Cast<RequiredAttribute>().ToList();
 
             Ignore = ignore != null && ignore.Length > 0;
 
-            _arrayType = Type.IsArray ? Type.GetElementType() :
-                Type.IsGenericEnumerable() ? Type.GetGenericArguments().First() :
+            IsGnericEnumerable = Type.IsGenericEnumerable();
+
+            ArrayType = Type.IsArray ? Type.GetElementType() :
+                IsGnericEnumerable ? Type.GetGenericArguments().First() :
                 Type;
 
-            _genericEnumerable = Type.IsGenericEnumerable();
+            IsDataContract = ArrayType.GetCustomAttributes(false).Any(x => x.GetType().Name == "DataContractAttribute");
 
-            IsDataContract = _arrayType.GetCustomAttributes(false).Any(x => x.GetType().Name == "DataContractAttribute");
-
-            if (_arrayType.IsArray)
+            if (ArrayType.IsArray)
                 throw new InvalidOperationException("Jagged arrays are not supported");
 
-            if (_arrayType.IsGenericEnumerable())
+            if (ArrayType.IsGenericEnumerable())
                 throw new InvalidOperationException("Enumerables of enumerables are not supported");
 
             Column = attr;
@@ -149,20 +157,20 @@ namespace DynamORM.Mapper
             {
                 if (!Type.IsAssignableFrom(val.GetType()))
                 {
-                    if (Type.IsArray || _genericEnumerable)
+                    if (Type.IsArray || IsGnericEnumerable)
                     {
                         if (val != null)
                         {
-                            var lst = (val as IEnumerable<object>).Select(x => GetElementVal(_arrayType, x)).ToList();
+                            var lst = (val as IEnumerable<object>).Select(x => GetElementVal(ArrayType, x)).ToList();
 
-                            value = Array.CreateInstance(_arrayType, lst.Count);
+                            value = Array.CreateInstance(ArrayType, lst.Count);
 
                             int i = 0;
                             foreach (var e in lst)
                                 ((Array)value).SetValue(e, i++);
                         }
                         else
-                            value = Array.CreateInstance(_arrayType, 0);
+                            value = Array.CreateInstance(ArrayType, 0);
                     }
                     else
                         value = GetElementVal(Type, val);
@@ -198,7 +206,17 @@ namespace DynamORM.Mapper
             else if (type.IsEnum && val.GetType().IsValueType)
                 return Enum.ToObject(type, val);
             else if (type.IsEnum)
-                return Enum.Parse(type, val.ToString());
+                try
+                {
+                    return Enum.Parse(type, val.ToString());
+                }
+                catch (ArgumentException)
+                {
+                    if (nullable)
+                        return null;
+
+                    throw;
+                }
             else if (Type == typeof(string) && val.GetType() == typeof(Guid))
                 return val.ToString();
             else if (Type == typeof(Guid) && val.GetType() == typeof(string))
@@ -209,7 +227,17 @@ namespace DynamORM.Mapper
             else if (IsDataContract)
                 return val.Map(type);
             else
-                return Convert.ChangeType(val, type);
+                try
+                {
+                    return Convert.ChangeType(val, type);
+                }
+                catch
+                {
+                    if (nullable)
+                        return null;
+
+                    throw;
+                }
         }
 
         #region Type command cache
