@@ -27,12 +27,12 @@
 */
 
 using DynamORM.Tests.Helpers;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DynamORM.Tests.Select
 {
     /// <summary>Test standard dynamic access ORM. With out schema information from database.</summary>
-    [TestFixture]
+    [TestClass]
     public class DynamicTypeSchemaAccessTests : DynamicNoSchemaAccessTests
     {
         /// <summary>Create table using specified method.</summary>

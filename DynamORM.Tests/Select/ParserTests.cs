@@ -29,18 +29,18 @@
 using System.Linq;
 using DynamORM.Builders;
 using DynamORM.Builders.Implementation;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DynamORM.Tests.Select
 {
     /// <summary>
     /// New parser tests.
     /// </summary>
-    [TestFixture]
+    [TestClass]
     public class ParserTests : TestsBase
     {
         /// <summary>Setup test parameters.</summary>
-        [TestFixtureSetUp]
+        [TestInitialize]
         public virtual void SetUp()
         {
             CreateTestDatabase();
@@ -51,7 +51,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Tear down test objects.</summary>
-        [TestFixtureTearDown]
+        [TestCleanup]
         public virtual void TearDown()
         {
             try
@@ -65,7 +65,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromGet()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -77,7 +77,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method with multi tables.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromGetMultiKulti()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -89,7 +89,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method with as expression in text.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromGetAs1()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -101,7 +101,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method with as expression using lambda.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromGetAs2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -113,7 +113,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method using text.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromText()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -125,7 +125,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method using text with decorators.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromDecoratedText()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -137,7 +137,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method using text with as.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromTextAs1()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -149,7 +149,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method using invoke with as.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromTextAs2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -162,7 +162,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method using invoke with as.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromTextAs3()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -175,7 +175,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method using invoke with sub query.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromSubQuery1()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -188,7 +188,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method using invoke with sub query.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromSubQuery2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -201,7 +201,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method using invoke with sub query.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestFromSubQuery3()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -214,7 +214,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests where method with alias.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereAlias()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -228,7 +228,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests where method with alias.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestHavingAlias()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -242,7 +242,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests complex where method with alias.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereAliasComplex()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -258,7 +258,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests where method with alias using in.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereAliasIn()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -278,7 +278,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests where method with alias using between.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereAliasBetween1()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -298,7 +298,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests where method with alias using between.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereAliasBetween2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -318,7 +318,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests where method without alias.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereNoAlias()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -332,7 +332,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests where method with full column name.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereNoAliasTableName()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -346,7 +346,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests simple join method.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestJoinClassic()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -360,7 +360,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests inner join method.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestInnerJoin()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -374,7 +374,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests inner join method with aliases mix.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestInnerJoin2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -389,7 +389,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method using invoke with sub query.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestInnerJoin3()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -404,7 +404,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests from method using invoke with sub query.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestInnerJoin4()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -419,7 +419,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests left outer join method.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestLeftOuterJoin()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -433,7 +433,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests left join method.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestLeftJoin()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -447,7 +447,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests right outer join method.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestRightOuterJoin()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -461,7 +461,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests right join method.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestRightJoin()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -475,7 +475,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests complex join with parameters.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestJoinClassicWithParamAndWhere()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -491,7 +491,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select all.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectAll1()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -505,7 +505,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select all.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectAll2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -519,7 +519,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select field.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectField1()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -533,7 +533,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select field.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectField2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -547,7 +547,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select field with alias.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectFieldAlias1()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -561,7 +561,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select field with alias.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectFieldAlias2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -575,7 +575,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select field with alias.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectFieldAlias3()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -589,7 +589,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select field with alias.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectFieldAlias4()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -603,7 +603,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select aggregate field with alias (Sum).
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectAggregateField1()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -617,7 +617,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select aggregate field with alias (Coalesce).
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectAggregateField2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -632,7 +632,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select aggregate field with alias (Sum).
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectAggregateField3()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -646,7 +646,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select aggregate field with alias (Sum).
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectAggregateField4()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -660,7 +660,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select aggregate field with alias (Sum).
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectAggregateField5()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -674,7 +674,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select from anonymous type.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectAnon()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -692,7 +692,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select escaped case.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectCaseEscaped1()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -707,7 +707,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select escaped case.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectCaseEscaped2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -722,7 +722,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select escaped case.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestCoalesceEscaped()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -737,7 +737,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select escaped case.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestCoalesce()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -752,7 +752,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select escaped case.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestCoalesceCalculatedArgs()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -771,7 +771,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select escaped case.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestCoalesceInWhere()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -787,7 +787,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests select escaped case with sub query.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSelectCaseEscapedAndSub()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -805,7 +805,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests group by.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestGroupBy()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -819,7 +819,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests order by.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestOrderBy()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -833,7 +833,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests order by using string with number.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestOrderByNumberedColumnStr()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -847,7 +847,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests order by using member with number.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestOrderByNumberedColFn()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -861,7 +861,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests order by using member with field.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestOrderByAlt()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -875,7 +875,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests sub query select.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSubQuerySelect()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -892,7 +892,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests sub query where.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSubQueryWhere()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -909,7 +909,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests sub query in.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSubQueryWhereIn()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -926,7 +926,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests sub query join.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSubQueryJoin()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);

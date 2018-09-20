@@ -26,16 +26,16 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DynamORM.Tests.Select
 {
     /// <summary>Test standard dynamic access ORM. With out schema information from database.</summary>
-    [TestFixture]
+    [TestClass]
     public class DynamicNoSchemaAccessTests : DynamicAccessTests
     {
         /// <summary>Setup test parameters.</summary>
-        [TestFixtureSetUp]
+        [TestInitialize]
         public override void SetUp()
         {
             CreateTestDatabase();

@@ -29,16 +29,16 @@
 using System.Linq;
 using DynamORM.Builders;
 using DynamORM.Builders.Implementation;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DynamORM.Tests.Select
 {
     /// <summary>Tests of legacy parser methods.</summary>
-    [TestFixture]
+    [TestClass]
     public class LegacyParserTests : TestsBase
     {
         /// <summary>Setup test parameters.</summary>
-        [TestFixtureSetUp]
+        [TestInitialize]
         public virtual void SetUp()
         {
             CreateTestDatabase();
@@ -49,7 +49,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Tear down test objects.</summary>
-        [TestFixtureTearDown]
+        [TestCleanup]
         public virtual void TearDown()
         {
             DestroyDynamicDatabase();
@@ -59,7 +59,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression equal.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereEq()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -73,7 +73,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression equal with brackets.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereBracketsEq()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -88,7 +88,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression equal with brackets and or condition.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereBracketsOrEq()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -103,7 +103,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression equal with brackets.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereBracketsOrEq2()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -120,7 +120,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression equal with brackets.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereBracketsOrEqForgotToEnd()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -139,7 +139,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression not equal.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereNotEq()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -153,7 +153,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression greater.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereGreater()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -167,7 +167,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression greater or equal.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereGreaterOrEqual()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -181,7 +181,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression less.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereLess()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -195,7 +195,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression less or equal.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereLessOrEqual()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -209,7 +209,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression like.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereLike()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -223,7 +223,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression not like.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereNotLike()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -237,7 +237,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression between.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereBetween()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -251,7 +251,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression in.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereIn()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -265,7 +265,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the where expression using anonymous types.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestWhereAnon()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -279,7 +279,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the order by column.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestOrderByCol()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -293,7 +293,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the order by column number.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestOrderByNum()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
@@ -307,7 +307,7 @@ namespace DynamORM.Tests.Select
         /// <summary>
         /// Tests the group by column.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestGroupByCol()
         {
             IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);

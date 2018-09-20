@@ -27,6 +27,7 @@
 */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -156,7 +157,7 @@ namespace DynamORM.Mapper
 
                 var v = prop.Get(val);
 
-                foreach (var r in prop.Requirements)
+                foreach (var r in prop.Requirements.Where(x => !x.ElementRequirement))
                 {
                     var valid = r.ValidateSimpleValue(prop, v);
 
@@ -165,8 +166,42 @@ namespace DynamORM.Mapper
                         if (prop.Type.IsArray || prop.IsGnericEnumerable)
                         {
                             var map = DynamicMapperCache.GetMapper(prop.ArrayType);
-                            foreach (var item in val as IEnumerable<object>)
-                                result.AddRange(map.ValidateObject(item));
+
+                            var list = v as IEnumerable<object>;
+
+                            if (list == null)
+                            {
+                                var enumerable = v as IEnumerable;
+                                if (enumerable != null)
+                                    list = enumerable.Cast<object>();
+                            }
+
+                            if (list != null)
+                                foreach (var item in list)
+                                {
+                                    if (prop.Requirements.Any(x => x.ElementRequirement))
+                                    {
+                                        foreach (var re in prop.Requirements.Where(x => x.ElementRequirement))
+                                        {
+                                            var validelem = re.ValidateSimpleValue(prop.ArrayType, prop.ArrayType.IsGenericEnumerable(), item);
+
+                                            if (validelem == ValidateResult.NotSupported)
+                                            {
+                                                result.AddRange(map.ValidateObject(item));
+                                                break;
+                                            }
+                                            else if (validelem != ValidateResult.Valid)
+                                                result.Add(new ValidationResult()
+                                                {
+                                                    Property = prop,
+                                                    Requirement = r,
+                                                    Value = item,
+                                                });
+                                        }
+                                    }
+                                    else
+                                        result.AddRange(map.ValidateObject(item));
+                                }
                         }
 
                         continue;

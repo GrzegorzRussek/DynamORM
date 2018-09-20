@@ -28,16 +28,16 @@
 
 using System;
 using DynamORM.Tests.Helpers;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DynamORM.Tests.Modify
 {
     /// <summary>Test standard dynamic access ORM.</summary>
-    [TestFixture]
+    [TestClass]
     public class DynamicModificationTests : TestsBase
     {
         /// <summary>Setup test parameters.</summary>
-        [TestFixtureSetUp]
+        [TestInitialize]
         public virtual void SetUp()
         {
             CreateTestDatabase();
@@ -45,7 +45,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Tear down test objects.</summary>
-        [TestFixtureTearDown]
+        [TestCleanup]
         public virtual void TearDown()
         {
             DestroyDynamicDatabase();
@@ -62,14 +62,14 @@ namespace DynamORM.Tests.Modify
         #region Insert
 
         /// <summary>Test row insertion by dynamic arguments.</summary>
-        [Test]
+        [TestMethod]
         public void TestInsertByArguments()
         {
             Assert.AreEqual(1, GetTestTable().Insert(code: "201", first: null, last: "Gagarin", email: "juri.gagarin@megacorp.com", quote: "bla, bla, bla"));
 
             // Verify
             var o = GetTestTable().Single(code: "201");
-            Assert.Less(200, o.id);
+            Assert.AreNotEqual(200, o.id);
             Assert.AreEqual("201", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
@@ -79,14 +79,14 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row insertion by dynamic object.</summary>
-        [Test]
+        [TestMethod]
         public void TestInsertByDynamicObjects()
         {
             Assert.AreEqual(1, GetTestTable().Insert(values: new { code = "202", first = DBNull.Value, last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }));
 
             // Verify
             var o = GetTestTable().Single(code: "202");
-            Assert.Less(200, o.id);
+            Assert.AreNotEqual(200, o.id);
             Assert.AreEqual("202", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
@@ -96,7 +96,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row insertion by mapped object.</summary>
-        [Test]
+        [TestMethod]
         public void TestInsertByMappedObject()
         {
             var u = GetTestTable();
@@ -113,7 +113,7 @@ namespace DynamORM.Tests.Modify
 
             // Verify
             var o = u.Single(code: "203");
-            Assert.Less(200, o.id);
+            Assert.AreNotEqual(200, o.id);
             Assert.AreEqual("203", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
@@ -123,7 +123,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row insertion by basic object.</summary>
-        [Test]
+        [TestMethod]
         public void TestInsertByBasicObject()
         {
             var u = GetTestTable();
@@ -140,7 +140,7 @@ namespace DynamORM.Tests.Modify
 
             // Verify
             var o = u.Single(code: "204");
-            Assert.Less(200, o.id);
+            Assert.AreNotEqual(200, o.id);
             Assert.AreEqual("204", o.code.ToString());
             Assert.AreEqual(null, o.first);
             Assert.AreEqual("Gagarin", o.last);
@@ -154,7 +154,7 @@ namespace DynamORM.Tests.Modify
         #region Update
 
         /// <summary>Test row updating by dynamic arguments.</summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateByArguments()
         {
             Assert.AreEqual(1, GetTestTable().Update(id: 1, code: "201", first: null, last: "Gagarin", email: "juri.gagarin@megacorp.com", quote: "bla, bla, bla"));
@@ -171,7 +171,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row updating by dynamic objects.</summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateByDynamicObject()
         {
             Assert.AreEqual(1, GetTestTable().Update(update: new { id = 2, code = "202", first = DBNull.Value, last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }));
@@ -188,7 +188,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row updating by mapped object.</summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateByMappedObject()
         {
             var u = GetTestTable();
@@ -215,7 +215,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row updating by basic object.</summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateByBasicObject()
         {
             var u = GetTestTable();
@@ -242,7 +242,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row updating by dynamic objects.</summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateByDynamicObjects()
         {
             Assert.AreEqual(1, GetTestTable().Update(values: new { code = "205", first = DBNull.Value, last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }, where: new { id = 5 }));
@@ -259,7 +259,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row updating by mapped objects.</summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateByMappedObjects()
         {
             var u = GetTestTable();
@@ -286,7 +286,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row updating by basic objects.</summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateByBasicObjects()
         {
             var u = GetTestTable();
@@ -317,7 +317,7 @@ namespace DynamORM.Tests.Modify
         #region Delete
 
         /// <summary>Test row deleting by dynamic arguments.</summary>
-        [Test]
+        [TestMethod]
         public void TestDeleteByArguments()
         {
             Assert.AreEqual(1, GetTestTable().Delete(code: "10"));
@@ -327,7 +327,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row deleting by dynamic objects (all except ID should be ignored).</summary>
-        [Test]
+        [TestMethod]
         public void TestDeleteyDynamicObject()
         {
             Assert.AreEqual(1, GetTestTable().Delete(delete: new { id = 11, code = 11, first = "Juri", last = "Gagarin", email = "juri.gagarin@megacorp.com", quote = "bla, bla, bla" }));
@@ -337,7 +337,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row deleting by mapped object.</summary>
-        [Test]
+        [TestMethod]
         public void TestDeleteByMappedObject()
         {
             var u = GetTestTable();
@@ -357,7 +357,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row deleting by basic object.</summary>
-        [Test]
+        [TestMethod]
         public void TestDeleteByBasicObject()
         {
             var u = GetTestTable();
@@ -377,7 +377,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Test row deleting by dynamic objects (all except ID should be ignored).</summary>
-        [Test]
+        [TestMethod]
         public void TestDeleteyDynamicObjectWhere()
         {
             Assert.AreEqual(1, GetTestTable().Delete(where: new { id = 14, code = "14" }));

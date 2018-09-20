@@ -30,16 +30,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DynamORM.Builders;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DynamORM.Tests.Select
 {
     /// <summary>Test standard dynamic access ORM.</summary>
-    [TestFixture]
+    [TestClass]
     public class DynamicAccessTests : TestsBase
     {
         /// <summary>Setup test parameters.</summary>
-        [TestFixtureSetUp]
+        [TestInitialize]
         public virtual void SetUp()
         {
             CreateTestDatabase();
@@ -47,7 +47,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Tear down test objects.</summary>
-        [TestFixtureTearDown]
+        [TestCleanup]
         public virtual void TearDown()
         {
             DestroyDynamicDatabase();
@@ -71,28 +71,28 @@ namespace DynamORM.Tests.Select
         #region Select
 
         /// <summary>Test unknown op.</summary>
-        [Test]
+        [TestMethod]
         public void TestUnknownOperation()
         {
-            Assert.Throws<InvalidOperationException>(() => GetTestTable().MakeMeASandwitch(with: "cheese"));
+            Assert.ThrowsException<InvalidOperationException>(() => GetTestTable().MakeMeASandwitch(with: "cheese"));
         }
 
         /// <summary>Test dynamic <c>Count</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestCount()
         {
             Assert.AreEqual(200, GetTestTable().Count(columns: "id"));
         }
 
         /// <summary>Test dynamic <c>Count</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestCount2()
         {
-            Assert.AreEqual(200, GetTestBuilder().Select(x => x.Count(x.id)).Scalar());
+            Assert.AreEqual(200L, GetTestBuilder().Select(x => x.Count(x.id)).Scalar());
         }
 
         /// <summary>Test count with in statement.</summary>
-        [Test]
+        [TestMethod]
         public void TestSelectInEnumerableCount()
         {
             Assert.AreEqual(4, GetTestTable().Count(last: new DynamicColumn
@@ -103,17 +103,17 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test count with in statement.</summary>
-        [Test]
+        [TestMethod]
         public void TestSelectInEnumerableCount2()
         {
-            Assert.AreEqual(4, GetTestBuilder()
+            Assert.AreEqual(4L, GetTestBuilder()
                 .Where(x => x.last.In(new object[] { "Hendricks", "Goodwin", "Freeman" }.Take(3)))
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test count with in statement.</summary>
-        [Test]
+        [TestMethod]
         public void TestSelectInArrayCount()
         {
             Assert.AreEqual(4, GetTestTable().Count(last: new DynamicColumn
@@ -124,24 +124,24 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test count with in statement.</summary>
-        [Test]
+        [TestMethod]
         public void TestSelectInArrayCount2()
         {
-            Assert.AreEqual(4, GetTestBuilder()
+            Assert.AreEqual(4L, GetTestBuilder()
                 .Where(x => x.last.In(new object[] { "Hendricks", "Goodwin", "Freeman" }))
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test dynamic <c>First</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestFirst()
         {
             Assert.AreEqual(1, GetTestTable().First(columns: "id").id);
         }
 
         /// <summary>Test dynamic <c>First</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestFirst2()
         {
             Assert.AreEqual(1, GetTestBuilder()
@@ -151,14 +151,14 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic <c>Last</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestLast()
         {
             Assert.AreEqual(200, GetTestTable().Last(columns: "id").id);
         }
 
         /// <summary>Test dynamic <c>Last</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestLast2()
         {
             Assert.AreEqual(200, GetTestBuilder()
@@ -168,63 +168,63 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic <c>Count</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestCountSpecificRecord()
         {
             Assert.AreEqual(1, GetTestTable().Count(first: "Ori"));
         }
 
         /// <summary>Test dynamic <c>Count</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestCountSpecificRecord2()
         {
-            Assert.AreEqual(1, GetTestBuilder()
+            Assert.AreEqual(1L, GetTestBuilder()
                 .Where(x => x.first == "Ori")
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test dynamic <c>Min</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestMin()
         {
             Assert.AreEqual(1, GetTestTable().Min(columns: "id"));
         }
 
         /// <summary>Test dynamic <c>Min</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestMin2()
         {
-            Assert.AreEqual(1, GetTestBuilder()
+            Assert.AreEqual(1L, GetTestBuilder()
                 .Select(x => x.Min(x.id))
                 .Scalar());
         }
 
         /// <summary>Test dynamic <c>Min</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestMax()
         {
             Assert.AreEqual(200, GetTestTable().Max(columns: "id"));
         }
 
         /// <summary>Test dynamic <c>Min</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestMax2()
         {
-            Assert.AreEqual(200, GetTestBuilder()
+            Assert.AreEqual(200L, GetTestBuilder()
                 .Select(x => x.Max(x.id))
                 .Scalar());
         }
 
         /// <summary>Test dynamic <c>Min</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TesttAvg()
         {
             Assert.AreEqual(100.5, GetTestTable().Avg(columns: "id"));
         }
 
         /// <summary>Test dynamic <c>Min</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TesttAvg2()
         {
             Assert.AreEqual(100.5, GetTestBuilder()
@@ -233,37 +233,37 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic <c>Sum</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestSum()
         {
             Assert.AreEqual(20100, GetTestTable().Sum(columns: "id"));
         }
 
         /// <summary>Test dynamic <c>Sum</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestSum2()
         {
-            Assert.AreEqual(20100, GetTestBuilder()
+            Assert.AreEqual(20100L, GetTestBuilder()
                 .Select(x => x.Sum(x.id))
                 .Scalar());
         }
 
         /// <summary>Test dynamic <c>Scalar</c> method for invalid operation exception.</summary>
-        [Test]
+        [TestMethod]
         public void TestScalarException()
         {
-            Assert.Throws<InvalidOperationException>(() => GetTestTable().Scalar(id: 19));
+            Assert.ThrowsException<InvalidOperationException>(() => GetTestTable().Scalar(id: 19));
         }
 
         /// <summary>Test dynamic <c>Scalar</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestScalar()
         {
             Assert.AreEqual("Ori", GetTestTable().Scalar(columns: "first", id: 19));
         }
 
         /// <summary>Test dynamic <c>Scalar</c> method.</summary>
-        [Test]
+        [TestMethod]
         public void TestScalar2()
         {
             Assert.AreEqual("Ori", GetTestBuilder()
@@ -273,7 +273,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic <c>Scalar</c> method with SQLite specific aggregate.</summary>
-        [Test]
+        [TestMethod]
         public void TestScalarGroupConcat()
         {
             // This test should produce something like this:
@@ -283,7 +283,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic <c>Scalar</c> method with SQLite specific aggregate.</summary>
-        [Test]
+        [TestMethod]
         public void TestScalarGroupConcat2()
         {
             // This test should produce something like this:
@@ -296,7 +296,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic <c>Scalar</c> method with SQLite specific aggregate not using aggregate field.</summary>
-        [Test]
+        [TestMethod]
         public void TestScalarGroupConcatNoAggregateField()
         {
             // This test should produce something like this:
@@ -306,7 +306,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic <c>Scalar</c> method with SQLite specific aggregate not using aggregate field.</summary>
-        [Test]
+        [TestMethod]
         public void TestScalarGroupConcatNoAggregateField2()
         {
             // This test should produce something like this:
@@ -319,7 +319,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test something fancy... like: <code>select "first", count("first") occurs from "users" group by "first" order by 2 desc;</code>.</summary>
-        [Test]
+        [TestMethod]
         public void TestFancyAggregateQuery()
         {
             var v = (GetTestTable().Query(columns: "first,first:occurs:count", group: "first", order: ":desc:2") as IEnumerable<dynamic>).ToList();
@@ -334,7 +334,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test something fancy... like: <code>select "first", count("first") occurs from "users" group by "first" order by 2 desc;</code>.</summary>
-        [Test]
+        [TestMethod]
         public void TestFancyAggregateQuery2()
         {
             var v = GetTestBuilder()
@@ -354,14 +354,14 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>This time also something fancy... aggregate in aggregate <code>select AVG(LENGTH("login")) len from "users";</code>.</summary>
-        [Test]
+        [TestMethod]
         public void TestAggregateInAggregate()
         {
             Assert.AreEqual(12.77, GetTestTable().Scalar(columns: @"length(""login""):len:avg"));
         }
 
         /// <summary>This time also something fancy... aggregate in aggregate <code>select AVG(LENGTH("login")) len from "users";</code>.</summary>
-        [Test]
+        [TestMethod]
         public void TestAggregateInAggregate2()
         {
             Assert.AreEqual(12.77, GetTestBuilder()
@@ -370,14 +370,14 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>This time also something fancy... aggregate in aggregate <code>select AVG(LENGTH("email")) len from "users";</code>.</summary>
-        [Test]
+        [TestMethod]
         public void TestAggregateInAggregateMark2()
         {
             Assert.AreEqual(27.7, GetTestTable().Avg(columns: @"length(""email""):len"));
         }
 
         /// <summary>This time also something fancy... aggregate in aggregate <code>select AVG(LENGTH("email")) len from "users";</code>.</summary>
-        [Test]
+        [TestMethod]
         public void TestAggregateInAggregateMark3()
         {
             Assert.AreEqual(27.7, GetTestBuilder()
@@ -409,7 +409,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic <c>Single</c> multi.</summary>
-        [Test]
+        [TestMethod]
         public void TestSingleObject()
         {
             var exp = new { id = 19, first = "Ori", last = "Ellis" };
@@ -421,7 +421,7 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic <c>Single</c> multi.</summary>
-        [Test]
+        [TestMethod]
         public void TestSingleObject2()
         {
             var exp = new { id = 19, first = "Ori", last = "Ellis" };
@@ -437,10 +437,10 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic duplicate column name occurrence.</summary>
-        [Test]
+        [TestMethod]
         public void TestDuplicateColumnNameException()
         {
-            Assert.Throws<ArgumentException>(() => GetTestBuilder()
+            Assert.ThrowsException<ArgumentException>(() => GetTestBuilder()
                 .Where(x => x.id == 19)
                 .Select(x => new
                 {
@@ -458,14 +458,14 @@ namespace DynamORM.Tests.Select
         #region Where
 
         /// <summary>Test dynamic where expression equal.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereEq()
         {
             Assert.AreEqual("hoyt.tran", GetTestTable().Single(where: new DynamicColumn("id").Eq(100)).login);
         }
 
         /// <summary>Test dynamic where expression equal.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereEq2()
         {
             Assert.AreEqual("hoyt.tran", GetTestBuilder()
@@ -473,31 +473,31 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic where expression not equal.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereNot()
         {
             Assert.AreEqual(199, GetTestTable().Count(where: new DynamicColumn("id").Not(100)));
         }
 
         /// <summary>Test dynamic where expression not equal.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereNot2()
         {
-            Assert.AreEqual(199, GetTestBuilder()
+            Assert.AreEqual(199L, GetTestBuilder()
                 .Where(x => x.id != 100)
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test dynamic where expression like.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereLike()
         {
             Assert.AreEqual(100, GetTestTable().Single(where: new DynamicColumn("login").Like("Hoyt.%")).id);
         }
 
         /// <summary>Test dynamic where expression like.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereLike2()
         {
             Assert.AreEqual(100, GetTestBuilder()
@@ -505,146 +505,146 @@ namespace DynamORM.Tests.Select
         }
 
         /// <summary>Test dynamic where expression not like.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereNotLike()
         {
             Assert.AreEqual(199, GetTestTable().Count(where: new DynamicColumn("login").NotLike("Hoyt.%")));
         }
 
         /// <summary>Test dynamic where expression not like.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereNotLike2()
         {
-            Assert.AreEqual(199, GetTestBuilder()
+            Assert.AreEqual(199L, GetTestBuilder()
                 .Where(x => x.login.NotLike("Hoyt.%"))
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test dynamic where expression not like.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereNotLike3()
         {
-            Assert.AreEqual(199, GetTestBuilder()
+            Assert.AreEqual(199L, GetTestBuilder()
                 .Where(x => !x.login.Like("Hoyt.%"))
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test dynamic where expression greater.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereGt()
         {
             Assert.AreEqual(100, GetTestTable().Count(where: new DynamicColumn("id").Greater(100)));
         }
 
         /// <summary>Test dynamic where expression greater.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereGt2()
         {
-            Assert.AreEqual(100, GetTestBuilder()
+            Assert.AreEqual(100L, GetTestBuilder()
                 .Where(x => x.id > 100)
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test dynamic where expression greater or equal.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereGte()
         {
             Assert.AreEqual(101, GetTestTable().Count(where: new DynamicColumn("id").GreaterOrEqual(100)));
         }
 
         /// <summary>Test dynamic where expression greater or equal.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereGte2()
         {
-            Assert.AreEqual(101, GetTestBuilder()
+            Assert.AreEqual(101L, GetTestBuilder()
                .Where(x => x.id >= 100)
                .Select(x => x.Count())
                .Scalar());
         }
 
         /// <summary>Test dynamic where expression less.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereLt()
         {
             Assert.AreEqual(99, GetTestTable().Count(where: new DynamicColumn("id").Less(100)));
         }
 
         /// <summary>Test dynamic where expression less.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereLt2()
         {
-            Assert.AreEqual(99, GetTestBuilder()
+            Assert.AreEqual(99L, GetTestBuilder()
                 .Where(x => x.id < 100)
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test dynamic where expression less or equal.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereLte()
         {
             Assert.AreEqual(100, GetTestTable().Count(where: new DynamicColumn("id").LessOrEqual(100)));
         }
 
         /// <summary>Test dynamic where expression less or equal.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereLte2()
         {
-            Assert.AreEqual(100, GetTestBuilder()
+            Assert.AreEqual(100L, GetTestBuilder()
                 .Where(x => x.id <= 100)
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test dynamic where expression between.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereBetween()
         {
             Assert.AreEqual(26, GetTestTable().Count(where: new DynamicColumn("id").Between(75, 100)));
         }
 
         /// <summary>Test dynamic where expression between.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereBetween2()
         {
-            Assert.AreEqual(26, GetTestBuilder()
+            Assert.AreEqual(26L, GetTestBuilder()
                 .Where(x => x.id.Between(75, 100))
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test dynamic where expression in parameters.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereIn1()
         {
             Assert.AreEqual(3, GetTestTable().Count(where: new DynamicColumn("id").In(75, 99, 100)));
         }
 
         /// <summary>Test dynamic where expression in array.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereIn2()
         {
             Assert.AreEqual(3, GetTestTable().Count(where: new DynamicColumn("id").In(new[] { 75, 99, 100 })));
         }
 
         /// <summary>Test dynamic where expression in parameters.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereIn3()
         {
-            Assert.AreEqual(3, GetTestBuilder()
+            Assert.AreEqual(3L, GetTestBuilder()
                 .Where(x => x.id.In(75, 99, 100))
                 .Select(x => x.Count())
                 .Scalar());
         }
 
         /// <summary>Test dynamic where expression in parameters.</summary>
-        [Test]
+        [TestMethod]
         public void TestWhereIn4()
         {
-            Assert.AreEqual(3, GetTestBuilder()
+            Assert.AreEqual(3L, GetTestBuilder()
                 .Where(x => x.id.In(new[] { 75, 99, 100 }))
                 .Select(x => x.Count())
                 .Scalar());

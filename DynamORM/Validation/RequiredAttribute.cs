@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -7,7 +8,7 @@ using DynamORM.Mapper;
 namespace DynamORM.Validation
 {
     /// <summary>Required attribute can be used to validate fields in objects using mapper class.</summary>
-    [AttributeUsage(AttributeTargets.Property)]
+    [AttributeUsage(AttributeTargets.Property, AllowMultiple = true)]
     public class RequiredAttribute : Attribute
     {
         /// <summary>Gets or sets minimum value or length of field.</summary>
@@ -21,6 +22,9 @@ namespace DynamORM.Validation
 
         /// <summary>Gets or sets a value indicating whether property value is required or not.</summary>
         public bool Required { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether this is an element requirement.</summary>
+        public bool ElementRequirement { get; set; }
 
         /// <summary>Initializes a new instance of the <see cref="RequiredAttribute" /> class.</summary>
         /// <param name="required">This field will be required.</param>
@@ -68,10 +72,20 @@ namespace DynamORM.Validation
 
         internal ValidateResult ValidateSimpleValue(DynamicPropertyInvoker dpi, object val)
         {
-            if (val == null && Required)
-                return ValidateResult.ValueIsMissing;
+            return ValidateSimpleValue(dpi.Type, dpi.IsGnericEnumerable, val);
+        }
 
-            if (dpi.Type.IsValueType)
+        internal ValidateResult ValidateSimpleValue(Type type, bool isGnericEnumerable, object val)
+        {
+            if (val == null)
+            {
+                if (Required)
+                    return ValidateResult.ValueIsMissing;
+                else
+                    return ValidateResult.Valid;
+            }
+
+            if (type.IsValueType)
             {
                 if (val is decimal || val is long || val is int || val is float || val is double || val is short || val is byte ||
                     val is decimal? || val is long? || val is int? || val is float? || val is double? || val is short? || val is byte?)
@@ -102,15 +116,40 @@ namespace DynamORM.Validation
                     return ValidateResult.Valid;
                 }
             }
-            else if (dpi.Type.IsArray || dpi.IsGnericEnumerable)
+            else if (type.IsArray || isGnericEnumerable)
             {
-                var cnt = (val as IEnumerable<object>).Count();
+                int? cnt = null;
+
+                var list = (val as IEnumerable<object>);
+                if (list != null)
+                    cnt = list.Count();
+                else
+                {
+                    var enumerable = (val as IEnumerable);
+                    if (enumerable != null)
+                        cnt = enumerable.Cast<object>().Count();
+                }
 
                 if (Min.HasValue && Min.Value > cnt)
                     return ValidateResult.TooFewElementsInCollection;
 
                 if (Max.HasValue && Max.Value < cnt)
                     return ValidateResult.TooManyElementsInCollection;
+
+                return ValidateResult.Valid;
+            }
+            else if (type == typeof(string))
+            {
+                var str = (string)val;
+
+                if (Min.HasValue && Min.Value > str.Length)
+                    return ValidateResult.ValueTooShort;
+
+                if (Max.HasValue && Max.Value < str.Length)
+                    return ValidateResult.ValueTooLong;
+
+                if (Pattern != null && !Pattern.IsMatch(str))
+                    return ValidateResult.ValueDontMatchPattern;
 
                 return ValidateResult.Valid;
             }

@@ -26,39 +26,55 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-using System.Collections.Generic;
-using System.Diagnostics;
+using DynamORM.Mapper;
+using DynamORM.Validation;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace DynamORM.Tests.Helpers
+namespace DynamORM.Tests.Helpers.Validation
 {
-    /// <summary>Class responsible for users operations testing.</summary>
     [TestClass]
-    public class AttachToDebugger
+    public class ObjectValidationTest
     {
-        /// <summary>Test anonymous type compatibility.</summary>
-        [TestMethod]
-        public void TestAnonType()
+        public class TestObject
         {
-            var a = new { x = 1, y = 2 };
-            var b = new { x = 3, y = 4 };
+            [Required(1f, 10f)]
+            public int TestInt { get; set; }
 
-            Assert.AreEqual(a.GetType(), b.GetType());
+            [Required(7, false, false)]
+            public string CanBeNull { get; set; }
+
+            [Required(2, true)]
+            [Required(7, 18, ElementRequirement = true)]
+            public decimal[] ArrayTest { get; set; }
         }
 
-        /// <summary>Test anonymous type value.</summary>
         [TestMethod]
-        public void TestAnonTypeValue()
+        public void ValidateCorrectObject()
         {
-            var a = new { x = 1, y = "bla bla" };
-            var b = new { x = 1, y = "bla bla" };
+            var result = DynamicMapperCache.GetMapper<TestObject>().ValidateObject(
+                new TestObject
+                {
+                    TestInt = 2,
+                    ArrayTest = new decimal[] { 7, 18 },
+                });
 
-            Assert.AreEqual(a, b);
-            Assert.IsTrue(a.Equals(b));
+            Assert.IsNotNull(result);
+            Assert.AreEqual(0, result.Count);
+        }
 
-            Dictionary<object, int> dict = new Dictionary<object, int>() { { a, 999 } };
+        [TestMethod]
+        public void ValidateIncorrectObject()
+        {
+            var result = DynamicMapperCache.GetMapper<TestObject>().ValidateObject(
+                new TestObject
+                {
+                    TestInt = 0,
+                    CanBeNull = string.Empty,
+                    ArrayTest = new decimal[] { 0, 0 },
+                });
 
-            Assert.IsTrue(dict.ContainsKey(b));
+            Assert.IsNotNull(result);
+            Assert.AreEqual(4, result.Count);
         }
     }
 }

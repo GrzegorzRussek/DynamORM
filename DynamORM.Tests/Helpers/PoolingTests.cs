@@ -26,23 +26,23 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DynamORM.Tests.Helpers
 {
     /// <summary>Pooling tests.</summary>
-    [TestFixture]
+    [TestClass]
     public class PoolingTests : TestsBase
     {
         /// <summary>Setup test parameters.</summary>
-        [TestFixtureSetUp]
+        [TestInitialize]
         public virtual void SetUp()
         {
             CreateTestDatabase();
         }
 
         /// <summary>Tear down test objects.</summary>
-        [TestFixtureTearDown]
+        [TestCleanup]
         public virtual void TearDown()
         {
             DestroyDynamicDatabase();
@@ -50,7 +50,7 @@ namespace DynamORM.Tests.Helpers
         }
 
         /// <summary>Test single mode command disposing.</summary>
-        [Test]
+        [TestMethod]
         public void TestSingleModeCommand()
         {
             CreateDynamicDatabase();
@@ -62,11 +62,11 @@ namespace DynamORM.Tests.Helpers
             Database.Dispose();
             Database = null;
 
-            Assert.Throws<DynamicQueryException>(() => cmd.ExecuteScalar());
+            Assert.ThrowsException<DynamicQueryException>(() => cmd.ExecuteScalar());
         }
 
         /// <summary>Test single mode transaction disposing.</summary>
-        [Test]
+        [TestMethod]
         public void TestSingleModeTransaction()
         {
             try

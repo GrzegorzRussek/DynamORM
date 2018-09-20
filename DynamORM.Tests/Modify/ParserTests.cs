@@ -29,18 +29,18 @@
 using System.Linq;
 using DynamORM.Builders;
 using DynamORM.Builders.Implementation;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using DynamORM.Tests.Helpers;
 using System.Collections.Generic;
 
 namespace DynamORM.Tests.Modify
 {
     /// <summary>New parser tests.</summary>
-    [TestFixture]
+    [TestClass]
     public class ParserTests : TestsBase
     {
         /// <summary>Setup test parameters.</summary>
-        [TestFixtureSetUp]
+        [TestInitialize]
         public virtual void SetUp()
         {
             CreateTestDatabase();
@@ -51,7 +51,7 @@ namespace DynamORM.Tests.Modify
         }
 
         /// <summary>Tear down test objects.</summary>
-        [TestFixtureTearDown]
+        [TestCleanup]
         public virtual void TearDown()
         {
             DestroyDynamicDatabase();
@@ -63,7 +63,7 @@ namespace DynamORM.Tests.Modify
         /// <summary>
         /// Tests the basic insert.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestInsertBasic()
         {
             IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
@@ -77,7 +77,7 @@ namespace DynamORM.Tests.Modify
         /// <summary>
         /// Tests the insert with sub query.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestInsertSubQuery()
         {
             IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
@@ -94,7 +94,7 @@ namespace DynamORM.Tests.Modify
         /// <summary>
         /// Tests the basic insert using object.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestInsertBasicObject()
         {
             IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
@@ -108,7 +108,7 @@ namespace DynamORM.Tests.Modify
         /// <summary>
         /// Tests the insert using object with sub query.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestInsertSubQueryObject()
         {
             IDynamicInsertQueryBuilder cmd = new DynamicInsertQueryBuilder(Database, "Users");
@@ -134,7 +134,7 @@ namespace DynamORM.Tests.Modify
         /// <summary>
         /// Tests the basic update.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateBasic()
         {
             IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
@@ -149,7 +149,7 @@ namespace DynamORM.Tests.Modify
         /// <summary>
         /// Tests the insert with sub query.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateSubQuery()
         {
             IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
@@ -167,7 +167,7 @@ namespace DynamORM.Tests.Modify
         /// <summary>
         /// Tests the basic insert using object.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateBasicObject()
         {
             IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");
@@ -182,7 +182,7 @@ namespace DynamORM.Tests.Modify
         /// <summary>
         /// Tests the basic insert using object.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestUpdateSubQueryObject()
         {
             IDynamicUpdateQueryBuilder cmd = new DynamicUpdateQueryBuilder(Database, "Users");

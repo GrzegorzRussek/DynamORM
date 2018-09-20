@@ -28,12 +28,12 @@
 
 using System.Collections.Generic;
 using DynamORM.Tests.Helpers;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DynamORM.Tests.Modify
 {
     /// <summary>Test standard dynamic access ORM. With out schema information from database.</summary>
-    [TestFixture]
+    [TestClass]
     public class DynamicTypeSchemaModificationTests : DynamicModificationTests
     {
         /// <summary>Create table using specified method.</summary>
@@ -46,7 +46,7 @@ namespace DynamORM.Tests.Modify
         /// <summary>
         /// Tests the bulk insert.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestBulkInsert()
         {
             Assert.AreEqual(2, Database.Insert<users>(new List<users>

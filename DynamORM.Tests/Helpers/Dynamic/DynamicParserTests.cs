@@ -28,39 +28,39 @@
 
 using System;
 using DynamORM.Helpers.Dynamics;
-using NUnit.Framework;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DynamORM.Tests.Helpers.Dynamic
 {
     /// <summary><see cref="DynamicParser"/> tests.</summary>
-    [TestFixture]
+    [TestClass]
     public class DynamicParserTests
     {
         /// <summary>
         /// Tests the get member.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestGetMember()
         {
             Func<dynamic, object> f = x => x.SomePropery;
 
             var val = DynamicParser.Parse(f).Result as DynamicParser.Node.GetMember;
 
-            Assert.NotNull(val);
+            Assert.IsNotNull(val);
             Assert.AreEqual("SomePropery", val.Name);
         }
 
         /// <summary>
         /// Tests the set member.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSetMember()
         {
             Func<dynamic, object> f = x => x.SomePropery = "value";
 
             var val = DynamicParser.Parse(f).Result as DynamicParser.Node.SetMember;
 
-            Assert.NotNull(val);
+            Assert.IsNotNull(val);
             Assert.AreEqual("SomePropery", val.Name);
             Assert.AreEqual("value", val.Value);
         }
@@ -68,34 +68,34 @@ namespace DynamORM.Tests.Helpers.Dynamic
         /// <summary>
         /// Tests the index of the get.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestGetIndex()
         {
             Func<dynamic, object> f = x => x.SomePropery[0];
 
             var val = DynamicParser.Parse(f).Result as DynamicParser.Node.GetIndex;
 
-            Assert.NotNull(val);
+            Assert.IsNotNull(val);
         }
 
         /// <summary>
         /// Tests the index of the set.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSetIndex()
         {
             Func<dynamic, object> f = x => x.SomePropery[0] = "value";
 
             var val = DynamicParser.Parse(f).Result as DynamicParser.Node.SetIndex;
 
-            Assert.NotNull(val);
+            Assert.IsNotNull(val);
             Assert.AreEqual("value", val.Value);
         }
 
         /// <summary>
         /// Tests something.
         /// </summary>
-        [Test]
+        [TestMethod]
         public void TestSomething()
         {
             Func<dynamic, object> f = x => x.SomePropery == "value" || x.OtherProperty == -1;
@@ -103,16 +103,16 @@ namespace DynamORM.Tests.Helpers.Dynamic
             var p = DynamicParser.Parse(f);
             var val = p.Result as DynamicParser.Node.Binary;
 
-            Assert.NotNull(val);
+            Assert.IsNotNull(val);
 
             var left = val.Host as DynamicParser.Node.Binary;
             var right = val.Right as DynamicParser.Node.Binary;
 
-            Assert.NotNull(left);
-            Assert.NotNull(right);
+            Assert.IsNotNull(left);
+            Assert.IsNotNull(right);
 
-            Assert.IsInstanceOf<DynamicParser.Node.GetMember>(left.Host);
-            Assert.IsInstanceOf<DynamicParser.Node.GetMember>(right.Host);
+            Assert.IsInstanceOfType(left.Host, typeof(DynamicParser.Node.GetMember));
+            Assert.IsInstanceOfType(right.Host, typeof(DynamicParser.Node.GetMember));
 
             Assert.AreEqual("value", left.Right);
             Assert.AreEqual(-1, right.Right);
