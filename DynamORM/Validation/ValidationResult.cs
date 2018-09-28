@@ -13,5 +13,8 @@ namespace DynamORM.Validation
 
         /// <summary>Gets the value that is broken.</summary>
         public object Value { get; internal set; }
+
+        /// <summary>Gets the result.</summary>
+        public ValidateResult Result { get;internal set;}
     }
 }

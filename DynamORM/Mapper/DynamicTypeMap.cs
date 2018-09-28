@@ -122,6 +122,15 @@ namespace DynamORM.Mapper
             return Map(source, Creator());
         }
 
+
+        /// <summary>Create object of <see cref="DynamicTypeMap.Type"/> type and fill values from <c>source</c> using property names.</summary>
+        /// <param name="source">Object containing values that will be mapped to newly created object.</param>
+        /// <returns>New object of <see cref="DynamicTypeMap.Type"/> type with matching values from <c>source</c>.</returns>
+        public object CreateByProperty(object source)
+        {
+            return MapByProperty(source, Creator());
+        }
+
         /// <summary>Fill values from <c>source</c> to <see cref="DynamicTypeMap.Type"/> object in <c>destination</c>.</summary>
         /// <param name="source">Object containing values that will be mapped to newly created object.</param>
         /// <param name="destination">Object of <see cref="DynamicTypeMap.Type"/> type to which copy values from <c>source</c>.</param>
@@ -135,6 +144,26 @@ namespace DynamORM.Mapper
                 if (ColumnsMap.TryGetValue(item.Key.ToLower(), out dpi) && item.Value != null)
                     if (dpi.Setter != null)
                         dpi.Set(destination, item.Value);
+            }
+
+            return destination;
+        }
+
+        /// <summary>Fill values from <c>source</c> to <see cref="DynamicTypeMap.Type"/> object in <c>destination</c> using property names.</summary>
+        /// <param name="source">Object containing values that will be mapped to newly created object.</param>
+        /// <param name="destination">Object of <see cref="DynamicTypeMap.Type"/> type to which copy values from <c>source</c>.</param>
+        /// <returns>Object of <see cref="DynamicTypeMap.Type"/> type with matching values from <c>source</c>.</returns>
+        public object MapByProperty(object source, object destination)
+        {
+            string cn = null;
+            DynamicPropertyInvoker dpi = null;
+
+            foreach (KeyValuePair<string, object> item in source.ToDictionary())
+            {
+                if (PropertyMap.TryGetValue(item.Key, out cn) && item.Value != null)
+                    if (ColumnsMap.TryGetValue(cn.ToLower(), out dpi) && item.Value != null)
+                        if (dpi.Setter != null)
+                            dpi.Set(destination, item.Value);
             }
 
             return destination;
@@ -196,6 +225,7 @@ namespace DynamORM.Mapper
                                                     Property = prop,
                                                     Requirement = r,
                                                     Value = item,
+                                                    Result = validelem,
                                                 });
                                         }
                                     }
@@ -218,6 +248,7 @@ namespace DynamORM.Mapper
                         Property = prop,
                         Requirement = r,
                         Value = v,
+                        Result = valid,
                     });
                 }
             }

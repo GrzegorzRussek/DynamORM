@@ -120,12 +120,12 @@ namespace DynamORM.Validation
             {
                 int? cnt = null;
 
-                var list = (val as IEnumerable<object>);
+                var list = val as IEnumerable<object>;
                 if (list != null)
                     cnt = list.Count();
                 else
                 {
-                    var enumerable = (val as IEnumerable);
+                    var enumerable = val as IEnumerable;
                     if (enumerable != null)
                         cnt = enumerable.Cast<object>().Count();
                 }

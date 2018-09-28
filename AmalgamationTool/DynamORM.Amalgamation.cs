@@ -4963,6 +4963,35 @@ namespace DynamORM
             return (T)mapper.Create(item);
         }
 
+        /// <summary>MapEnumerable object enumerator into specified type using property names.</summary>
+        /// <typeparam name="T">Type to which columnMap results.</typeparam>
+        /// <param name="enumerable">Source enumerator.</param>
+        /// <returns>Enumerator of specified type.</returns>
+        public static IEnumerable<T> MapEnumerableByProperty<T>(this IEnumerable<object> enumerable)
+        {
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
+
+            if (mapper == null)
+                throw new InvalidOperationException("Type can't be mapped for unknown reason.");
+
+            foreach (object item in enumerable)
+                yield return (T)mapper.CreateByProperty(item);
+        }
+
+        /// <summary>MapEnumerable object item into specified type using property names.</summary>
+        /// <typeparam name="T">Type to which columnMap results.</typeparam>
+        /// <param name="item">Source object.</param>
+        /// <returns>Item of specified type.</returns>
+        public static T MapByProperty<T>(this object item)
+        {
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
+
+            if (mapper == null)
+                throw new InvalidOperationException("Type can't be mapped for unknown reason.");
+
+            return (T)mapper.CreateByProperty(item);
+        }
+
         /// <summary>Fill object of specified type with data from source object.</summary>
         /// <typeparam name="T">Type to which columnMap results.</typeparam>
         /// <param name="item">Item to which columnMap data.</param>
@@ -4976,6 +5005,23 @@ namespace DynamORM
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
 
             mapper.Map(item, source);
+
+            return item;
+        }
+
+        /// <summary>Fill object of specified type with data from source object using property names.</summary>
+        /// <typeparam name="T">Type to which columnMap results.</typeparam>
+        /// <param name="item">Item to which columnMap data.</param>
+        /// <param name="source">Item from which extract data.</param>
+        /// <returns>Filled item.</returns>
+        public static T FillByProperty<T>(this T item, object source)
+        {
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
+
+            if (mapper == null)
+                throw new InvalidOperationException("Type can't be mapped for unknown reason.");
+
+            mapper.MapByProperty(item, source);
 
             return item;
         }
@@ -5007,6 +5053,35 @@ namespace DynamORM
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
 
             return mapper.Create(item);
+        }
+
+        /// <summary>MapEnumerable object enumerator into specified type  using property names.</summary>
+        /// <param name="enumerable">Source enumerator.</param>
+        /// <param name="type">Type to which columnMap results.</param>
+        /// <returns>Enumerator of specified type.</returns>
+        public static IEnumerable<object> MapEnumerableByProperty(this IEnumerable<object> enumerable, Type type)
+        {
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
+
+            if (mapper == null)
+                throw new InvalidOperationException("Type can't be mapped for unknown reason.");
+
+            foreach (object item in enumerable)
+                yield return mapper.CreateByProperty(item);
+        }
+
+        /// <summary>MapEnumerable object item into specified type  using property names.</summary>
+        /// <param name="item">Source object.</param>
+        /// <param name="type">Type to which columnMap results.</param>
+        /// <returns>Item of specified type.</returns>
+        public static object MapByProperty(this object item, Type type)
+        {
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
+
+            if (mapper == null)
+                throw new InvalidOperationException("Type can't be mapped for unknown reason.");
+
+            return mapper.CreateByProperty(item);
         }
 
         /// <summary>Converts the elements of an <see cref="System.Collections.IEnumerable"/>
@@ -13397,6 +13472,14 @@ namespace DynamORM
                 return Map(source, Creator());
             }
 
+            /// <summary>Create object of <see cref="DynamicTypeMap.Type"/> type and fill values from <c>source</c> using property names.</summary>
+            /// <param name="source">Object containing values that will be mapped to newly created object.</param>
+            /// <returns>New object of <see cref="DynamicTypeMap.Type"/> type with matching values from <c>source</c>.</returns>
+            public object CreateByProperty(object source)
+            {
+                return MapByProperty(source, Creator());
+            }
+
             /// <summary>Fill values from <c>source</c> to <see cref="DynamicTypeMap.Type"/> object in <c>destination</c>.</summary>
             /// <param name="source">Object containing values that will be mapped to newly created object.</param>
             /// <param name="destination">Object of <see cref="DynamicTypeMap.Type"/> type to which copy values from <c>source</c>.</param>
@@ -13410,6 +13493,26 @@ namespace DynamORM
                     if (ColumnsMap.TryGetValue(item.Key.ToLower(), out dpi) && item.Value != null)
                         if (dpi.Setter != null)
                             dpi.Set(destination, item.Value);
+                }
+
+                return destination;
+            }
+
+            /// <summary>Fill values from <c>source</c> to <see cref="DynamicTypeMap.Type"/> object in <c>destination</c> using property names.</summary>
+            /// <param name="source">Object containing values that will be mapped to newly created object.</param>
+            /// <param name="destination">Object of <see cref="DynamicTypeMap.Type"/> type to which copy values from <c>source</c>.</param>
+            /// <returns>Object of <see cref="DynamicTypeMap.Type"/> type with matching values from <c>source</c>.</returns>
+            public object MapByProperty(object source, object destination)
+            {
+                string cn = null;
+                DynamicPropertyInvoker dpi = null;
+
+                foreach (KeyValuePair<string, object> item in source.ToDictionary())
+                {
+                    if (PropertyMap.TryGetValue(item.Key, out cn) && item.Value != null)
+                        if (ColumnsMap.TryGetValue(cn.ToLower(), out dpi) && item.Value != null)
+                            if (dpi.Setter != null)
+                                dpi.Set(destination, item.Value);
                 }
 
                 return destination;
@@ -13471,6 +13574,7 @@ namespace DynamORM
                                                         Property = prop,
                                                         Requirement = r,
                                                         Value = item,
+                                                        Result = validelem,
                                                     });
                                             }
                                         }
@@ -13493,6 +13597,7 @@ namespace DynamORM
                             Property = prop,
                             Requirement = r,
                             Value = v,
+                            Result = valid,
                         });
                     }
                 }
@@ -13690,12 +13795,12 @@ namespace DynamORM
                 {
                     int? cnt = null;
 
-                    var list = (val as IEnumerable<object>);
+                    var list = val as IEnumerable<object>;
                     if (list != null)
                         cnt = list.Count();
                     else
                     {
-                        var enumerable = (val as IEnumerable);
+                        var enumerable = val as IEnumerable;
                         if (enumerable != null)
                             cnt = enumerable.Cast<object>().Count();
                     }
@@ -13773,6 +13878,9 @@ namespace DynamORM
 
             /// <summary>Gets the value that is broken.</summary>
             public object Value { get; internal set; }
+
+            /// <summary>Gets the result.</summary>
+            public ValidateResult Result { get; internal set; }
         }
     }
 }

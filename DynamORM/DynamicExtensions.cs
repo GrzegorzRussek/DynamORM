@@ -1499,6 +1499,35 @@ namespace DynamORM
             return (T)mapper.Create(item);
         }
 
+        /// <summary>MapEnumerable object enumerator into specified type using property names.</summary>
+        /// <typeparam name="T">Type to which columnMap results.</typeparam>
+        /// <param name="enumerable">Source enumerator.</param>
+        /// <returns>Enumerator of specified type.</returns>
+        public static IEnumerable<T> MapEnumerableByProperty<T>(this IEnumerable<object> enumerable)
+        {
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
+
+            if (mapper == null)
+                throw new InvalidOperationException("Type can't be mapped for unknown reason.");
+
+            foreach (object item in enumerable)
+                yield return (T)mapper.CreateByProperty(item);
+        }
+
+        /// <summary>MapEnumerable object item into specified type using property names.</summary>
+        /// <typeparam name="T">Type to which columnMap results.</typeparam>
+        /// <param name="item">Source object.</param>
+        /// <returns>Item of specified type.</returns>
+        public static T MapByProperty<T>(this object item)
+        {
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
+
+            if (mapper == null)
+                throw new InvalidOperationException("Type can't be mapped for unknown reason.");
+
+            return (T)mapper.CreateByProperty(item);
+        }
+
         /// <summary>Fill object of specified type with data from source object.</summary>
         /// <typeparam name="T">Type to which columnMap results.</typeparam>
         /// <param name="item">Item to which columnMap data.</param>
@@ -1512,6 +1541,23 @@ namespace DynamORM
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
 
             mapper.Map(item, source);
+
+            return item;
+        }
+
+        /// <summary>Fill object of specified type with data from source object using property names.</summary>
+        /// <typeparam name="T">Type to which columnMap results.</typeparam>
+        /// <param name="item">Item to which columnMap data.</param>
+        /// <param name="source">Item from which extract data.</param>
+        /// <returns>Filled item.</returns>
+        public static T FillByProperty<T>(this T item, object source)
+        {
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper<T>();
+
+            if (mapper == null)
+                throw new InvalidOperationException("Type can't be mapped for unknown reason.");
+
+            mapper.MapByProperty(item, source);
 
             return item;
         }
@@ -1543,6 +1589,35 @@ namespace DynamORM
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
 
             return mapper.Create(item);
+        }
+
+        /// <summary>MapEnumerable object enumerator into specified type  using property names.</summary>
+        /// <param name="enumerable">Source enumerator.</param>
+        /// <param name="type">Type to which columnMap results.</param>
+        /// <returns>Enumerator of specified type.</returns>
+        public static IEnumerable<object> MapEnumerableByProperty(this IEnumerable<object> enumerable, Type type)
+        {
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
+
+            if (mapper == null)
+                throw new InvalidOperationException("Type can't be mapped for unknown reason.");
+
+            foreach (object item in enumerable)
+                yield return mapper.CreateByProperty(item);
+        }
+
+        /// <summary>MapEnumerable object item into specified type  using property names.</summary>
+        /// <param name="item">Source object.</param>
+        /// <param name="type">Type to which columnMap results.</param>
+        /// <returns>Item of specified type.</returns>
+        public static object MapByProperty(this object item, Type type)
+        {
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
+
+            if (mapper == null)
+                throw new InvalidOperationException("Type can't be mapped for unknown reason.");
+
+            return mapper.CreateByProperty(item);
         }
 
         /// <summary>Converts the elements of an <see cref="System.Collections.IEnumerable"/>
