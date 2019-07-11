@@ -101,6 +101,7 @@
     <Compile Include="Helpers\UnclassifiedExtensions.cs" />
     <Compile Include="Mapper\ColumnAttribute.cs" />
     <Compile Include="Mapper\DynamicMapperCache.cs" />
+    <Compile Include="Mapper\DynamicMapperException.cs" />
     <Compile Include="Mapper\DynamicPropertyInvoker.cs" />
     <Compile Include="Mapper\DynamicTypeMap.cs" />
     <Compile Include="Mapper\IgnoreAttribute.cs" />

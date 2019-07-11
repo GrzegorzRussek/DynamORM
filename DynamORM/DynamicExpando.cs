@@ -63,6 +63,9 @@ namespace DynamORM
 
             /// <summary>Gets the value stored in object.</summary>
             public object Value { get; internal set; }
+
+            /// <summary>Gets the last access time.</summary>
+            public long Ticks { get; internal set; }
         }
 
         private Dictionary<string, object> _data = new Dictionary<string, object>();
@@ -94,6 +97,7 @@ namespace DynamORM
             _lastProp.Name = binder.Name;
             _lastProp.Value = result;
             _lastProp.Type = result == null ? typeof(void) : result.GetType();
+            _lastProp.Ticks = DateTime.Now.Ticks;
 
             return true;
         }
@@ -111,6 +115,7 @@ namespace DynamORM
             _lastProp.Name = binder.Name;
             _lastProp.Value = value;
             _lastProp.Type = value == null ? typeof(void) : value.GetType();
+            _lastProp.Ticks = DateTime.Now.Ticks;
 
             return true;
         }

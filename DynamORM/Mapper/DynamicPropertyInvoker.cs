@@ -186,9 +186,9 @@ namespace DynamORM.Mapper
             }
             catch (Exception ex)
             {
-                throw new InvalidCastException(
-                    string.Format("Error trying to convert value '{0}' of type '{1}' to value of type '{2}' in object of type '{3}'",
-                        (val ?? string.Empty).ToString(), val.GetType(), Type.FullName, dest.GetType().FullName),
+                throw new DynamicMapperException(
+                    string.Format("Error trying to convert and set value '{0}' of type '{1}' to type '{2}' in object of type '{3}'",
+                        val == null ? string.Empty : val.ToString(), val.GetType(), Type.FullName, dest.GetType().FullName),
                     ex);
             }
         }

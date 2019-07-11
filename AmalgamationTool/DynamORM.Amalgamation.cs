@@ -1,4 +1,3 @@
-
 /*
  * DynamORM - Dynamic Object-Relational Mapping library.
  * Copyright (c) 2012-2015, Grzegorz Russek (grzegorz.russek@gmail.com)
@@ -3374,6 +3373,9 @@ namespace DynamORM
 
             /// <summary>Gets the value stored in object.</summary>
             public object Value { get; internal set; }
+
+            /// <summary>Gets the last access time.</summary>
+            public long Ticks { get; internal set; }
         }
 
         private Dictionary<string, object> _data = new Dictionary<string, object>();
@@ -3405,6 +3407,7 @@ namespace DynamORM
             _lastProp.Name = binder.Name;
             _lastProp.Value = result;
             _lastProp.Type = result == null ? typeof(void) : result.GetType();
+            _lastProp.Ticks = DateTime.Now.Ticks;
 
             return true;
         }
@@ -3422,6 +3425,7 @@ namespace DynamORM
             _lastProp.Name = binder.Name;
             _lastProp.Value = value;
             _lastProp.Type = value == null ? typeof(void) : value.GetType();
+            _lastProp.Ticks = DateTime.Now.Ticks;
 
             return true;
         }
@@ -4180,7 +4184,7 @@ namespace DynamORM
                         });
 
                     if (method != null)
-                        ret = o.ToString().TryParseDefault<T>(defaultValue, delegate(string v, out T r)
+                        ret = o.ToString().TryParseDefault<T>(defaultValue, delegate (string v, out T r)
                         {
                             r = defaultValue;
                             return (bool)method.Invoke(null, new object[] { v, r });
@@ -4239,7 +4243,7 @@ namespace DynamORM
                             else if (typeof(T) == typeof(object))
                                 ret = (T)o;
                             else if (method != null)
-                                ret = o.ToString().TryParseDefault<T>(defaultValue, delegate(string v, out T r)
+                                ret = o.ToString().TryParseDefault<T>(defaultValue, delegate (string v, out T r)
                                 {
                                     r = defaultValue;
                                     return (bool)method.Invoke(null, new object[] { v, r });
@@ -6482,7 +6486,8 @@ namespace DynamORM
         private DynamicConnection _con;
         private bool _singleTransaction;
         private Action _disposed;
-        private bool _operational = false;
+        private bool _isDisposed = false;
+        private bool _isOperational = false;
 
         /// <summary>Initializes a new instance of the <see cref="DynamicTransaction" /> class.</summary>
         /// <param name="db">Database connection manager.</param>
@@ -6503,24 +6508,39 @@ namespace DynamORM
                 if (!_db.TransactionPool.ContainsKey(_con.Connection))
                     throw new InvalidOperationException("Can't create transaction using disposed connection.");
                 else if (_singleTransaction && _db.TransactionPool[_con.Connection].Count > 0)
-                    _operational = false;
+                {
+                    _isOperational = false;
+
+                    if (_db.DumpCommands && _db.DumpCommandDelegate != null)
+                        _db.DumpCommandDelegate(null, "BEGIN TRAN [NON OPERATIONAL]");
+                }
                 else
                 {
                     if (customParams != null)
                     {
                         MethodInfo mi = _con.Connection.GetType().GetMethods().Where(m => m.GetParameters().Count() == 1 && m.GetParameters().First().ParameterType == customParams.GetType()).FirstOrDefault();
                         if (mi != null)
+                        {
                             _db.TransactionPool[_con.Connection].Push((IDbTransaction)mi.Invoke(_con.Connection, new object[] { customParams, }));
+
+                            if (_db.DumpCommands && _db.DumpCommandDelegate != null)
+                                _db.DumpCommandDelegate(null, "BEGIN TRAN [CUSTOM ARGS]");
+                        }
                         else
                             throw new MissingMethodException(string.Format("Method 'BeginTransaction' accepting parameter of type '{0}' in '{1}' not found.",
                                 customParams.GetType().FullName, _con.Connection.GetType().FullName));
                     }
                     else
+                    {
                         _db.TransactionPool[_con.Connection]
                             .Push(il.HasValue ? _con.Connection.BeginTransaction(il.Value) : _con.Connection.BeginTransaction());
 
+                        if (_db.DumpCommands && _db.DumpCommandDelegate != null)
+                            _db.DumpCommandDelegate(null, "BEGIN TRAN");
+                    }
+
                     _db.PoolStamp = DateTime.Now.Ticks;
-                    _operational = true;
+                    _isOperational = true;
                 }
             }
         }
@@ -6530,7 +6550,7 @@ namespace DynamORM
         {
             lock (_db.SyncLock)
             {
-                if (_operational)
+                if (_isOperational)
                 {
                     Stack<IDbTransaction> t = _db.TransactionPool.TryGetValue(_con.Connection);
 
@@ -6542,10 +6562,15 @@ namespace DynamORM
 
                         trans.Commit();
                         trans.Dispose();
+
+                        if (_db.DumpCommands && _db.DumpCommandDelegate != null)
+                            _db.DumpCommandDelegate(null, "COMMIT");
                     }
 
-                    _operational = false;
+                    _isOperational = false;
                 }
+                else if (!_isDisposed && _db.DumpCommands && _db.DumpCommandDelegate != null)
+                    _db.DumpCommandDelegate(null, "COMMIT [NON OPERATIONAL]");
             }
         }
 
@@ -6554,7 +6579,7 @@ namespace DynamORM
         {
             lock (_db.SyncLock)
             {
-                if (_operational)
+                if (_isOperational)
                 {
                     Stack<IDbTransaction> t = _db.TransactionPool.TryGetValue(_con.Connection);
 
@@ -6566,10 +6591,15 @@ namespace DynamORM
 
                         trans.Rollback();
                         trans.Dispose();
+
+                        if (_db.DumpCommands && _db.DumpCommandDelegate != null)
+                            _db.DumpCommandDelegate(null, "ROLLBACK");
                     }
 
-                    _operational = false;
+                    _isOperational = false;
                 }
+                else if (!_isDisposed && _db.DumpCommands && _db.DumpCommandDelegate != null)
+                    _db.DumpCommandDelegate(null, "ROLLBACK [NON OPERATIONAL]");
             }
         }
 
@@ -6588,6 +6618,7 @@ namespace DynamORM
         /// freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
         {
+            _isDisposed = true;
             Rollback();
 
             if (_disposed != null)
@@ -6595,7 +6626,7 @@ namespace DynamORM
         }
 
         /// <summary>Gets a value indicating whether this instance is disposed.</summary>
-        public bool IsDisposed { get { return !_operational; } }
+        public bool IsDisposed { get { return !_isOperational; } }
 
         #endregion IExtendedDisposable Members
     }
@@ -13186,6 +13217,36 @@ namespace DynamORM
             }
         }
 
+        /// <summary>Exception thrown when mapper fails to set or get a property.</summary>
+        /// <seealso cref="System.Exception" />
+        public class DynamicMapperException : Exception
+        {
+            /// <summary>Initializes a new instance of the <see cref="DynamicMapperException"/> class.</summary>
+            public DynamicMapperException()
+            {
+            }
+
+            /// <summary>Initializes a new instance of the <see cref="DynamicMapperException"/> class.</summary>
+            /// <param name="message">The message that describes the error.</param>
+            public DynamicMapperException(string message) : base(message)
+            {
+            }
+
+            /// <summary>Initializes a new instance of the <see cref="DynamicMapperException"/> class.</summary>
+            /// <param name="message">The error message that explains the reason for the exception.</param>
+            /// <param name="innerException">The exception that is the cause of the current exception, or a null reference (Nothing in Visual Basic) if no inner exception is specified.</param>
+            public DynamicMapperException(string message, Exception innerException) : base(message, innerException)
+            {
+            }
+
+            /// <summary>Initializes a new instance of the <see cref="DynamicMapperException"/> class.</summary>
+            /// <param name="info">The <see cref="T:System.Runtime.Serialization.SerializationInfo"/> that holds the serialized object data about the exception being thrown.</param>
+            /// <param name="context">The <see cref="T:System.Runtime.Serialization.StreamingContext"/> that contains contextual information about the source or destination.</param>
+            protected DynamicMapperException(SerializationInfo info, StreamingContext context) : base(info, context)
+            {
+            }
+        }
+
         /// <summary>Dynamic property invoker.</summary>
         public class DynamicPropertyInvoker
         {
@@ -13336,9 +13397,9 @@ namespace DynamORM
                 }
                 catch (Exception ex)
                 {
-                    throw new InvalidCastException(
-                        string.Format("Error trying to convert value '{0}' of type '{1}' to value of type '{2}' in object of type '{3}'",
-                            (val ?? string.Empty).ToString(), val.GetType(), Type.FullName, dest.GetType().FullName),
+                    throw new DynamicMapperException(
+                        string.Format("Error trying to convert and set value '{0}' of type '{1}' to type '{2}' in object of type '{3}'",
+                            val == null ? string.Empty : val.ToString(), val.GetType(), Type.FullName, dest.GetType().FullName),
                         ex);
                 }
             }

@@ -42,7 +42,8 @@ namespace DynamORM
         private DynamicConnection _con;
         private bool _singleTransaction;
         private Action _disposed;
-        private bool _operational = false;
+        private bool _isDisposed = false;
+        private bool _isOperational = false;
 
         /// <summary>Initializes a new instance of the <see cref="DynamicTransaction" /> class.</summary>
         /// <param name="db">Database connection manager.</param>
@@ -63,24 +64,39 @@ namespace DynamORM
                 if (!_db.TransactionPool.ContainsKey(_con.Connection))
                     throw new InvalidOperationException("Can't create transaction using disposed connection.");
                 else if (_singleTransaction && _db.TransactionPool[_con.Connection].Count > 0)
-                    _operational = false;
+                {
+                    _isOperational = false;
+
+                    if (_db.DumpCommands && _db.DumpCommandDelegate != null)
+                        _db.DumpCommandDelegate(null, "BEGIN TRAN [NON OPERATIONAL]");
+                }
                 else
                 {
                     if (customParams != null)
                     {
                         MethodInfo mi = _con.Connection.GetType().GetMethods().Where(m => m.GetParameters().Count() == 1 && m.GetParameters().First().ParameterType == customParams.GetType()).FirstOrDefault();
                         if (mi != null)
+                        {
                             _db.TransactionPool[_con.Connection].Push((IDbTransaction)mi.Invoke(_con.Connection, new object[] { customParams, }));
+
+                            if (_db.DumpCommands && _db.DumpCommandDelegate != null)
+                                _db.DumpCommandDelegate(null, "BEGIN TRAN [CUSTOM ARGS]");
+                        }
                         else
                             throw new MissingMethodException(string.Format("Method 'BeginTransaction' accepting parameter of type '{0}' in '{1}' not found.",
                                 customParams.GetType().FullName, _con.Connection.GetType().FullName));
                     }
                     else
+                    {
                         _db.TransactionPool[_con.Connection]
                             .Push(il.HasValue ? _con.Connection.BeginTransaction(il.Value) : _con.Connection.BeginTransaction());
 
+                        if (_db.DumpCommands && _db.DumpCommandDelegate != null)
+                            _db.DumpCommandDelegate(null, "BEGIN TRAN");
+                    }
+
                     _db.PoolStamp = DateTime.Now.Ticks;
-                    _operational = true;
+                    _isOperational = true;
                 }
             }
         }
@@ -90,7 +106,7 @@ namespace DynamORM
         {
             lock (_db.SyncLock)
             {
-                if (_operational)
+                if (_isOperational)
                 {
                     Stack<IDbTransaction> t = _db.TransactionPool.TryGetValue(_con.Connection);
 
@@ -102,10 +118,15 @@ namespace DynamORM
 
                         trans.Commit();
                         trans.Dispose();
+
+                        if (_db.DumpCommands && _db.DumpCommandDelegate != null)
+                            _db.DumpCommandDelegate(null, "COMMIT");
                     }
 
-                    _operational = false;
+                    _isOperational = false;
                 }
+                else if (!_isDisposed && _db.DumpCommands && _db.DumpCommandDelegate != null)
+                    _db.DumpCommandDelegate(null, "COMMIT [NON OPERATIONAL]");
             }
         }
 
@@ -114,7 +135,7 @@ namespace DynamORM
         {
             lock (_db.SyncLock)
             {
-                if (_operational)
+                if (_isOperational)
                 {
                     Stack<IDbTransaction> t = _db.TransactionPool.TryGetValue(_con.Connection);
 
@@ -126,10 +147,15 @@ namespace DynamORM
 
                         trans.Rollback();
                         trans.Dispose();
+
+                        if (_db.DumpCommands && _db.DumpCommandDelegate != null)
+                            _db.DumpCommandDelegate(null, "ROLLBACK");
                     }
 
-                    _operational = false;
+                    _isOperational = false;
                 }
+                else if (!_isDisposed && _db.DumpCommands && _db.DumpCommandDelegate != null)
+                    _db.DumpCommandDelegate(null, "ROLLBACK [NON OPERATIONAL]");
             }
         }
 
@@ -148,6 +174,7 @@ namespace DynamORM
         /// freeing, releasing, or resetting unmanaged resources.</summary>
         public void Dispose()
         {
+            _isDisposed = true;
             Rollback();
 
             if (_disposed != null)
@@ -155,7 +182,7 @@ namespace DynamORM
         }
 
         /// <summary>Gets a value indicating whether this instance is disposed.</summary>
-        public bool IsDisposed { get { return !_operational; } }
+        public bool IsDisposed { get { return !_isOperational; } }
 
         #endregion IExtendedDisposable Members
     }
