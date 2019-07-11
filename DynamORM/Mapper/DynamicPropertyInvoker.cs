@@ -63,6 +63,9 @@ namespace DynamORM.Mapper
         /// <summary>Gets value setter.</summary>
         public Action<object, object> Setter { get; private set; }
 
+        /// <summary>Gets the property information.</summary>
+        public PropertyInfo PropertyInfo { get; private set; }
+
         /// <summary>Gets name of property.</summary>
         public string Name { get; private set; }
 
@@ -83,6 +86,7 @@ namespace DynamORM.Mapper
         /// <param name="attr">Column attribute if exist.</param>
         public DynamicPropertyInvoker(PropertyInfo property, ColumnAttribute attr)
         {
+            PropertyInfo = property;
             Name = property.Name;
             Type = property.PropertyType;
 

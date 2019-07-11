@@ -1,3 +1,4 @@
+
 /*
  * DynamORM - Dynamic Object-Relational Mapping library.
  * Copyright (c) 2012-2015, Grzegorz Russek (grzegorz.russek@gmail.com)
@@ -4071,7 +4072,14 @@ namespace DynamORM
         /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
         public static IDbCommand SetParameter(this IDbCommand command, string parameterName, object value)
         {
-            ((IDbDataParameter)command.Parameters[parameterName]).Value = value;
+            try
+            {
+                ((IDbDataParameter)command.Parameters[parameterName]).Value = value;
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException(string.Format("Error setting parameter {0} in command {1}", parameterName, command.CommandText ?? string.Empty), ex);
+            }
 
             return command;
         }
@@ -4083,7 +4091,14 @@ namespace DynamORM
         /// <returns>Returns edited <see cref="System.Data.IDbCommand"/> instance.</returns>
         public static IDbCommand SetParameter(this IDbCommand command, int index, object value)
         {
-            ((IDbDataParameter)command.Parameters[index]).Value = value;
+            try
+            {
+                ((IDbDataParameter)command.Parameters[index]).Value = value;
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException(string.Format("Error setting parameter {0} in command {1}", index, command.CommandText ?? string.Empty), ex);
+            }
 
             return command;
         }
@@ -13198,6 +13213,9 @@ namespace DynamORM
             /// <summary>Gets value setter.</summary>
             public Action<object, object> Setter { get; private set; }
 
+            /// <summary>Gets the property information.</summary>
+            public PropertyInfo PropertyInfo { get; private set; }
+
             /// <summary>Gets name of property.</summary>
             public string Name { get; private set; }
 
@@ -13218,6 +13236,7 @@ namespace DynamORM
             /// <param name="attr">Column attribute if exist.</param>
             public DynamicPropertyInvoker(PropertyInfo property, ColumnAttribute attr)
             {
+                PropertyInfo = property;
                 Name = property.Name;
                 Type = property.PropertyType;
 
