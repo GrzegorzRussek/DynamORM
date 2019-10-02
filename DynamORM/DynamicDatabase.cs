@@ -27,6 +27,7 @@
 */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -380,8 +381,17 @@ namespace DynamORM
         /// <returns>Number of inserted rows.</returns>
         public virtual int Insert<T>(IEnumerable<T> e) where T : class
         {
+            return Insert(typeof(T), e);
+        }
+
+        /// <summary>Bulk insert objects into database.</summary>
+        /// <param name="t">Type of objects to insert.</param>
+        /// <param name="e">Enumerable containing instances of objects to insert.</param>
+        /// <returns>Number of inserted rows.</returns>
+        public virtual int Insert(Type t, IEnumerable e)
+        {
             int affected = 0;
-            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(typeof(T));
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(t);
 
             if (mapper != null)
             {
@@ -410,9 +420,9 @@ namespace DynamORM
                             }
                         }
                         else
-                            PrepareBatchInsert<T>(mapper, cmd, parameters);
+                            PrepareBatchInsert(t, mapper, cmd, parameters);
 
-                        foreach (T o in e)
+                        foreach (var o in e)
                         {
                             foreach (KeyValuePair<IDbDataParameter, DynamicPropertyInvoker> m in parameters)
                                 m.Key.Value = m.Value.Get(o);
@@ -478,8 +488,17 @@ namespace DynamORM
         /// <returns>Number of updated rows.</returns>
         public virtual int Update<T>(IEnumerable<T> e) where T : class
         {
+            return Update(typeof(T), e);
+        }
+
+        /// <summary>Bulk update objects in database.</summary>
+        /// <param name="T">Type of objects to update.</param>
+        /// <param name="e">Enumerable containing instances of objects to update.</param>
+        /// <returns>Number of updated rows.</returns>
+        public virtual int Update(Type t, IEnumerable e)
+        {
             int affected = 0;
-            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(typeof(T));
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(t);
 
             if (mapper != null)
             {
@@ -508,9 +527,9 @@ namespace DynamORM
                             }
                         }
                         else
-                            PrepareBatchUpdate<T>(mapper, cmd, parameters);
+                            PrepareBatchUpdate(t, mapper, cmd, parameters);
 
-                        foreach (T o in e)
+                        foreach (var o in e)
                         {
                             foreach (KeyValuePair<IDbDataParameter, DynamicPropertyInvoker> m in parameters)
                                 m.Key.Value = m.Value.Get(o);
@@ -544,8 +563,17 @@ namespace DynamORM
         /// <returns>Number of updated or inserted rows.</returns>
         public virtual int UpdateOrInsert<T>(IEnumerable<T> e) where T : class
         {
+            return UpdateOrInsert(typeof(T), e);
+        }
+
+        /// <summary>Bulk update or insert objects into database.</summary>
+        /// <param name="t">Type of objects to update or insert.</param>
+        /// <param name="e">Enumerable containing instances of objects to update or insert.</param>
+        /// <returns>Number of updated or inserted rows.</returns>
+        public virtual int UpdateOrInsert(Type t, IEnumerable e)
+        {
             int affected = 0;
-            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(typeof(T));
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(t);
 
             if (mapper != null)
             {
@@ -577,7 +605,7 @@ namespace DynamORM
                             }
                         }
                         else
-                            PrepareBatchUpdate<T>(mapper, cmdUp, parametersUp);
+                            PrepareBatchUpdate(t, mapper, cmdUp, parametersUp);
 
                         #endregion Update
 
@@ -602,11 +630,11 @@ namespace DynamORM
                             }
                         }
                         else
-                            PrepareBatchInsert<T>(mapper, cmdIn, parametersIn);
+                            PrepareBatchInsert(t, mapper, cmdIn, parametersIn);
 
                         #endregion Insert
 
-                        foreach (T o in e)
+                        foreach (var o in e)
                         {
                             foreach (KeyValuePair<IDbDataParameter, DynamicPropertyInvoker> m in parametersUp)
                                 m.Key.Value = m.Value.Get(o);
@@ -681,8 +709,17 @@ namespace DynamORM
         /// <returns>Number of deleted rows.</returns>
         public virtual int Delete<T>(IEnumerable<T> e) where T : class
         {
+            return Delete(typeof(T), e);
+        }
+
+        /// <summary>Bulk delete objects in database.</summary>
+        /// <param name="t">Type of objects to delete.</param>
+        /// <param name="e">Enumerable containing instances of objects to delete.</param>
+        /// <returns>Number of deleted rows.</returns>
+        public virtual int Delete(Type t, IEnumerable e)
+        {
             int affected = 0;
-            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(typeof(T));
+            DynamicTypeMap mapper = DynamicMapperCache.GetMapper(t);
 
             if (mapper != null)
             {
@@ -711,9 +748,9 @@ namespace DynamORM
                             }
                         }
                         else
-                            PrepareBatchDelete<T>(mapper, cmd, parameters);
+                            PrepareBatchDelete(t, mapper, cmd, parameters);
 
-                        foreach (T o in e)
+                        foreach (var o in e)
                         {
                             foreach (KeyValuePair<IDbDataParameter, DynamicPropertyInvoker> m in parameters)
                                 m.Key.Value = m.Value.Get(o);
@@ -743,12 +780,17 @@ namespace DynamORM
 
         private void PrepareBatchInsert<T>(DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
         {
+            PrepareBatchInsert(typeof(T), mapper, cmd, parameters);
+        }
+
+        private void PrepareBatchInsert(Type t, DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
+        {
             DynamicPropertyInvoker currentprop = null;
             Dictionary<string, DynamicPropertyInvoker> temp = new Dictionary<string, DynamicPropertyInvoker>();
-            Dictionary<string, DynamicSchemaColumn> schema = this.GetSchema<T>();
+            Dictionary<string, DynamicSchemaColumn> schema = this.GetSchema(t);
             int ord = 0;
 
-            IDynamicInsertQueryBuilder ib = Insert<T>()
+            IDynamicInsertQueryBuilder ib = Insert(t)
                 .SetVirtualMode(true)
                 .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
                 .CreateParameterAction((p, cp) =>
@@ -790,12 +832,17 @@ namespace DynamORM
 
         private void PrepareBatchUpdate<T>(DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
         {
+            PrepareBatchUpdate(typeof(T), mapper, cmd, parameters);
+        }
+
+        private void PrepareBatchUpdate(Type t, DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
+        {
             DynamicPropertyInvoker currentprop = null;
             Dictionary<string, DynamicPropertyInvoker> temp = new Dictionary<string, DynamicPropertyInvoker>();
-            Dictionary<string, DynamicSchemaColumn> schema = this.GetSchema<T>();
+            Dictionary<string, DynamicSchemaColumn> schema = this.GetSchema(t);
             int ord = 0;
 
-            IDynamicUpdateQueryBuilder ib = Update<T>()
+            IDynamicUpdateQueryBuilder ib = Update(t)
                 .SetVirtualMode(true)
                 .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
                 .CreateParameterAction((p, cp) =>
@@ -863,12 +910,17 @@ namespace DynamORM
 
         private void PrepareBatchDelete<T>(DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
         {
+            PrepareBatchDelete(typeof(T), mapper, cmd, parameters);
+        }
+
+        private void PrepareBatchDelete(Type t, DynamicTypeMap mapper, IDbCommand cmd, Dictionary<IDbDataParameter, DynamicPropertyInvoker> parameters)
+        {
             DynamicPropertyInvoker currentprop = null;
             Dictionary<string, DynamicPropertyInvoker> temp = new Dictionary<string, DynamicPropertyInvoker>();
-            Dictionary<string, DynamicSchemaColumn> schema = this.GetSchema<T>();
+            Dictionary<string, DynamicSchemaColumn> schema = this.GetSchema(t);
             int ord = 0;
 
-            IDynamicDeleteQueryBuilder ib = Delete<T>()
+            IDynamicDeleteQueryBuilder ib = Delete(t)
                 .SetVirtualMode(true)
                 .CreateTemporaryParameterAction(p => temp[p.Name] = currentprop)
                 .CreateParameterAction((p, cp) =>

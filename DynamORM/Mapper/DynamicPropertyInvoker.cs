@@ -111,6 +111,9 @@ namespace DynamORM.Mapper
 
             Column = attr;
 
+            if (attr != null && attr.AllowNull && Type.IsNullableType())
+                attr.AllowNull = false;
+
             if (property.CanRead)
                 Get = CreateGetter(property);
 

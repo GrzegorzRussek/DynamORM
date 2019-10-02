@@ -1322,7 +1322,7 @@ namespace DynamORM
         {
             Type generic = type.IsGenericType ? type.GetGenericTypeDefinition() : null;
 
-            if (generic != null && generic.Equals(typeof(Nullable<>)) && type.IsClass)
+            if (generic != null && generic.Equals(typeof(Nullable<>)) && (type.IsClass || type.IsValueType || type.IsEnum))
                 return true;
 
             return false;
