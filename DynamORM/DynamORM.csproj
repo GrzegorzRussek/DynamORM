@@ -105,6 +105,10 @@
     <Compile Include="Mapper\DynamicPropertyInvoker.cs" />
     <Compile Include="Mapper\DynamicTypeMap.cs" />
     <Compile Include="Mapper\IgnoreAttribute.cs" />
+    <Compile Include="Objects\DynamicEntityBase.cs" />
+    <Compile Include="Objects\DynamicEntityState.cs" />
+    <Compile Include="Objects\DynamicPropertyChangingEventArgs.cs" />
+    <Compile Include="Objects\DynamicRepositoryBase.cs" />
     <Compile Include="Validation\RequiredAttribute.cs" />
     <Compile Include="Mapper\TableAttribute.cs" />
     <Compile Include="Mapper\DynamicCast.cs" />

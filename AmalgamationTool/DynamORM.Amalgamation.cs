@@ -1952,7 +1952,7 @@ namespace DynamORM
         }
 
         /// <summary>Bulk update objects in database.</summary>
-        /// <param name="T">Type of objects to update.</param>
+        /// <param name="t">Type of objects to update.</param>
         /// <param name="e">Enumerable containing instances of objects to update.</param>
         /// <returns>Number of updated rows.</returns>
         public virtual int Update(Type t, IEnumerable e)
@@ -13811,6 +13811,429 @@ namespace DynamORM
             /// <remarks>If database doesn't support schema, you still have to
             /// set this to true to get schema from type.</remarks>
             public bool Override { get; set; }
+        }
+    }
+
+    namespace Objects
+    {
+        /// <summary>Base class for strong typed objects.</summary>
+        public class DynamicEntityBase
+        {
+            private Dictionary<string, object> _changedFields = new Dictionary<string, object>();
+            private DynamicEntityState _dynamicEntityState = DynamicEntityState.Unknown;
+
+            /// <summary>Occurs when object property is changing.</summary>
+            public event EventHandler<DynamicPropertyChangingEventArgs> PropertyChanging;
+
+            /// <summary>Gets the state of the dynamic entity.</summary>
+            /// <returns>Current state of entity.</returns>
+            public virtual DynamicEntityState GetDynamicEntityState() { return _dynamicEntityState; }
+
+            /// <summary>Sets the state of the dynamic entity.</summary>
+            /// <param name="state">The state.</param>
+            public virtual void SetDynamicEntityState(DynamicEntityState state) { _dynamicEntityState = state; }
+
+            /// <summary>Called when object property is changing.</summary>
+            /// <param name="propertyName">Name of the property.</param>
+            /// <param name="oldValue">The old property value.</param>
+            /// <param name="newValue">The new property value.</param>
+            protected virtual void OnPropertyChanging(string propertyName, object oldValue, object newValue)
+            {
+                OnPropertyChanging(new DynamicPropertyChangingEventArgs(propertyName, oldValue, newValue));
+            }
+
+            /// <summary>Raises the <see cref="E:PropertyChanging"/> event.</summary>
+            /// <param name="e">The <see cref="DynamicPropertyChangingEventArgs"/> instance containing the event data.</param>
+            protected virtual void OnPropertyChanging(DynamicPropertyChangingEventArgs e)
+            {
+                _changedFields[e.PropertyName] = e.NewValue;
+                if (PropertyChanging != null)
+                    PropertyChanging(this, e);
+            }
+
+            /// <summary>Validates this object instance.</summary>
+            /// <returns>Returns list of <see cref="ValidationResult"/> containing results of validation.</returns>
+            public virtual IList<ValidationResult> Validate()
+            {
+                return DynamicMapperCache.GetMapper(this.GetType()).ValidateObject(this);
+            }
+
+            /// <summary>Saves this object to database.</summary>
+            /// <param name="database">The database.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            /// <exception cref="InvalidOperationException">Can be thrown when object is in invalid state.</exception>
+            public virtual bool Save(DynamicDatabase database)
+            {
+                switch (GetDynamicEntityState())
+                {
+                    default:
+                    case DynamicEntityState.Unknown:
+                        throw new InvalidOperationException("Unknown object state. Unable to decide whish action should be performed.");
+
+                    case DynamicEntityState.New:
+                        return Insert(database);
+
+                    case DynamicEntityState.Existing:
+                        return Update(database);
+
+                    case DynamicEntityState.ToBeDeleted:
+                        return Delete(database);
+
+                    case DynamicEntityState.Deleted:
+                        throw new InvalidOperationException("Unable to do any database action on deleted object.");
+                }
+            }
+
+            #region Insert/Update/Delete
+
+            /// <summary>Inserts this object to database.</summary>
+            /// <param name="db">The database.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Insert(DynamicDatabase db)
+            {
+                if (db.Insert(this.GetType())
+                           .Values(x => this)
+                           .Execute() > 0)
+                {
+                    _changedFields.Clear();
+                    SetDynamicEntityState(DynamicEntityState.Existing);
+                    return true;
+                }
+
+                return false;
+            }
+
+            /// <summary>Updates this object in database.</summary>
+            /// <param name="db">The database.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Update(DynamicDatabase db)
+            {
+                var t = GetType();
+                var mapper = DynamicMapperCache.GetMapper(t);
+                var query = db.Update(t);
+
+                MakeQueryWhere(mapper, query);
+
+                if (_changedFields.Any())
+                {
+                    bool any = false;
+
+                    foreach (var cf in _changedFields)
+                    {
+                        var cn = mapper.PropertyMap[cf.Key];
+                        var pm = mapper.ColumnsMap[cn.ToLower()];
+                        if (pm.Ignore)
+                            continue;
+
+                        if (pm.Column != null)
+                        {
+                            if (pm.Column.IsKey)
+                                continue;
+
+                            if (!pm.Column.AllowNull && cf.Value == null)
+                                continue;
+                        }
+
+                        query.Values(cn, cf.Value);
+                        any = true;
+                    }
+
+                    if (!any)
+                        query.Set(x => this);
+                }
+                else
+                    query.Set(x => this);
+
+                if (query.Execute() == 0)
+                    return false;
+
+                SetDynamicEntityState(DynamicEntityState.Existing);
+                _changedFields.Clear();
+
+                return true;
+            }
+
+            /// <summary>Deletes this object from database.</summary>
+            /// <param name="db">The database.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Delete(DynamicDatabase db)
+            {
+                var t = this.GetType();
+                var mapper = DynamicMapperCache.GetMapper(t);
+
+                var query = db.Delete(t);
+
+                MakeQueryWhere(mapper, query);
+
+                if (query.Execute() == 0)
+                    return false;
+
+                SetDynamicEntityState(DynamicEntityState.Deleted);
+
+                return true;
+            }
+
+            #endregion Insert/Update/Delete
+
+            #region Select
+
+            /// <summary>Refresh non key data from database.</summary>
+            /// <param name="db">The database.</param>
+            /// <remarks>All properties that are primary key values must be filled.</remarks>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Refresh(DynamicDatabase db)
+            {
+                var t = this.GetType();
+                var mapper = DynamicMapperCache.GetMapper(t);
+                var query = db.From(t);
+                MakeQueryWhere(mapper, query);
+                var o = (query.Execute() as IEnumerable<dynamic>).FirstOrDefault();
+
+                if (o == null)
+                    return false;
+
+                mapper.Map(o, this);
+
+                SetDynamicEntityState(DynamicEntityState.Existing);
+                _changedFields.Clear();
+
+                return true;
+            }
+
+            #endregion Select
+
+            #region Query Helpers
+
+            private void MakeQueryWhere(DynamicTypeMap mapper, IDynamicUpdateQueryBuilder query)
+            {
+                bool keyNotDefined = true;
+
+                foreach (var cm in mapper.ColumnsMap)
+                {
+                    if (cm.Value.Column != null && cm.Value.Column.IsKey)
+                    {
+                        query.Where(cm.Key, DynamicColumn.CompareOperator.Eq, cm.Value.Get(this));
+                        keyNotDefined = false;
+                    }
+                }
+
+                if (keyNotDefined)
+                    throw new InvalidOperationException(String.Format("Class '{0}' have no key columns defined",
+                        this.GetType().FullName));
+            }
+
+            private void MakeQueryWhere(DynamicTypeMap mapper, IDynamicDeleteQueryBuilder query)
+            {
+                bool keyNotDefined = true;
+
+                foreach (var cm in mapper.ColumnsMap)
+                {
+                    if (cm.Value.Column != null && cm.Value.Column.IsKey)
+                    {
+                        query.Where(cm.Key, DynamicColumn.CompareOperator.Eq, cm.Value.Get(this));
+                        keyNotDefined = false;
+                    }
+                }
+
+                if (keyNotDefined)
+                    throw new InvalidOperationException(String.Format("Class '{0}' have no key columns defined",
+                        this.GetType().FullName));
+            }
+
+            private void MakeQueryWhere(DynamicTypeMap mapper, IDynamicSelectQueryBuilder query)
+            {
+                bool keyNotDefined = true;
+
+                foreach (var cm in mapper.ColumnsMap)
+                {
+                    if (cm.Value.Column != null && cm.Value.Column.IsKey)
+                    {
+                        var v = cm.Value.Get(this);
+
+                        if (v == null)
+                            throw new InvalidOperationException(String.Format("Class '{0}' have key columns {1} not filled with data.",
+                                this.GetType().FullName, cm.Value.Name));
+
+                        query.Where(cm.Key, DynamicColumn.CompareOperator.Eq, cm.Value.Get(this));
+                        keyNotDefined = false;
+                    }
+                }
+
+                if (keyNotDefined)
+                    throw new InvalidOperationException(String.Format("Class '{0}' have no key columns defined",
+                        this.GetType().FullName));
+            }
+
+            #endregion Query Helpers
+        }
+
+        /// <summary>Possible states of dynamic database objects.</summary>
+        public enum DynamicEntityState
+        {
+            /// <summary>Default state. This state will only permit to refresh data from database.</summary>
+            /// <remarks>In this state repository will be unable to tell if object with this state should be added
+            /// or updated in database, but you can still manually perform update or insert on such object.</remarks>
+            Unknown,
+
+            /// <summary>This state should be set to new objects in database.</summary>
+            New,
+
+            /// <summary>This state is ser when data is refreshed from database or object was loaded from repository.</summary>
+            Existing,
+
+            /// <summary>You can set this state to an object if you want repository to perform delete from database.</summary>
+            ToBeDeleted,
+
+            /// <summary>This state is set for objects that were deleted from database.</summary>
+            Deleted,
+        }
+
+        /// <summary>Class containing changed property data.</summary>
+        /// <seealso cref="System.EventArgs" />
+        public class DynamicPropertyChangingEventArgs : EventArgs
+        {
+            /// <summary>Gets the name of the property.</summary>
+            /// <value>The name of the property.</value>
+            public string PropertyName { get; private set; }
+
+            /// <summary>Gets the old property value.</summary>
+            /// <value>The old value.</value>
+            public object OldValue { get; private set; }
+
+            /// <summary>Gets the new property value.</summary>
+            /// <value>The new value.</value>
+            public object NewValue { get; private set; }
+
+            /// <summary>Initializes a new instance of the <see cref="DynamicPropertyChangingEventArgs"/> class.</summary>
+            /// <param name="propertyName">Name of the property.</param>
+            /// <param name="oldValue">The old property value.</param>
+            /// <param name="newValue">The new property value.</param>
+            public DynamicPropertyChangingEventArgs(string propertyName, object oldValue, object newValue)
+            {
+                PropertyName = propertyName;
+                OldValue = oldValue;
+                NewValue = newValue;
+            }
+        }
+
+        /// <summary>Base repository class for specified object type.</summary>
+        /// <typeparam name="T">Type of stored object.</typeparam>
+        public class DynamicRepositoryBase<T> : IDisposable where T : DynamicEntityBase
+        {
+            private DynamicDatabase _database;
+
+            /// <summary>Initializes a new instance of the <see cref="DynamicRepositoryBase{T}"/> class.</summary>
+            /// <param name="database">The database.</param>
+            public DynamicRepositoryBase(DynamicDatabase database)
+            {
+                _database = database;
+            }
+
+            /// <summary>Get all rows from database.</summary>
+            /// <returns>Objects enumerator.</returns>
+            public virtual IEnumerable<T> GetAll()
+            {
+                return EnumerateQuery(_database.From<T>());
+            }
+
+            /// <summary>Get rows from database by custom query.</summary>
+            /// <param name="query">The query.</param>
+            /// <remarks>Query must be based on object type.</remarks>
+            /// <returns>Objects enumerator.</returns>
+            public virtual IEnumerable<T> GetByQuery(IDynamicSelectQueryBuilder query)
+            {
+                return EnumerateQuery(query);
+            }
+
+            private IEnumerable<T> EnumerateQuery(IDynamicSelectQueryBuilder query, bool forceType = true)
+            {
+                if (forceType)
+                {
+                    var mapper = DynamicMapperCache.GetMapper(typeof(T));
+
+                    var tn = mapper.Table == null || string.IsNullOrEmpty(mapper.Table.Name) ?
+                        mapper.Type.Name : mapper.Table.Name;
+
+                    if (!query.Tables.Any(t => t.Name == tn))
+                        throw new InvalidOperationException(string.Format("Query is not related to '{0}' class.", typeof(T).FullName));
+                }
+
+                foreach (var o in query.Execute<T>())
+                {
+                    o.SetDynamicEntityState(DynamicEntityState.Existing);
+                    yield return o;
+                }
+            }
+
+            /// <summary>Saves single object to database.</summary>
+            /// <param name="element">The element.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Save(T element)
+            {
+                return element.Save(_database);
+            }
+
+            /// <summary>Saves collection of objects to database.</summary>
+            /// <param name="element">The element.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Save(IEnumerable<T> element)
+            {
+                return element.All(x => x.Save(_database));
+            }
+
+            /// <summary>Insert single object to database.</summary>
+            /// <param name="element">The element.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Insert(T element)
+            {
+                return element.Insert(_database);
+            }
+
+            /// <summary>Insert collection of objects to database.</summary>
+            /// <param name="element">The element.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Insert(IEnumerable<T> element)
+            {
+                return element.All(x => x.Insert(_database));
+            }
+
+            /// <summary>Update single object to database.</summary>
+            /// <param name="element">The element.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Update(T element)
+            {
+                return element.Update(_database);
+            }
+
+            /// <summary>Update collection of objects to database.</summary>
+            /// <param name="element">The element.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Update(IEnumerable<T> element)
+            {
+                return element.All(x => x.Update(_database));
+            }
+
+            /// <summary>Delete single object to database.</summary>
+            /// <param name="element">The element.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Delete(T element)
+            {
+                return element.Delete(_database);
+            }
+
+            /// <summary>Delete collection of objects to database.</summary>
+            /// <param name="element">The element.</param>
+            /// <returns>Returns <c>true</c> if operation was successful.</returns>
+            public virtual bool Delete(IEnumerable<T> element)
+            {
+                return element.All(x => x.Delete(_database));
+            }
+
+            /// <summary>Releases unmanaged and - optionally - managed resources.</summary>
+            public virtual void Dispose()
+            {
+                _database = null;
+            }
         }
     }
 

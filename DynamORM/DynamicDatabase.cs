@@ -492,7 +492,7 @@ namespace DynamORM
         }
 
         /// <summary>Bulk update objects in database.</summary>
-        /// <param name="T">Type of objects to update.</param>
+        /// <param name="t">Type of objects to update.</param>
         /// <param name="e">Enumerable containing instances of objects to update.</param>
         /// <returns>Number of updated rows.</returns>
         public virtual int Update(Type t, IEnumerable e)
