@@ -108,7 +108,11 @@ namespace DynamORM.Mapper
 
         private Func<object> CreateCreator()
         {
-            if (Type.GetConstructor(Type.EmptyTypes) != null)
+            var c = Type.GetConstructor(Type.EmptyTypes);
+            if (c == null)
+                c = Type.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+
+            if (c != null)
                 return Expression.Lambda<Func<object>>(Expression.New(Type)).Compile();
 
             return null;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace AmalgamationTool
 {
@@ -24,41 +25,61 @@ namespace AmalgamationTool
 
                 // Deal with usings
                 foreach (var u in content.Split(new string[] { Environment.NewLine }, StringSplitOptions.None)
-                    .Where(l => l.TrimEnd().StartsWith("using "))
+                    .Where(l => l.Trim().StartsWith("using "))
                     .Select(l => l.Trim()))
                     if (!usings.Contains(u))
                         usings.Add(u);
 
                 // Extract namespace
-                var nstart = content.IndexOf("namespace ") + "namespace ".Length;
-                var bbrace = content.IndexOf("{", nstart);
-                var nlen = bbrace - nstart;
 
-                if (nstart < "namespace ".Length)
+                //if (args.Length > 2)
+                //{
+                //    var tcontent = Regex.Replace(content, @"^\s*using\s+.*\s*;$", string.Empty);
+                //    tcontent = Regex.Replace(content, @"^\s*namespace\s+.*\s*", string.Empty).Trim();
+
+                //    var ns = Regex.Match(content, @"^\s*namespace\s+(?<ns>.*)\s*");
+
+                //    if (ns.Success)
+                //    {
+                //        if (!classes.ContainsKey(ns.Groups["ns"].Value))
+                //            classes.Add(ns.Groups["ns"].Value, new List<string>());
+
+                //        classes[ns.Groups["ns"].Value].Add(tcontent);
+                //    }
+                //}
+                //else
                 {
-                    if (f.Name.ToLower() == "assemblyinfo.cs")
+                    var nstart = content.IndexOf("namespace ") + "namespace ".Length;
+                    var bbrace = content.IndexOf("{", nstart);
+                    var nlen = bbrace - nstart;
+
+                    if (nstart < "namespace ".Length)
                     {
-                        var hs = content.IndexOf("/*");
-                        var es = content.IndexOf("*/", hs) + 2;
-                        if (es > hs)
+                        if (f.Name.ToLower() == "assemblyinfo.cs")
                         {
-                            sb.AppendLine(content.Substring(hs, es - hs));
-                            sb.AppendLine();
+                            var hs = content.IndexOf("/*");
+                            var es = content.IndexOf("*/", hs) + 2;
+                            if (es > hs)
+                            {
+                                sb.AppendLine(content.Substring(hs, es - hs));
+                                sb.AppendLine();
+                            }
                         }
+
+                        continue;
                     }
-                    continue;
+
+                    string ns = content.Substring(nstart, nlen).Trim();
+
+                    // Add namespace if not exist
+                    if (!classes.ContainsKey(ns))
+                        classes.Add(ns, new List<string>());
+
+                    var ebrace = content.LastIndexOf('}');
+
+                    // Cut content as class/enum
+                    classes[ns].Add(content.Substring(bbrace + 1, ebrace - bbrace - 1));
                 }
-
-                string ns = content.Substring(nstart, nlen).Trim();
-
-                // Add namespace if not exist
-                if (!classes.ContainsKey(ns))
-                    classes.Add(ns, new List<string>());
-
-                var ebrace = content.LastIndexOf('}');
-
-                // Cut content as class/enum
-                classes[ns].Add(content.Substring(bbrace + 1, ebrace - bbrace - 1));
             }
 
             usings.Sort();
@@ -88,12 +109,14 @@ namespace AmalgamationTool
 
         private static void FillClassesAndNamespacesIddented(Dictionary<string, List<string>> classes, StringBuilder sb)
         {
-            foreach (var n in classes.Where(nc => nc.Key.Split('.').Count() == 1))
+            var min = classes.Min(k => k.Key.Split('.').Count());
+
+            foreach (var n in classes.Where(nc => nc.Key.Split('.').Count() == min))
             {
                 sb.AppendFormat("namespace {0}{1}{{", n.Key, Environment.NewLine);
                 n.Value.ForEach(c => sb.Append(c));
 
-                SubNamespaces(classes, n.Key, sb, 1);
+                SubNamespaces(classes, n.Key, sb, min);
 
                 sb.AppendLine("}");
                 sb.AppendLine(string.Empty);

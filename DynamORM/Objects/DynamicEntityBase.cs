@@ -21,8 +21,15 @@ namespace DynamORM.Objects
         public virtual DynamicEntityState GetDynamicEntityState() { return _dynamicEntityState; }
 
         /// <summary>Sets the state of the dynamic entity.</summary>
+        /// <remarks>Using this method will reset modified fields list.</remarks>
         /// <param name="state">The state.</param>
-        public virtual void SetDynamicEntityState(DynamicEntityState state) { _dynamicEntityState = state; }
+        public virtual void SetDynamicEntityState(DynamicEntityState state)
+        {
+            _dynamicEntityState = state;
+
+            if (_changedFields != null)
+                _changedFields.Clear();
+        }
 
         /// <summary>Called when object property is changing.</summary>
         /// <param name="propertyName">Name of the property.</param>
@@ -65,7 +72,10 @@ namespace DynamORM.Objects
                     return Insert(database);
 
                 case DynamicEntityState.Existing:
-                    return Update(database);
+                    if (IsModified())
+                        return Update(database);
+
+                    return true;
 
                 case DynamicEntityState.ToBeDeleted:
                     return Delete(database);
@@ -73,6 +83,16 @@ namespace DynamORM.Objects
                 case DynamicEntityState.Deleted:
                     throw new InvalidOperationException("Unable to do any database action on deleted object.");
             }
+        }
+
+        /// <summary>Determines whether this instance is in existing state and fields was modified since this state was set modified.</summary>
+        /// <returns>Returns <c>true</c> if this instance is modified; otherwise, <c>false</c>.</returns>
+        public virtual bool IsModified()
+        {
+            if (GetDynamicEntityState() != DynamicEntityState.Existing)
+                return false;
+
+            return _changedFields != null && _changedFields.Any();
         }
 
         #region Insert/Update/Delete

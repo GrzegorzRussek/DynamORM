@@ -4574,6 +4574,9 @@ namespace DynamORM
         /// <returns>Converted object.</returns>
         public static dynamic ToDynamic(this object o)
         {
+            if (o == null)
+                return null;
+
             Type ot = o.GetType();
 
             if (ot == typeof(DynamicExpando) || ot == typeof(ExpandoObject))
@@ -13592,7 +13595,11 @@ namespace DynamORM
 
             private Func<object> CreateCreator()
             {
-                if (Type.GetConstructor(Type.EmptyTypes) != null)
+                var c = Type.GetConstructor(Type.EmptyTypes);
+                if (c == null)
+                    c = Type.GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+
+                if (c != null)
                     return Expression.Lambda<Func<object>>(Expression.New(Type)).Compile();
 
                 return null;
@@ -13830,8 +13837,15 @@ namespace DynamORM
             public virtual DynamicEntityState GetDynamicEntityState() { return _dynamicEntityState; }
 
             /// <summary>Sets the state of the dynamic entity.</summary>
+            /// <remarks>Using this method will reset modified fields list.</remarks>
             /// <param name="state">The state.</param>
-            public virtual void SetDynamicEntityState(DynamicEntityState state) { _dynamicEntityState = state; }
+            public virtual void SetDynamicEntityState(DynamicEntityState state)
+            {
+                _dynamicEntityState = state;
+
+                if (_changedFields != null)
+                    _changedFields.Clear();
+            }
 
             /// <summary>Called when object property is changing.</summary>
             /// <param name="propertyName">Name of the property.</param>
@@ -13874,7 +13888,10 @@ namespace DynamORM
                         return Insert(database);
 
                     case DynamicEntityState.Existing:
-                        return Update(database);
+                        if (IsModified())
+                            return Update(database);
+
+                        return true;
 
                     case DynamicEntityState.ToBeDeleted:
                         return Delete(database);
@@ -13882,6 +13899,16 @@ namespace DynamORM
                     case DynamicEntityState.Deleted:
                         throw new InvalidOperationException("Unable to do any database action on deleted object.");
                 }
+            }
+
+            /// <summary>Determines whether this instance is in existing state and fields was modified since this state was set modified.</summary>
+            /// <returns>Returns <c>true</c> if this instance is modified; otherwise, <c>false</c>.</returns>
+            public virtual bool IsModified()
+            {
+                if (GetDynamicEntityState() != DynamicEntityState.Existing)
+                    return false;
+
+                return _changedFields != null && _changedFields.Any();
             }
 
             #region Insert/Update/Delete
