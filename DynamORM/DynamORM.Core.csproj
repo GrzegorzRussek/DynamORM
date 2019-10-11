@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <Description>Dynamic Object-Relational Mapping library.</Description>
+    <Copyright>Copyright © RUSSEK Software 2012-2019</Copyright>
+    <Company>RUSSEK Software</Company>
+    <Authors>Grzegorz Russek</Authors>
+    <FileVersion>1.1.0.1</FileVersion>
+    <AssemblyVersion>1.1.0.1</AssemblyVersion>
+    <RepositoryUrl>https://dr4cul4.pl/svn/DynamORM/</RepositoryUrl>
+    <PackageProjectUrl>https://dr4cul4.pl</PackageProjectUrl>
+    <Product>DynamORM</Product>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+</Project>

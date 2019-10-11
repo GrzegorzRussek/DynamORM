@@ -45,7 +45,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("RUSSEK Software")]
 [assembly: AssemblyProduct("DynamORM")]
-[assembly: AssemblyCopyright("Copyright © RUSSEK Software 2012")]
+[assembly: AssemblyCopyright("Copyright © RUSSEK Software 2012-2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

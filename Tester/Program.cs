@@ -21,7 +21,9 @@ namespace Tester
 
         private static void Main(string[] args)
         {
-            DynamicDatabase db = new DynamicDatabase(System.Data.SqlClient.SqlClientFactory.Instance, "packet size=4096;User Id=sa;Password=Sa123;data source=127.0.0.1,1434;initial catalog=MAH_Levant;",
+            var c = new System.Data.SqlClient.SqlConnection("packet size=4096;User Id=sa;Password=Sa123;data source=127.0.0.1,1434;initial catalog=MAH_Levant;");
+
+            DynamicDatabase db = new DynamicDatabase(c,
                 DynamicDatabaseOptions.SingleConnection | DynamicDatabaseOptions.SingleTransaction | DynamicDatabaseOptions.SupportSchema |
                 DynamicDatabaseOptions.SupportStoredProcedures | DynamicDatabaseOptions.SupportTop | DynamicDatabaseOptions.DumpCommands);
 
