@@ -1626,19 +1626,61 @@ namespace DynamORM
             InitCommon(connectionString, options);
         }
 
+        private DbProviderFactory FindDbProviderFactoryFromConnection(Type t)
+        {
+            foreach (var type in t.Assembly.GetTypes().Where(x => x.IsSubclassOf(typeof(DbProviderFactory))))
+            {
+                DbProviderFactory provider = null;
+                bool dispose = false;
+
+                var pi = type.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.GetProperty);
+                if (pi != null)
+                    provider = (DbProviderFactory)pi.GetValue(null, null);
+                else
+                {
+                    var fi = type.GetField("Instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.GetField);
+                    if (fi != null)
+                        provider = (DbProviderFactory)fi.GetValue(null);
+                }
+
+                if (provider == null)
+                {
+                    var ci = type.GetConstructor(Type.EmptyTypes);
+                    if (ci != null)
+                    {
+                        provider = ci.Invoke(null) as DbProviderFactory;
+                        dispose = true;
+                    }
+                }
+
+                try
+                {
+                    if (provider != null)
+                    {
+                        using (var c = provider.CreateConnection())
+                        {
+                            if (c.GetType() == t)
+                                return provider;
+                        }
+                    }
+                }
+                finally
+                {
+                    if (provider != null && dispose && provider is IDisposable)
+                        ((IDisposable)provider).Dispose();
+                }
+            }
+
+            return null;
+        }
+
         /// <summary>Initializes a new instance of the <see cref="DynamicDatabase" /> class.</summary>
         /// <param name="connection">Active database connection.</param>
         /// <param name="options">Connection options. <see cref="DynamicDatabaseOptions.SingleConnection"/> required.</param>
         public DynamicDatabase(IDbConnection connection, DynamicDatabaseOptions options)
         {
             // Try to find correct provider if possible
-            Type t = connection.GetType();
-            if (t == typeof(System.Data.SqlClient.SqlConnection))
-                _provider = System.Data.SqlClient.SqlClientFactory.Instance;
-            else if (t == typeof(System.Data.Odbc.OdbcConnection))
-                _provider = System.Data.Odbc.OdbcFactory.Instance;
-            else if (t == typeof(System.Data.OleDb.OleDbConnection))
-                _provider = System.Data.OleDb.OleDbFactory.Instance;
+            _provider = FindDbProviderFactoryFromConnection(connection.GetType());
 
             IsDisposed = false;
             InitCommon(connection.ConnectionString, options);
@@ -2901,7 +2943,7 @@ namespace DynamORM
             Type type = (Type)schema.DATATYPE;
 
             // Small hack for SQL Server Provider
-            if (type == typeof(string) && Provider != null && Provider.GetType() == typeof(System.Data.SqlClient.SqlClientFactory))
+            if (type == typeof(string) && Provider != null && Provider.GetType().Name == "SqlClientFactory")
             {
                 var map = schema as IDictionary<string, object>;
                 string typeName = (map.TryGetValue("DATATYPENAME") ?? string.Empty).ToString();
@@ -4574,9 +4616,6 @@ namespace DynamORM
         /// <returns>Converted object.</returns>
         public static dynamic ToDynamic(this object o)
         {
-            if (o == null)
-                return null;
-
             Type ot = o.GetType();
 
             if (ot == typeof(DynamicExpando) || ot == typeof(ExpandoObject))

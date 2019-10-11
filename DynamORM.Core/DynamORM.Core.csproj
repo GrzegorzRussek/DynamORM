@@ -14,4 +14,9 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Include="..\AmalgamationTool\DynamORM.Amalgamation.cs" Link="DynamORM.Amalgamation.cs" />
+    <Compile Include="..\DynamORM\Properties\AssemblyInfo.cs" Link="AssemblyInfo.cs" />
+  </ItemGroup>
+
 </Project>

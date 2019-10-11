@@ -49,6 +49,9 @@ namespace AmalgamationTool
                 //}
                 //else
                 {
+                    if (content.Trim().Length == 0)
+                        continue;
+
                     var nstart = content.IndexOf("namespace ") + "namespace ".Length;
                     var bbrace = content.IndexOf("{", nstart);
                     var nlen = bbrace - nstart;
