@@ -23,7 +23,8 @@ namespace DynamORM.Objects
         /// <returns>Objects enumerator.</returns>
         public virtual IEnumerable<T> GetAll()
         {
-            return EnumerateQuery(_database.From<T>());
+            using (var q = _database.From<T>())
+                return EnumerateQuery(q);
         }
 
         /// <summary>Get rows from database by custom query.</summary>

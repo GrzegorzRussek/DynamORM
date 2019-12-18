@@ -82,6 +82,10 @@ namespace DynamORM.Mapper
 
             foreach (PropertyInfo pi in GetAllMembers(Type).Where(x => x is PropertyInfo).Cast<PropertyInfo>())
             {
+                // Skip indexers
+                if (pi.GetIndexParameters().Any())
+                    continue;
+
                 ColumnAttribute attr = null;
 
                 object[] attrs = pi.GetCustomAttributes(typeof(ColumnAttribute), true);

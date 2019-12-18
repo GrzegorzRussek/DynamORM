@@ -102,13 +102,16 @@ namespace DynamORM.Objects
         /// <returns>Returns <c>true</c> if operation was successful.</returns>
         public virtual bool Insert(DynamicDatabase db)
         {
-            if (db.Insert(this.GetType())
-                       .Values(x => this)
-                       .Execute() > 0)
+            using (var query = db.Insert(this.GetType()))
             {
-                _changedFields.Clear();
-                SetDynamicEntityState(DynamicEntityState.Existing);
-                return true;
+                if (query
+                    .Values(x => this)
+                    .Execute() > 0)
+                {
+                    _changedFields.Clear();
+                    SetDynamicEntityState(DynamicEntityState.Existing);
+                    return true;
+                }
             }
 
             return false;
@@ -121,47 +124,49 @@ namespace DynamORM.Objects
         {
             var t = GetType();
             var mapper = DynamicMapperCache.GetMapper(t);
-            var query = db.Update(t);
-
-            MakeQueryWhere(mapper, query);
-
-            if (_changedFields.Any())
+            using (var query = db.Update(t))
             {
-                bool any = false;
 
-                foreach (var cf in _changedFields)
+                MakeQueryWhere(mapper, query);
+
+                if (_changedFields.Any())
                 {
-                    var cn = mapper.PropertyMap[cf.Key];
-                    var pm = mapper.ColumnsMap[cn.ToLower()];
-                    if (pm.Ignore)
-                        continue;
+                    bool any = false;
 
-                    if (pm.Column != null)
+                    foreach (var cf in _changedFields)
                     {
-                        if (pm.Column.IsKey)
+                        var cn = mapper.PropertyMap[cf.Key];
+                        var pm = mapper.ColumnsMap[cn.ToLower()];
+                        if (pm.Ignore)
                             continue;
 
-                        if (!pm.Column.AllowNull && cf.Value == null)
-                            continue;
+                        if (pm.Column != null)
+                        {
+                            if (pm.Column.IsKey)
+                                continue;
+
+                            if (!pm.Column.AllowNull && cf.Value == null)
+                                continue;
+                        }
+
+                        query.Values(cn, cf.Value);
+                        any = true;
                     }
 
-                    query.Values(cn, cf.Value);
-                    any = true;
+                    if (!any)
+                        query.Set(x => this);
                 }
-
-                if (!any)
+                else
                     query.Set(x => this);
+
+                if (query.Execute() == 0)
+                    return false;
+
+                SetDynamicEntityState(DynamicEntityState.Existing);
+                _changedFields.Clear();
+
+                return true;
             }
-            else
-                query.Set(x => this);
-
-            if (query.Execute() == 0)
-                return false;
-
-            SetDynamicEntityState(DynamicEntityState.Existing);
-            _changedFields.Clear();
-
-            return true;
         }
 
         /// <summary>Deletes this object from database.</summary>
@@ -172,14 +177,15 @@ namespace DynamORM.Objects
             var t = this.GetType();
             var mapper = DynamicMapperCache.GetMapper(t);
 
-            var query = db.Delete(t);
+            using (var query = db.Delete(t))
+            {
+                MakeQueryWhere(mapper, query);
 
-            MakeQueryWhere(mapper, query);
+                if (query.Execute() == 0)
+                    return false;
 
-            if (query.Execute() == 0)
-                return false;
-
-            SetDynamicEntityState(DynamicEntityState.Deleted);
+                SetDynamicEntityState(DynamicEntityState.Deleted);
+            }
 
             return true;
         }
@@ -196,17 +202,19 @@ namespace DynamORM.Objects
         {
             var t = this.GetType();
             var mapper = DynamicMapperCache.GetMapper(t);
-            var query = db.From(t);
-            MakeQueryWhere(mapper, query);
-            var o = (query.Execute() as IEnumerable<dynamic>).FirstOrDefault();
+            using (var query = db.From(t))
+            {
+                MakeQueryWhere(mapper, query);
+                var o = (query.Execute() as IEnumerable<dynamic>).FirstOrDefault();
 
-            if (o == null)
-                return false;
+                if (o == null)
+                    return false;
 
-            mapper.Map(o, this);
+                mapper.Map(o, this);
 
-            SetDynamicEntityState(DynamicEntityState.Existing);
-            _changedFields.Clear();
+                SetDynamicEntityState(DynamicEntityState.Existing);
+                _changedFields.Clear();
+            }
 
             return true;
         }

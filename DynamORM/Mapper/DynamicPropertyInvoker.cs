@@ -168,13 +168,21 @@ namespace DynamORM.Mapper
                     {
                         if (val != null)
                         {
-                            var lst = (val as IEnumerable<object>).Select(x => GetElementVal(ArrayType, x)).ToList();
+                            if (val is IEnumerable<object>)
+                            {
+                                var lst = (val as IEnumerable<object>).Select(x => GetElementVal(ArrayType, x)).ToList();
 
-                            value = Array.CreateInstance(ArrayType, lst.Count);
+                                value = Array.CreateInstance(ArrayType, lst.Count);
 
-                            int i = 0;
-                            foreach (var e in lst)
-                                ((Array)value).SetValue(e, i++);
+                                int i = 0;
+                                foreach (var e in lst)
+                                    ((Array)value).SetValue(e, i++);
+                            }
+                            else
+                            {
+                                value = Array.CreateInstance(ArrayType, 1);
+                                ((Array)value).SetValue(GetElementVal(ArrayType, val), 0);
+                            }
                         }
                         else
                             value = Array.CreateInstance(ArrayType, 0);
@@ -231,7 +239,7 @@ namespace DynamORM.Mapper
                 Guid g;
                 return Guid.TryParse((string)val, out g) ? g : Guid.Empty;
             }
-            else if (IsDataContract)
+            else if (!typeof(IConvertible).IsAssignableFrom(type) && (IsDataContract || (!type.IsValueType && val is IDictionary<string, object>)))
                 return val.Map(type);
             else
                 try

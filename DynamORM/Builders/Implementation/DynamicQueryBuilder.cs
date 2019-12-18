@@ -139,8 +139,8 @@ namespace DynamORM.Builders.Implementation
             {
                 IsDisposed = true;
 
-                if (Schema != null)
-                    Schema.Clear();
+                ////if (Schema != null)
+                ////    Schema.Clear();
 
                 Owner = Name = Alias = null;
                 Schema = null;
