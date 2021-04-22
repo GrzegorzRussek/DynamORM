@@ -126,13 +126,12 @@ namespace DynamORM.Objects
             var mapper = DynamicMapperCache.GetMapper(t);
             using (var query = db.Update(t))
             {
-
                 MakeQueryWhere(mapper, query);
+
+                bool any = false;
 
                 if (_changedFields.Any())
                 {
-                    bool any = false;
-
                     foreach (var cf in _changedFields)
                     {
                         var cn = mapper.PropertyMap[cf.Key];
@@ -152,12 +151,32 @@ namespace DynamORM.Objects
                         query.Values(cn, cf.Value);
                         any = true;
                     }
-
-                    if (!any)
-                        query.Set(x => this);
                 }
-                else
-                    query.Set(x => this);
+
+                if (!any)
+                    foreach (var pmk in mapper.ColumnsMap)
+                    {
+                        var pm = pmk.Value;
+                        var val = pm.Get(this);
+                        var cn = pm.Name;
+
+                        if (pm.Ignore)
+                            continue;
+
+                        if (pm.Column != null)
+                        {
+                            if (!string.IsNullOrEmpty(pm.Column.Name))
+                                cn = pm.Column.Name;
+
+                            if (pm.Column.IsKey)
+                                continue;
+
+                            if (!pm.Column.AllowNull && val == null)
+                                continue;
+                        }
+
+                        query.Values(cn, val);
+                    }
 
                 if (query.Execute() == 0)
                     return false;

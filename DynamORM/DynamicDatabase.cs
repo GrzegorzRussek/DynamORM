@@ -1524,7 +1524,7 @@ namespace DynamORM
             {
                 schema = ReadSchema(tableName, owner)
                     .Where(x => x.Name != null)
-                    .DistinctBy(x => x.Name)
+                    .DistinctBy(x => x.Name.ToLower())
                     .ToDictionary(k => k.Name.ToLower(), k => k);
 
                 Schema[tableName.ToLower()] = schema;

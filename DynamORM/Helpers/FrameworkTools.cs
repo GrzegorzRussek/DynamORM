@@ -67,10 +67,27 @@ namespace DynamORM.Helpers
                 {
                     ParameterExpression param = Expression.Parameter(typeof(InvokeMemberBinder), "o");
 
+                    try
+                    {
+                        return Expression.Lambda<Func<InvokeMemberBinder, IList<Type>>>(
+                            Expression.TypeAs(
+                                Expression.Field(
+                                    Expression.TypeAs(param, binderType), "typeArguments"),
+                                typeof(IList<Type>)), param).Compile();
+                    }
+                    catch
+                    {
+                    }
+
+                    PropertyInfo prop = binderType.GetProperty("TypeArguments");
+
+                    if (!prop.CanRead)
+                        return null;
+
                     return Expression.Lambda<Func<InvokeMemberBinder, IList<Type>>>(
                         Expression.TypeAs(
-                            Expression.Field(
-                                Expression.TypeAs(param, binderType), "typeArguments"),
+                            Expression.Property(
+                                Expression.TypeAs(param, binderType), prop.Name),
                             typeof(IList<Type>)), param).Compile();
                 }
             }
@@ -127,6 +144,14 @@ namespace DynamORM.Helpers
                 // If this was a success get and return it's value
                 if (field != null)
                     return field.GetValue(binder) as IList<Type>;
+                else
+                {
+                    PropertyInfo prop = binder.GetType().GetProperty("TypeArguments");
+
+                    // If we have a property, return it's value
+                    if (prop != null)
+                        return prop.GetValue(binder, null) as IList<Type>;
+                }
             }
             else
             {

@@ -2983,7 +2983,7 @@ namespace DynamORM
             {
                 schema = ReadSchema(tableName, owner)
                     .Where(x => x.Name != null)
-                    .DistinctBy(x => x.Name)
+                    .DistinctBy(x => x.Name.ToLower())
                     .ToDictionary(k => k.Name.ToLower(), k => k);
 
                 Schema[tableName.ToLower()] = schema;
@@ -13538,10 +13538,16 @@ namespace DynamORM
                     }
                 else if (Type == typeof(string) && val.GetType() == typeof(Guid))
                     return val.ToString();
-                else if (Type == typeof(Guid) && val.GetType() == typeof(string))
+                else if (Type == typeof(Guid))
                 {
-                    Guid g;
-                    return Guid.TryParse((string)val, out g) ? g : Guid.Empty;
+                    if (val.GetType() == typeof(byte[]))
+                        return new Guid((byte[])val);
+                    else if (val.GetType() == typeof(string))
+                    {
+                        Guid g;
+                        return Guid.TryParse((string)val, out g) ? g : Guid.Empty;
+                    }
+                    else return (nullable) ? null : (object)Guid.Empty;
                 }
                 else if (!typeof(IConvertible).IsAssignableFrom(type) && (IsDataContract || (!type.IsValueType && val is IDictionary<string, object>)))
                     return val.Map(type);
@@ -13995,10 +14001,10 @@ namespace DynamORM
                 {
                     MakeQueryWhere(mapper, query);
 
+                    bool any = false;
+
                     if (_changedFields.Any())
                     {
-                        bool any = false;
-
                         foreach (var cf in _changedFields)
                         {
                             var cn = mapper.PropertyMap[cf.Key];
@@ -14018,12 +14024,32 @@ namespace DynamORM
                             query.Values(cn, cf.Value);
                             any = true;
                         }
-
-                        if (!any)
-                            query.Set(x => this);
                     }
-                    else
-                        query.Set(x => this);
+
+                    if (!any)
+                        foreach (var pmk in mapper.ColumnsMap)
+                        {
+                            var pm = pmk.Value;
+                            var val = pm.Get(this);
+                            var cn = pm.Name;
+
+                            if (pm.Ignore)
+                                continue;
+
+                            if (pm.Column != null)
+                            {
+                                if (!string.IsNullOrEmpty(pm.Column.Name))
+                                    cn = pm.Column.Name;
+
+                                if (pm.Column.IsKey)
+                                    continue;
+
+                                if (!pm.Column.AllowNull && val == null)
+                                    continue;
+                            }
+
+                            query.Values(cn, val);
+                        }
 
                     if (query.Execute() == 0)
                         return false;

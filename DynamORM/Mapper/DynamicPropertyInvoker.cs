@@ -234,10 +234,16 @@ namespace DynamORM.Mapper
                 }
             else if (Type == typeof(string) && val.GetType() == typeof(Guid))
                 return val.ToString();
-            else if (Type == typeof(Guid) && val.GetType() == typeof(string))
+            else if (Type == typeof(Guid))
             {
-                Guid g;
-                return Guid.TryParse((string)val, out g) ? g : Guid.Empty;
+                if (val.GetType() == typeof(byte[]))
+                    return new Guid((byte[])val);
+                else if (val.GetType() == typeof(string))
+                {
+                    Guid g;
+                    return Guid.TryParse((string)val, out g) ? g : Guid.Empty;
+                }
+                else return (nullable) ? null : (object)Guid.Empty;
             }
             else if (!typeof(IConvertible).IsAssignableFrom(type) && (IsDataContract || (!type.IsValueType && val is IDictionary<string, object>)))
                 return val.Map(type);
