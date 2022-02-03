@@ -1605,6 +1605,8 @@ namespace DynamORM
         /// <value>The dump command delegate.</value>
         public Action<IDbCommand, string> DumpCommandDelegate { get; set; }
 
+#if NETFRAMEWORK
+        // https://github.com/dotnet/runtime/issues/26229
         /// <summary>Initializes a new instance of the <see cref="DynamicDatabase" /> class.</summary>
         /// <param name="provider">Database provider by name.</param>
         /// <param name="connectionString">Connection string to provided database.</param>
@@ -1613,6 +1615,7 @@ namespace DynamORM
             : this(DbProviderFactories.GetFactory(provider), connectionString, options)
         {
         }
+#endif
 
         /// <summary>Initializes a new instance of the <see cref="DynamicDatabase" /> class.</summary>
         /// <param name="provider">Database provider.</param>
@@ -11272,6 +11275,7 @@ namespace DynamORM
                     func(obj) : elseFunc != null ? elseFunc() : default(R);
             }
 
+#if !NET6_0_OR_GREATER
             /// <summary>Simple distinct by selector extension.</summary>
             /// <returns>The enumerator of elements distinct by specified selector.</returns>
             /// <param name="source">Source collection.</param>
@@ -11285,6 +11289,7 @@ namespace DynamORM
                     if (seenKeys.Add(keySelector(element)))
                         yield return element;
             }
+#endif
         }
 
         namespace Dynamics

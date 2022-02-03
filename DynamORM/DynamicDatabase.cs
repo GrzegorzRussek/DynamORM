@@ -146,6 +146,8 @@ namespace DynamORM
         /// <value>The dump command delegate.</value>
         public Action<IDbCommand, string> DumpCommandDelegate { get; set; }
 
+#if NETFRAMEWORK
+        // https://github.com/dotnet/runtime/issues/26229
         /// <summary>Initializes a new instance of the <see cref="DynamicDatabase" /> class.</summary>
         /// <param name="provider">Database provider by name.</param>
         /// <param name="connectionString">Connection string to provided database.</param>
@@ -154,6 +156,7 @@ namespace DynamORM
             : this(DbProviderFactories.GetFactory(provider), connectionString, options)
         {
         }
+#endif
 
         /// <summary>Initializes a new instance of the <see cref="DynamicDatabase" /> class.</summary>
         /// <param name="provider">Database provider.</param>
@@ -249,9 +252,9 @@ namespace DynamORM
 #endif
         }
 
-        #endregion Properties and Constructors
+#endregion Properties and Constructors
 
-        #region Table
+#region Table
 
 #if !DYNAMORM_OMMIT_OLDSYNTAX
 
@@ -326,7 +329,7 @@ namespace DynamORM
 
 #endif
 
-        #endregion Table
+#endregion Table
 
         /// <summary>Adds cached builder.</summary>
         /// <param name="builder">New dynamic builder.</param>
@@ -344,7 +347,7 @@ namespace DynamORM
                 RemainingBuilders.Remove(builder);
         }
 
-        #region From/Insert/Update/Delete
+#region From/Insert/Update/Delete
 
         /// <summary>
         /// Adds to the <code>FROM</code> clause the contents obtained by parsing the dynamic lambda expressions given. The supported
@@ -627,7 +630,7 @@ namespace DynamORM
                 {
                     try
                     {
-                        #region Update
+#region Update
 
                         Dictionary<IDbDataParameter, DynamicPropertyInvoker> parametersUp = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
 
@@ -650,9 +653,9 @@ namespace DynamORM
                         else
                             PrepareBatchUpdate(t, mapper, cmdUp, parametersUp);
 
-                        #endregion Update
+#endregion Update
 
-                        #region Insert
+#region Insert
 
                         Dictionary<IDbDataParameter, DynamicPropertyInvoker> parametersIn = new Dictionary<IDbDataParameter, DynamicPropertyInvoker>();
 
@@ -675,7 +678,7 @@ namespace DynamORM
                         else
                             PrepareBatchInsert(t, mapper, cmdIn, parametersIn);
 
-                        #endregion Insert
+#endregion Insert
 
                         foreach (var o in e)
                         {
@@ -1020,9 +1023,9 @@ namespace DynamORM
             mapper.DeleteCommandText = cmd.CommandText;
         }
 
-        #endregion From/Insert/Update/Delete
+#endregion From/Insert/Update/Delete
 
-        #region Procedure
+#region Procedure
 
         /// <summary>Execute stored procedure.</summary>
         /// <param name="procName">Name of stored procedure to execute.</param>
@@ -1089,9 +1092,9 @@ namespace DynamORM
             }
         }
 
-        #endregion Procedure
+#endregion Procedure
 
-        #region Execute
+#region Execute
 
         /// <summary>Execute non query.</summary>
         /// <param name="sql">SQL query containing numbered parameters in format provided by
@@ -1148,9 +1151,9 @@ namespace DynamORM
             return ret;
         }
 
-        #endregion Execute
+#endregion Execute
 
-        #region Scalar
+#region Scalar
 
         /// <summary>Returns a single result.</summary>
         /// <param name="sql">SQL query containing numbered parameters in format provided by
@@ -1221,9 +1224,9 @@ namespace DynamORM
 
 #endif
 
-        #endregion Scalar
+#endregion Scalar
 
-        #region Query
+#region Query
 
         /// <summary>Enumerate the reader and yield the result.</summary>
         /// <param name="sql">SQL query containing numbered parameters in format provided by
@@ -1305,9 +1308,9 @@ namespace DynamORM
             }
         }
 
-        #endregion Query
+#endregion Query
 
-        #region Schema
+#region Schema
 
         /// <summary>Builds query cache if necessary and returns it.</summary>
         /// <param name="builder">The builder containing query to read schema from.</param>
@@ -1518,7 +1521,7 @@ namespace DynamORM
                 (Options & DynamicDatabaseOptions.SupportSchema) == DynamicDatabaseOptions.SupportSchema;
             bool mapperSchema = mapper != null && mapper.Table != null && (mapper.Table.Override || !databaseSchemaSupport);
 
-            #region Database schema
+#region Database schema
 
             if (databaseSchemaSupport && !Schema.ContainsKey(tableName.ToLower()))
             {
@@ -1530,9 +1533,9 @@ namespace DynamORM
                 Schema[tableName.ToLower()] = schema;
             }
 
-            #endregion Database schema
+#endregion Database schema
 
-            #region Type schema
+#region Type schema
 
             if ((mapperSchema && !Schema.ContainsKey(mapper.Type.FullName)) ||
                 (schema == null && mapper != null && !mapper.Type.IsAnonymous()))
@@ -1540,7 +1543,7 @@ namespace DynamORM
                 // TODO: Ged rid of this monster below...
                 if (databaseSchemaSupport)
                 {
-                    #region Merge with db schema
+#region Merge with db schema
 
                     schema = mapper.ColumnsMap.ToDictionary(k => k.Key, (v) =>
                     {
@@ -1576,11 +1579,11 @@ namespace DynamORM
                         };
                     });
 
-                    #endregion Merge with db schema
+#endregion Merge with db schema
                 }
                 else
                 {
-                    #region MapEnumerable based only on type
+#region MapEnumerable based only on type
 
                     schema = mapper.ColumnsMap.ToDictionary(k => k.Key,
                         v => new DynamicSchemaColumn
@@ -1595,21 +1598,21 @@ namespace DynamORM
                             Scale = DynamicExtensions.CoalesceNullable<byte>(v.Value.Column != null ? v.Value.Column.Scale : null, 0).Value,
                         });
 
-                    #endregion MapEnumerable based only on type
+#endregion MapEnumerable based only on type
                 }
             }
 
             if (mapper != null && schema != null)
                 Schema[mapper.Type.FullName] = schema;
 
-            #endregion Type schema
+#endregion Type schema
 
             return schema;
         }
 
-        #endregion Schema
+#endregion Schema
 
-        #region Decorators
+#region Decorators
 
         /// <summary>Gets or sets left side decorator for database objects.</summary>
         public string LeftDecorator
@@ -1698,9 +1701,9 @@ namespace DynamORM
                 cmd.Dump(Console.Out);
         }
 
-        #endregion Decorators
+#endregion Decorators
 
-        #region Connection
+#region Connection
 
         /// <summary>Open managed connection.</summary>
         /// <returns>Opened connection.</returns>
@@ -1806,9 +1809,9 @@ namespace DynamORM
                             .ExecuteNonQuery();
         }
 
-        #endregion Connection
+#endregion Connection
 
-        #region Transaction
+#region Transaction
 
         /// <summary>Begins a global database transaction.</summary>
         /// <remarks>Using this method connection is set to single open
@@ -1870,9 +1873,9 @@ namespace DynamORM
             });
         }
 
-        #endregion Transaction
+#endregion Transaction
 
-        #region IExtendedDisposable Members
+#region IExtendedDisposable Members
 
         /// <summary>Performs application-defined tasks associated with freeing,
         /// releasing, or resetting unmanaged resources.</summary>
@@ -1941,6 +1944,6 @@ namespace DynamORM
         /// <summary>Gets a value indicating whether this instance is disposed.</summary>
         public bool IsDisposed { get; private set; }
 
-        #endregion IExtendedDisposable Members
+#endregion IExtendedDisposable Members
     }
 }

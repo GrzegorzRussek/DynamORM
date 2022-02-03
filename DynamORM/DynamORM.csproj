@@ -1,133 +1,23 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{63963ED7-9C78-4672-A4D4-339B6E825503}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>DynamORM</RootNamespace>
-    <AssemblyName>DynamORM</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
-    <SignAssembly>False</SignAssembly>
-    <DelaySign>False</DelaySign>
-    <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
-    <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
-    <NoStdLib>False</NoStdLib>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <RegisterForComInterop>False</RegisterForComInterop>
-    <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
-    <BaseAddress>4194304</BaseAddress>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>PdbOnly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <DocumentationFile>bin\Release\DynamORM.xml</DocumentationFile>
-    <RegisterForComInterop>False</RegisterForComInterop>
-    <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
-    <BaseAddress>4194304</BaseAddress>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Platform)' == 'AnyCPU' ">
-    <RegisterForComInterop>False</RegisterForComInterop>
-    <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
-    <BaseAddress>4194304</BaseAddress>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="System.Data">
-      <HintPath>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0\System.Data.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Xml" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Builders\Extensions\DynamicHavingQueryExtensions.cs" />
-    <Compile Include="Builders\IDynamicInsertQueryBuilder.cs" />
-    <Compile Include="Builders\IDynamicSelectQueryBuilder.cs" />
-    <Compile Include="Builders\IDynamicUpdateQueryBuilder.cs" />
-    <Compile Include="Builders\Implementation\DynamicDeleteQueryBuilder.cs" />
-    <Compile Include="Builders\Implementation\DynamicInsertQueryBuilder.cs" />
-    <Compile Include="Builders\Implementation\DynamicModifyBuilder.cs" />
-    <Compile Include="Builders\Implementation\DynamicQueryBuilder.cs" />
-    <Compile Include="Builders\Extensions\DynamicModifyBuilderExtensions.cs" />
-    <Compile Include="Builders\Extensions\DynamicWhereQueryExtensions.cs" />
-    <Compile Include="Builders\Implementation\DynamicSelectQueryBuilder.cs" />
-    <Compile Include="Builders\Implementation\DynamicUpdateQueryBuilder.cs" />
-    <Compile Include="Builders\IDynamicDeleteQueryBuilder.cs" />
-    <Compile Include="Builders\IDynamicQueryBuilder.cs" />
-    <Compile Include="Builders\IParameter.cs" />
-    <Compile Include="Builders\ITableInfo.cs" />
-    <Compile Include="DynamicCachedReader.cs" />
-    <Compile Include="DynamicColumn.cs" />
-    <Compile Include="DynamicCommand.cs" />
-    <Compile Include="DynamicConnection.cs" />
-    <Compile Include="DynamicDatabase.cs" />
-    <Compile Include="DynamicDatabaseOptions.cs" />
-    <Compile Include="DynamicExtensions.cs" />
-    <Compile Include="DynamicProcedureInvoker.cs" />
-    <Compile Include="DynamicQueryException.cs" />
-    <Compile Include="DynamicSchemaColumn.cs" />
-    <Compile Include="DynamicTable.cs" />
-    <Compile Include="DynamicTransaction.cs" />
-    <Compile Include="Helpers\CollectionComparer.cs" />
-    <Compile Include="Helpers\Dynamics\DynamicParser.cs" />
-    <Compile Include="Helpers\Dynamics\DynamicProxy.cs" />
-    <Compile Include="Helpers\IExtendedDisposable.cs" />
-    <Compile Include="Helpers\FrameworkTools.cs" />
-    <Compile Include="Helpers\StringExtensions.cs" />
-    <Compile Include="Helpers\UnclassifiedExtensions.cs" />
-    <Compile Include="Mapper\ColumnAttribute.cs" />
-    <Compile Include="Mapper\DynamicMapperCache.cs" />
-    <Compile Include="Mapper\DynamicMapperException.cs" />
-    <Compile Include="Mapper\DynamicPropertyInvoker.cs" />
-    <Compile Include="Mapper\DynamicTypeMap.cs" />
-    <Compile Include="Mapper\IgnoreAttribute.cs" />
-    <Compile Include="Objects\DynamicEntityBase.cs" />
-    <Compile Include="Objects\DynamicEntityState.cs" />
-    <Compile Include="Objects\DynamicPropertyChangingEventArgs.cs" />
-    <Compile Include="Objects\DynamicRepositoryBase.cs" />
-    <Compile Include="Validation\RequiredAttribute.cs" />
-    <Compile Include="Mapper\TableAttribute.cs" />
-    <Compile Include="Mapper\DynamicCast.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="DynamicExpando.cs" />
-    <Compile Include="Helpers\IFinalizerDisposable.cs" />
-    <Compile Include="Validation\ValidateResult.cs" />
-    <Compile Include="Validation\ValidationResult.cs" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.0;net472;net5.0;net6.0</TargetFrameworks>
+		<Description>Dynamic Object-Relational Mapping library.</Description>
+		<Copyright>Copyright © RUSSEK Software 2012-2022</Copyright>
+		<Company>RUSSEK Software</Company>
+		<Authors>Grzegorz Russek</Authors>
+		<VersionPrefix>1.2.1</VersionPrefix>
+		<RepositoryUrl>https://svn.dr4cul4.pl/svn/DynamORM/</RepositoryUrl>
+		<PackageProjectUrl>https://dr4cul4.pl</PackageProjectUrl>
+		<Product>DynamORM</Product>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+		<PackageReference Include="System.Data.Common" Version="4.3.0" />
+	</ItemGroup>
+	<ItemGroup Condition="$(TargetFramework.StartsWith('net4')) AND '$(MSBuildRuntimeType)' == 'Core' AND '$(OS)' != 'Windows_NT'">
+		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" />
+	</ItemGroup>
+
 </Project>

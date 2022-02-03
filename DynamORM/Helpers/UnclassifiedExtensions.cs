@@ -73,6 +73,7 @@ namespace DynamORM.Helpers
                 func(obj) : elseFunc != null ? elseFunc() : default(R);
         }
 
+#if !NET6_0_OR_GREATER
         /// <summary>Simple distinct by selector extension.</summary>
         /// <returns>The enumerator of elements distinct by specified selector.</returns>
         /// <param name="source">Source collection.</param>
@@ -86,5 +87,6 @@ namespace DynamORM.Helpers
                 if (seenKeys.Add(keySelector(element)))
                     yield return element;
         }
+#endif
     }
 }
