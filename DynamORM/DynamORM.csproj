@@ -10,6 +10,7 @@
 		<RepositoryUrl>https://svn.dr4cul4.pl/svn/DynamORM/</RepositoryUrl>
 		<PackageProjectUrl>https://dr4cul4.pl</PackageProjectUrl>
 		<Product>DynamORM</Product>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	</PropertyGroup>
 
 	<ItemGroup>
