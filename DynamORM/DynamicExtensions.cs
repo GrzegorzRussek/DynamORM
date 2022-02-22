@@ -1014,7 +1014,7 @@ namespace DynamORM
         public static List<dynamic> ToList(this IDataReader r)
         {
             List<dynamic> result = new List<dynamic>();
-
+            
             while (r.Read())
                 result.Add(r.RowToDynamic());
 

@@ -3,13 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamORM", "DynamORM\DynamORM.csproj", "{63963ED7-9C78-4672-A4D4-339B6E825503}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DynamORM", "DynamORM\DynamORM.csproj", "{63963ED7-9C78-4672-A4D4-339B6E825503}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DynamORM.Tests", "DynamORM.Tests\DynamORM.Tests.csproj", "{D5013B4E-8A1B-4DBB-8FB5-E09935F4F764}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AmalgamationTool", "AmalgamationTool\AmalgamationTool.csproj", "{A64D2052-D0CD-488E-BF05-E5952615D926}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tester", "Tester\Tester.csproj", "{F747AA57-BEA7-4FB8-B371-546296789AEF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tester", "Tester\Tester.csproj", "{F747AA57-BEA7-4FB8-B371-546296789AEF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -53,7 +53,8 @@ Global
 		{A64D2052-D0CD-488E-BF05-E5952615D926}.Release|Mixed Platforms.Build.0 = Release|x86
 		{A64D2052-D0CD-488E-BF05-E5952615D926}.Release|x86.ActiveCfg = Release|x86
 		{A64D2052-D0CD-488E-BF05-E5952615D926}.Release|x86.Build.0 = Release|x86
-		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|Any CPU.ActiveCfg = Debug|x86
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
 		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|Mixed Platforms.Build.0 = Debug|x86
 		{F747AA57-BEA7-4FB8-B371-546296789AEF}.Debug|x86.ActiveCfg = Debug|x86

@@ -115,6 +115,35 @@ namespace DynamORM
                             cmd.AddParameters(_db, (DynamicExpando)arg);
                         else if (arg is ExpandoObject)
                             cmd.AddParameters(_db, (ExpandoObject)arg);
+                        else if (arg is DynamicColumn)
+                        {
+                            var dcv = (DynamicColumn)arg;
+
+                            string paramName = dcv.Alias ?? dcv.ColumnName ?? 
+                                (dcv.Schema.HasValue ? dcv.Schema.Value.Name : null) ??
+                                (info.ArgumentNames.Count > i ? info.ArgumentNames[i] : i.ToString());
+
+                            bool isOut = dcv.ParameterDirection == ParameterDirection.Output ||
+                                dcv.ParameterDirection == ParameterDirection.ReturnValue;
+
+                            if (isOut || dcv.ParameterDirection == ParameterDirection.InputOutput)
+                            {
+                                if (retParams == null)
+                                    retParams = new Dictionary<string, int>();
+                                retParams.Add(paramName, cmd.Parameters.Count);
+                            }
+
+                            if (dcv.Schema != null) {
+                                var ds = dcv.Schema.Value;
+                                cmd.AddParameter(
+                                    _db.GetParameterName(paramName), dcv.ParameterDirection,
+                                    ds.Type, ds.Size, ds.Precision, ds.Scale,
+                                    isOut ? DBNull.Value : arg);
+                            } else
+                                cmd.AddParameter(
+                                    _db.GetParameterName(paramName), dcv.ParameterDirection,
+                                    arg == null ? DbType.String : arg.GetType().ToDbType(), 0, isOut ? DBNull.Value : arg);
+                        }
                         else
                         {
                             if (info.ArgumentNames.Count > i && !string.IsNullOrEmpty(info.ArgumentNames[i]))
@@ -217,7 +246,7 @@ namespace DynamORM
 
                         using (IDataReader rdr = cmd.ExecuteReader())
                             if (rdr.Read())
-                                mainResult = (rdr.ToDynamic() as object).Map(types[0]);
+                                mainResult = (rdr.RowToDynamic() as object).Map(types[0]);
                             else
                                 mainResult = null;
                     }

@@ -28,6 +28,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Text;
 
 namespace DynamORM
@@ -88,6 +89,7 @@ namespace DynamORM
         /// <summary>Initializes a new instance of the <see cref="DynamicColumn" /> class.</summary>
         public DynamicColumn()
         {
+            ParameterDirection = ParameterDirection.Input;
         }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicColumn" /> class.</summary>
@@ -128,6 +130,9 @@ namespace DynamORM
 
         /// <summary>Gets or sets order direction.</summary>
         public SortOrder Order { get; set; }
+
+        /// <summary>Gets or sets parameter direction when used in procedure invocation.</summary>
+        public ParameterDirection ParameterDirection { get; set; }
 
         /// <summary>Gets or sets value for parameters.</summary>
         public object Value { get; set; }
