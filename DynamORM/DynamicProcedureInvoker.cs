@@ -203,7 +203,7 @@ namespace DynamORM
 
                             mainResult = cache.EnumerateReader().ToList();
                         }
-                        else if (argType.IsValueType || types[0] == typeof(string))
+                        else if (argType.IsValueType || argType == typeof(string))
                         {
                             Type listType = typeof(List<>).MakeGenericType(new Type[] { argType });
                             IList listInstance = (IList)Activator.CreateInstance(listType);
@@ -219,7 +219,7 @@ namespace DynamORM
 
                             mainResult = listInstance;
                         }
-                        else if (types[0] == typeof(Guid))
+                        else if (argType == typeof(Guid))
                         {
                             Type listType = typeof(List<>).MakeGenericType(new Type[] { argType });
                             IList listInstance = (IList)Activator.CreateInstance(listType);
