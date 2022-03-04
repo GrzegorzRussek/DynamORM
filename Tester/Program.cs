@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using DynamORM;
 
 namespace Tester
@@ -8,9 +10,9 @@ namespace Tester
         private static DynamicDatabase GetORM()
         {
             return new DynamicDatabase(System.Data.SqlClient.SqlClientFactory.Instance,
-                //"packet size=4096;User Id=sa;Password=Sa123;data source=192.168.1.9,1434;initial catalog=MAH_Melle-GAGARIN;",
+                "packet size=4096;User Id=sa;Password=sa123;data source=127.0.0.1,1435;initial catalog=MOM_LANGOWSKI_WMS_TEST;",
                 //"packet size=4096;User Id=sa;Password=sa123;data source=192.168.1.9,1433;initial catalog=MOM_NEXT_Florentyna_WMS_PROD;",
-                "packet size=4096;User Id=sa;Password=sa123;data source=192.168.0.6;initial catalog=DynamORM;",
+                //"packet size=4096;User Id=sa;Password=sa123;data source=127.0.0.1;initial catalog=DynamORM;",
                 DynamicDatabaseOptions.SingleConnection | DynamicDatabaseOptions.SingleTransaction | DynamicDatabaseOptions.SupportSchema | 
                 DynamicDatabaseOptions.SupportStoredProcedures | DynamicDatabaseOptions.SupportTop | DynamicDatabaseOptions.DumpCommands);
 
@@ -22,30 +24,34 @@ namespace Tester
 
         private static void Main(string[] args)
         {
-            var c = new System.Data.SqlClient.SqlConnection("packet size=4096;User Id=sa;Password=sa123;data source=192.168.0.6;initial catalog=DynamORM;");
+            //var c = new System.Data.SqlClient.SqlConnection("packet size=4096;User Id=sa;Password=sa123;data source=192.168.0.6;initial catalog=DynamORM;");
 
             using (var db = GetORM())
             {
-                try
-                {
-                    db.Execute("DROP TABLE Experiments ");
-                }
-                catch { }
+                //try
+                //{
+                //    db.Execute("DROP TABLE Experiments ");
+                //}
+                //catch { }
 
-                db.Execute("CREATE TABLE Experiments (t1 nvarchar(50) NOT NULL DEFAULT N'', t2 varchar(50) NOT NULL DEFAULT '');");
+                //db.Execute("CREATE TABLE Experiments (t1 nvarchar(50) NOT NULL DEFAULT N'', t2 varchar(50) NOT NULL DEFAULT '');");
 
-                var q = db.From(x => x.Experiments.As(x.e1));
-                q
-                    .Where(x => x.t2 = "Dupa")
-                    .Where(x => x.Exists(
-                        q.SubQuery()
-                            .From(y => y.Experiments.As(x.e2))
-                            .Where(y => y.e2.t1 == y.e1.t1)))
-                    .Execute().ToList();
+                //var q = db.From(x => x.Experiments.As(x.e1));
+                //q
+                //    .Where(x => x.t2 = "Dupa")
+                //    .Where(x => x.Exists(
+                //        q.SubQuery()
+                //            .From(y => y.Experiments.As(x.e2))
+                //            .Where(y => y.e2.t1 == y.e1.t1)))
+                //    .Execute().ToList();
 
-                db.Execute("DROP TABLE Experiments ");
+                //db.Execute("DROP TABLE Experiments ");
 
-                var resL = db.Procedures.GetProductDesc<IOrderedEnumerable<GetProductDesc_Result>>();
+                db.Procedures.usp_API_Generate_Doc_Number<string>(key: Guid.NewGuid(), mdn_id: "ZZ");
+
+                var resL = (db.Procedures.GetProductDesc<IList<GetProductDesc_Result>>() as IEnumerable<dynamic>)
+                    .Cast<GetProductDesc_Result>()
+                    .ToArray();
                 var res = db.Procedures.GetProductDesc_withparameters<GetProductDesc_Result>(PID: 707);
                 res = db.Procedures.GetProductDesc_withDefaultparameters<GetProductDesc_Result>();
 

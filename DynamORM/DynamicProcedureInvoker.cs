@@ -203,7 +203,7 @@ namespace DynamORM
 
                             mainResult = cache.EnumerateReader().ToList();
                         }
-                        else if (argType.IsValueType)
+                        else if (argType.IsValueType || types[0] == typeof(string))
                         {
                             Type listType = typeof(List<>).MakeGenericType(new Type[] { argType });
                             IList listInstance = (IList)Activator.CreateInstance(listType);
@@ -216,6 +216,25 @@ namespace DynamORM
 
                             while (cache.Read())
                                 listInstance.Add(cache[0] == DBNull.Value ? defVal : argType.CastObject(cache[0]));
+
+                            mainResult = listInstance;
+                        }
+                        else if (types[0] == typeof(Guid))
+                        {
+                            Type listType = typeof(List<>).MakeGenericType(new Type[] { argType });
+                            IList listInstance = (IList)Activator.CreateInstance(listType);
+
+                            object defVal = listType.GetDefaultValue();
+
+                            IDataReader cache = null;
+                            using (IDataReader rdr = cmd.ExecuteReader())
+                                cache = rdr.CachedReader();
+
+                            while (cache.Read())
+                            {
+                                if (cache[0] == DBNull.Value && Guid.TryParse(cache[0].ToString(), out Guid g))
+                                    listInstance.Add(g);
+                            }
 
                             mainResult = listInstance;
                         }
@@ -232,11 +251,17 @@ namespace DynamORM
                             mainResult = cache.EnumerateReader().MapEnumerable(argType).ToList();
                         }
                     }
-                    else if (types[0].IsValueType)
+                    else if (types[0].IsValueType || types[0] == typeof(string))
                     {
                         mainResult = cmd.ExecuteScalar();
                         if (mainResult != DBNull.Value)
                             mainResult = types[0].CastObject(mainResult);
+                    }
+                    else if (types[0] == typeof(Guid))
+                    {
+                        mainResult = cmd.ExecuteScalar();
+                        if (mainResult != DBNull.Value && Guid.TryParse(mainResult.ToString(), out Guid g))
+                            mainResult = g;
                     }
                     else
                     {
