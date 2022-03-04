@@ -34,14 +34,14 @@ namespace Tester
 
                 db.Execute("CREATE TABLE Experiments (t1 nvarchar(50) NOT NULL DEFAULT N'', t2 varchar(50) NOT NULL DEFAULT '');");
 
-                //var q = db.From(x => x.Experiments.As(x.e1));
-                //q
-                //    .Where(x => x.t2 = "Dupa")
-                //    .Where(x => x.Exists(
-                //        q.SubQuery()
-                //            .From(y => y.Experiments.As(x.e2))
-                //            .Where(y => y.e2.t1 == y.e1.t1)))
-                //    .Execute().ToList();
+                var q = db.From(x => x.Experiments.As(x.e1));
+                q
+                    .Where(x => x.t2 = "Dupa")
+                    .Where(x => x.Exists(
+                        q.SubQuery()
+                            .From(y => y.Experiments.As(x.e2))
+                            .Where(y => y.e2.t1 == y.e1.t1)))
+                    .Execute().ToList();
 
                 db.Execute("DROP TABLE Experiments ");
 
