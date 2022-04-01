@@ -1554,7 +1554,7 @@ namespace DynamORM
             if (mapper == null)
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
 
-            mapper.Map(item, source);
+            mapper.Map(source, item);
 
             return item;
         }
@@ -1571,7 +1571,7 @@ namespace DynamORM
             if (mapper == null)
                 throw new InvalidOperationException("Type can't be mapped for unknown reason.");
 
-            mapper.MapByProperty(item, source);
+            mapper.MapByProperty(source, item);
 
             return item;
         }
