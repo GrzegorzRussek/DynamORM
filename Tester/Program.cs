@@ -20,6 +20,7 @@ namespace Tester
             ////    "Data Source=test.db3;",
             ////    DynamORM.DynamicDatabaseOptions.SingleConnection | DynamORM.DynamicDatabaseOptions.SingleTransaction |
             ////    DynamORM.DynamicDatabaseOptions.SupportSchema | DynamORM.DynamicDatabaseOptions.SupportLimitOffset);
+            ///
         }
 
         private static void Main(string[] args)

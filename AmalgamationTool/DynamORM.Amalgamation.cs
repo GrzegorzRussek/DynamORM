@@ -2916,7 +2916,7 @@ namespace DynamORM
         /// <param name="cmd">Command containing query to execute.</param>
         /// <returns>List of <see cref="DynamicSchemaColumn"/> objects .
         /// If your database doesn't get those values in upper case (like most of the databases) you should override this method.</returns>
-        protected virtual IEnumerable<DynamicSchemaColumn> ReadSchema(IDbCommand cmd)
+        public virtual IEnumerable<DynamicSchemaColumn> ReadSchema(IDbCommand cmd)
         {
             DataTable st = null;
 
@@ -5399,12 +5399,12 @@ namespace DynamORM
                                 cmd.AddParameter(
                                     _db.GetParameterName(paramName), dcv.ParameterDirection,
                                     ds.Type, ds.Size, ds.Precision, ds.Scale,
-                                    isOut ? DBNull.Value : arg);
+                                    isOut ? DBNull.Value : dcv.Value);
                             }
                             else
                                 cmd.AddParameter(
                                     _db.GetParameterName(paramName), dcv.ParameterDirection,
-                                    arg == null ? DbType.String : arg.GetType().ToDbType(), 0, isOut ? DBNull.Value : arg);
+                                    arg == null ? DbType.String : arg.GetType().ToDbType(), 0, isOut ? DBNull.Value : dcv.Value);
                         }
                         else
                         {
