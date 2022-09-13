@@ -171,7 +171,7 @@ namespace DynamORM.Mapper
                 if (PropertyMap.TryGetValue(item.Key, out cn) && item.Value != null)
                     if (ColumnsMap.TryGetValue(cn.ToLower(), out dpi) && item.Value != null)
                         if (dpi.Setter != null)
-                            dpi.Set(destination, item.Value);
+                            dpi.Set(destination, item.Value, true);
             }
 
             return destination;

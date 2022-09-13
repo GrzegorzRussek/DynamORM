@@ -156,7 +156,7 @@ namespace DynamORM.Mapper
         /// <summary>Sets the specified value to destination object.</summary>
         /// <param name="dest">The destination object.</param>
         /// <param name="val">The value.</param>
-        public void Set(object dest, object val)
+        public void Set(object dest, object val, bool byProperty = false)
         {
             object value = null;
 
@@ -170,7 +170,7 @@ namespace DynamORM.Mapper
                         {
                             if (val is IEnumerable<object>)
                             {
-                                var lst = (val as IEnumerable<object>).Select(x => GetElementVal(ArrayType, x)).ToList();
+                                var lst = (val as IEnumerable<object>).Select(x => GetElementVal(ArrayType, x, byProperty)).ToList();
 
                                 value = Array.CreateInstance(ArrayType, lst.Count);
 
@@ -181,14 +181,14 @@ namespace DynamORM.Mapper
                             else
                             {
                                 value = Array.CreateInstance(ArrayType, 1);
-                                ((Array)value).SetValue(GetElementVal(ArrayType, val), 0);
+                                ((Array)value).SetValue(GetElementVal(ArrayType, val, byProperty), 0);
                             }
                         }
                         else
                             value = Array.CreateInstance(ArrayType, 0);
                     }
                     else
-                        value = GetElementVal(Type, val);
+                        value = GetElementVal(Type, val, byProperty);
                 }
                 else
                     value = val;
@@ -204,7 +204,7 @@ namespace DynamORM.Mapper
             }
         }
 
-        private object GetElementVal(System.Type etype, object val)
+        private object GetElementVal(System.Type etype, object val, bool byProperty)
         {
             bool nullable = etype.IsGenericType && etype.GetGenericTypeDefinition() == typeof(Nullable<>);
             Type type = Nullable.GetUnderlyingType(etype) ?? etype;
@@ -246,7 +246,12 @@ namespace DynamORM.Mapper
                 else return (nullable) ? null : (object)Guid.Empty;
             }
             else if (!typeof(IConvertible).IsAssignableFrom(type) && (IsDataContract || (!type.IsValueType && val is IDictionary<string, object>)))
+            {
+                if (byProperty)
+                    return val.MapByProperty(type);
+
                 return val.Map(type);
+            }
             else
                 try
                 {
