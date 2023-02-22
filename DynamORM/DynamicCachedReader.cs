@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Dynamic;
 using System.IO;
+using System.Linq;
 using DynamORM.Helpers;
 using DynamORM.Mapper;
 
@@ -42,6 +43,95 @@ namespace DynamORM
         #endregion Constructor and Data
 
         #region Helpers
+
+        /// <summary>Create data reader from dynamic enumerable.</summary>
+        /// <param name="objects">List of objects.</param>
+        /// <returns>Instance of <see cref="DynamicCachedReader"/> containing objects data.</returns>
+        public static DynamicCachedReader FromDynamicEnumerable(IEnumerable<dynamic> objects)
+        {
+            var first = (objects as IEnumerable<dynamic>).FirstOrDefault();
+
+            if (first == null)
+                return null;
+
+            var firstDict = first as IDictionary<string, object>;
+            var r = new DynamicCachedReader();
+            r.Init(firstDict.Keys.Count);
+
+            for (int i = 0; i < firstDict.Keys.Count; i++)
+                r._types.Add(null);
+
+            foreach (dynamic elem in (objects as IEnumerable<dynamic>))
+            {
+                int c = 0;
+                var dict = elem as IDictionary<string, object>;
+
+                foreach (var k in firstDict.Keys)
+                {
+                    object val = dict[k];
+
+                    r._cache.Add(val);
+
+                    if (r._types[c] == null && val != null)
+                        r._types[c] = val.GetType();
+
+                    c++;
+                }
+
+                r._rows++;
+            }
+
+            for (int i = 0; i < firstDict.Keys.Count; i++)
+                if (r._types[i] == null)
+                    r._types[i] = typeof(string);
+
+            r._schema = new DataTable("DYNAMIC");
+            r._schema.Columns.Add(new DataColumn("ColumnName", typeof(string)));
+            r._schema.Columns.Add(new DataColumn("ColumnOrdinal", typeof(int)));
+            r._schema.Columns.Add(new DataColumn("ColumnSize", typeof(int)));
+            r._schema.Columns.Add(new DataColumn("NumericPrecision", typeof(short)));
+            r._schema.Columns.Add(new DataColumn("NumericScale", typeof(short)));
+            r._schema.Columns.Add(new DataColumn("DataType", typeof(Type)));
+            r._schema.Columns.Add(new DataColumn("ProviderType", typeof(int)));
+            r._schema.Columns.Add(new DataColumn("NativeType", typeof(int)));
+            r._schema.Columns.Add(new DataColumn("AllowDBNull", typeof(bool)));
+            r._schema.Columns.Add(new DataColumn("IsUnique", typeof(bool)));
+            r._schema.Columns.Add(new DataColumn("IsKey", typeof(bool)));
+            r._schema.Columns.Add(new DataColumn("IsAutoIncrement", typeof(bool)));
+
+            int ordinal = 0;
+            DataRow dr = null;
+
+            foreach (var column in firstDict.Keys)
+            {
+                dr = r._schema.NewRow();
+
+                dr[0] = column;
+                dr[1] = ordinal;
+                dr[2] = 0;
+                dr[3] = 0;
+                dr[4] = 0;
+                dr[5] = r._types[ordinal];
+                dr[6] = r._types[ordinal].ToDbType();
+                dr[7] = r._types[ordinal].ToDbType();
+                dr[8] = true;
+                dr[9] = false;
+                dr[10] = false;
+                dr[11] = false;
+
+                r._schema.Rows.Add(dr);
+
+                r._names.Add(dr[0].ToString());
+                r._ordinals.Add(dr[0].ToString().ToUpper(), ordinal++);
+                r._types.Add((Type)dr[5]);
+
+                dr.AcceptChanges();
+            }
+
+            dr.AcceptChanges();
+
+            return r;
+        }
 
         /// <summary>Create data reader from enumerable.</summary>
         /// <typeparam name="T">Type of enumerated objects.</typeparam>

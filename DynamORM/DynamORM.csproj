@@ -3,10 +3,10 @@
 	<PropertyGroup>
 		<TargetFrameworks>netstandard2.0;net472;net5.0;net6.0</TargetFrameworks>
 		<Description>Dynamic Object-Relational Mapping library.</Description>
-		<Copyright>Copyright © RUSSEK Software 2012-2022</Copyright>
+		<Copyright>Copyright © RUSSEK Software 2012-2023</Copyright>
 		<Company>RUSSEK Software</Company>
 		<Authors>Grzegorz Russek</Authors>
-		<VersionPrefix>1.2.4</VersionPrefix>
+		<VersionPrefix>1.2.5</VersionPrefix>
 		<RepositoryUrl>https://svn.dr4cul4.pl/svn/DynamORM/</RepositoryUrl>
 		<PackageProjectUrl>https://dr4cul4.pl</PackageProjectUrl>
 		<Product>DynamORM</Product>

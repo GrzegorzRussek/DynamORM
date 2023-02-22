@@ -96,6 +96,95 @@ namespace DynamORM
 
         #region Helpers
 
+        /// <summary>Create data reader from dynamic enumerable.</summary>
+        /// <param name="objects">List of objects.</param>
+        /// <returns>Instance of <see cref="DynamicCachedReader"/> containing objects data.</returns>
+        public static DynamicCachedReader FromDynamicEnumerable(IEnumerable<dynamic> objects)
+        {
+            var first = (objects as IEnumerable<dynamic>).FirstOrDefault();
+
+            if (first == null)
+                return null;
+
+            var firstDict = first as IDictionary<string, object>;
+            var r = new DynamicCachedReader();
+            r.Init(firstDict.Keys.Count);
+
+            for (int i = 0; i < firstDict.Keys.Count; i++)
+                r._types.Add(null);
+
+            foreach (dynamic elem in (objects as IEnumerable<dynamic>))
+            {
+                int c = 0;
+                var dict = elem as IDictionary<string, object>;
+
+                foreach (var k in firstDict.Keys)
+                {
+                    object val = dict[k];
+
+                    r._cache.Add(val);
+
+                    if (r._types[c] == null && val != null)
+                        r._types[c] = val.GetType();
+
+                    c++;
+                }
+
+                r._rows++;
+            }
+
+            for (int i = 0; i < firstDict.Keys.Count; i++)
+                if (r._types[i] == null)
+                    r._types[i] = typeof(string);
+
+            r._schema = new DataTable("DYNAMIC");
+            r._schema.Columns.Add(new DataColumn("ColumnName", typeof(string)));
+            r._schema.Columns.Add(new DataColumn("ColumnOrdinal", typeof(int)));
+            r._schema.Columns.Add(new DataColumn("ColumnSize", typeof(int)));
+            r._schema.Columns.Add(new DataColumn("NumericPrecision", typeof(short)));
+            r._schema.Columns.Add(new DataColumn("NumericScale", typeof(short)));
+            r._schema.Columns.Add(new DataColumn("DataType", typeof(Type)));
+            r._schema.Columns.Add(new DataColumn("ProviderType", typeof(int)));
+            r._schema.Columns.Add(new DataColumn("NativeType", typeof(int)));
+            r._schema.Columns.Add(new DataColumn("AllowDBNull", typeof(bool)));
+            r._schema.Columns.Add(new DataColumn("IsUnique", typeof(bool)));
+            r._schema.Columns.Add(new DataColumn("IsKey", typeof(bool)));
+            r._schema.Columns.Add(new DataColumn("IsAutoIncrement", typeof(bool)));
+
+            int ordinal = 0;
+            DataRow dr = null;
+
+            foreach (var column in firstDict.Keys)
+            {
+                dr = r._schema.NewRow();
+
+                dr[0] = column;
+                dr[1] = ordinal;
+                dr[2] = 0;
+                dr[3] = 0;
+                dr[4] = 0;
+                dr[5] = r._types[ordinal];
+                dr[6] = r._types[ordinal].ToDbType();
+                dr[7] = r._types[ordinal].ToDbType();
+                dr[8] = true;
+                dr[9] = false;
+                dr[10] = false;
+                dr[11] = false;
+
+                r._schema.Rows.Add(dr);
+
+                r._names.Add(dr[0].ToString());
+                r._ordinals.Add(dr[0].ToString().ToUpper(), ordinal++);
+                r._types.Add((Type)dr[5]);
+
+                dr.AcceptChanges();
+            }
+
+            dr.AcceptChanges();
+
+            return r;
+        }
+
         /// <summary>Create data reader from enumerable.</summary>
         /// <typeparam name="T">Type of enumerated objects.</typeparam>
         /// <param name="objects">List of objects.</param>
@@ -2768,6 +2857,44 @@ namespace DynamORM
 
                     yield return val;
                 }
+            }
+        }
+
+        #endregion Query
+
+        #region CachedQuery
+
+        /// <summary>Enumerate the reader and yield the result.</summary>
+        /// <param name="sql">SQL query containing numbered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formatted with
+        /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
+        /// <param name="args">Arguments (parameters).</param>
+        /// <returns>Enumerator of objects expanded from query.</returns>
+        public virtual DynamicCachedReader CachedQuery(string sql, params object[] args)
+        {
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            {
+                using (IDataReader rdr = cmd
+                    .SetCommand(sql)
+                    .AddParameters(this, args)
+                    .ExecuteReader())
+                    return new DynamicCachedReader(rdr);
+            }
+        }
+
+        /// <summary>Enumerate the reader and yield the result.</summary>
+        /// <param name="builder">Command builder.</param>
+        /// <returns>Enumerator of objects expanded from query.</returns>
+        public virtual DynamicCachedReader CachedQuery(IDynamicQueryBuilder builder)
+        {
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            {
+                using (IDataReader rdr = cmd
+                    .SetCommand(builder)
+                    .ExecuteReader())
+                    return new DynamicCachedReader(rdr);
             }
         }
 
@@ -10852,6 +10979,45 @@ namespace DynamORM
                 }
 
                 return dictionary;
+            }
+        }
+
+        /// <summary>Extensions for data reader handling.</summary>
+        public static class DataReaderExtensions
+        {
+            /// <summary>Gets the data table from data reader.</summary>
+            /// <param name="r">The data reader.</param>
+            /// <param name="name">The name to give the table. If tableName is null or an empty string, a default name is given when added to the System.Data.DataTableCollection.</param>
+            /// <param name="nameSpace">The namespace for the XML representation of the data stored in the DataTable.</param>
+            /// <returns></returns>
+            public static DataTable GetDataTableFromDataReader(this IDataReader r, string name = null, string nameSpace = null)
+            {
+                DataTable schemaTable = r.GetSchemaTable();
+                DataTable resultTable = new DataTable(name, nameSpace);
+
+                foreach (DataRow col in schemaTable.Rows)
+                {
+                    dynamic c = col.RowToDynamicUpper();
+
+                    DataColumn dataColumn = new DataColumn();
+                    dataColumn.ColumnName = c.COLUMNNAME;
+                    dataColumn.DataType = (Type)c.DATATYPE;
+                    dataColumn.ReadOnly = true;
+                    dataColumn.Unique = c.ISUNIQUE;
+
+                    resultTable.Columns.Add(dataColumn);
+                }
+
+                while (r.Read())
+                {
+                    DataRow row = resultTable.NewRow();
+                    for (int i = 0; i < resultTable.Columns.Count - 1; i++)
+                        row[i] = r[i];
+
+                    resultTable.Rows.Add(row);
+                }
+
+                return resultTable;
             }
         }
 

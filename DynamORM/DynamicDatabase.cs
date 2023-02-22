@@ -1310,6 +1310,44 @@ namespace DynamORM
 
         #endregion Query
 
+        #region CachedQuery
+
+        /// <summary>Enumerate the reader and yield the result.</summary>
+        /// <param name="sql">SQL query containing numbered parameters in format provided by
+        /// <see cref="DynamicDatabase.GetParameterName(object)"/> methods. Also names should be formatted with
+        /// <see cref="DynamicDatabase.DecorateName(string)"/> method.</param>
+        /// <param name="args">Arguments (parameters).</param>
+        /// <returns>Enumerator of objects expanded from query.</returns>
+        public virtual DynamicCachedReader CachedQuery(string sql, params object[] args)
+        {
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            {
+                using (IDataReader rdr = cmd
+                    .SetCommand(sql)
+                    .AddParameters(this, args)
+                    .ExecuteReader())
+                    return new DynamicCachedReader(rdr);
+            }
+        }
+
+        /// <summary>Enumerate the reader and yield the result.</summary>
+        /// <param name="builder">Command builder.</param>
+        /// <returns>Enumerator of objects expanded from query.</returns>
+        public virtual DynamicCachedReader CachedQuery(IDynamicQueryBuilder builder)
+        {
+            using (IDbConnection con = Open())
+            using (IDbCommand cmd = con.CreateCommand())
+            {
+                using (IDataReader rdr = cmd
+                    .SetCommand(builder)
+                    .ExecuteReader())
+                    return new DynamicCachedReader(rdr);
+            }
+        }
+
+        #endregion Query
+
         #region Schema
 
         /// <summary>Builds query cache if necessary and returns it.</summary>
