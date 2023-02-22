@@ -192,6 +192,11 @@ namespace DynamORM
                         using (IDataReader rdr = cmd.ExecuteReader())
                             mainResult = rdr.CachedReader();
                     }
+                    else if (types[0] == typeof(DataTable))
+                    {
+                        using (IDataReader rdr = cmd.ExecuteReader())
+                            mainResult = rdr.CachedReader().ToDataTable(binder.Name);
+                    }
                     else if (types[0].IsGenericEnumerable())
                     {
                         Type argType = types[0].GetGenericArguments().First();

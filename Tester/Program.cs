@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using DynamORM;
+using DynamORM.Helpers;
 
 namespace Tester
 {
@@ -47,6 +49,10 @@ namespace Tester
                 //    .Execute().ToList();
 
                 //db.Execute("DROP TABLE Experiments ");
+
+                IDataReader rdr = db.Procedures.sp_getdate<IDataReader>();
+                var dt = rdr.ToDataTable();
+                var dt2 = db.Procedures.sp_getdate<DataTable>();
 
                 db.Procedures.usp_API_Generate_Doc_Number<string>(key: Guid.NewGuid(), mdn_id: "ZZ");
 

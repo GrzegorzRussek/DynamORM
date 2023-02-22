@@ -11,7 +11,7 @@ namespace DynamORM.Helpers
         /// <param name="name">The name to give the table. If tableName is null or an empty string, a default name is given when added to the System.Data.DataTableCollection.</param>
         /// <param name="nameSpace">The namespace for the XML representation of the data stored in the DataTable.</param>
         /// <returns></returns>
-        public static DataTable GetDataTableFromDataReader(this IDataReader r, string name = null, string nameSpace = null)
+        public static DataTable ToDataTable(this IDataReader r, string name = null, string nameSpace = null)
         {
             DataTable schemaTable = r.GetSchemaTable();
             DataTable resultTable = new DataTable(name, nameSpace);
@@ -32,7 +32,7 @@ namespace DynamORM.Helpers
             while (r.Read())
             {
                 DataRow row = resultTable.NewRow();
-                for (int i = 0; i < resultTable.Columns.Count - 1; i++)
+                for (int i = 0; i < resultTable.Columns.Count; i++)
                     row[i] = r[i];
 
                 resultTable.Rows.Add(row);
