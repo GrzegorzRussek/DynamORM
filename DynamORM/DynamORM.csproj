@@ -7,7 +7,7 @@
 		<Company>RUSSEK Software</Company>
 		<Authors>Grzegorz Russek</Authors>
 		<VersionPrefix>1.3.0</VersionPrefix>
-		<RepositoryUrl>https://svn.dr4cul4.pl/svn/DynamORM/</RepositoryUrl>
+		<RepositoryUrl>https://git.dr4cul4.pl/RUSSEK-Software/DynamORM</RepositoryUrl>
 		<PackageProjectUrl>https://dr4cul4.pl</PackageProjectUrl>
 		<Product>DynamORM</Product>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -23,7 +23,7 @@
 		<PackageReference Include="System.Data.Common" Version="4.3.0" />
 	</ItemGroup>
 	<ItemGroup Condition="$(TargetFramework.StartsWith('net4')) AND '$(MSBuildRuntimeType)' == 'Core' AND '$(OS)' != 'Windows_NT'">
-		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
 	</ItemGroup>
 
 </Project>
