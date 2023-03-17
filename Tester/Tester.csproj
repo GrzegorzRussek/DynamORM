@@ -20,7 +20,7 @@
 		<PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
 	</ItemGroup>
 	<ItemGroup Condition="$(TargetFramework.StartsWith('net4')) AND '$(MSBuildRuntimeType)' == 'Core' AND '$(OS)' != 'Windows_NT'">
-		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" />
+		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\DynamORM\DynamORM.csproj" />
