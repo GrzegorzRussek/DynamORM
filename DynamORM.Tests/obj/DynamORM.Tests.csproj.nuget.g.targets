@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
+    <Import Project="$(NuGetPackageRoot)system.data.sqlite.core\1.0.111\build\net46\System.Data.SQLite.Core.targets" Condition="Exists('$(NuGetPackageRoot)system.data.sqlite.core\1.0.111\build\net46\System.Data.SQLite.Core.targets')" />
+    <Import Project="$(NuGetPackageRoot)mstest.testadapter\2.0.0-beta4\build\net45\MSTest.TestAdapter.targets" Condition="Exists('$(NuGetPackageRoot)mstest.testadapter\2.0.0-beta4\build\net45\MSTest.TestAdapter.targets')" />
+  </ImportGroup>
+</Project>

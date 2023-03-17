@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "dgSpecHash": "rAFgnQ0ruwj6gTzn4dYezodFcNf5+kCOxLq8HTYaz7PuF0I0Uc4bTWz4d/BjGTmeTByLE/ZMDAWkH2yJJcIImQ==",
+  "success": true,
+  "projectFilePath": "D:\\Source\\.NET\\DynamORM\\DynamORM.Tests\\DynamORM.Tests.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\gruss\\.nuget\\packages\\entityframework\\6.2.0\\entityframework.6.2.0.nupkg.sha512",
+    "C:\\Users\\gruss\\.nuget\\packages\\microsoft.csharp\\4.7.0\\microsoft.csharp.4.7.0.nupkg.sha512",
+    "C:\\Users\\gruss\\.nuget\\packages\\mstest.testadapter\\2.0.0-beta4\\mstest.testadapter.2.0.0-beta4.nupkg.sha512",
+    "C:\\Users\\gruss\\.nuget\\packages\\mstest.testframework\\2.0.0-beta4\\mstest.testframework.2.0.0-beta4.nupkg.sha512",
+    "C:\\Users\\gruss\\.nuget\\packages\\system.data.common\\4.3.0\\system.data.common.4.3.0.nupkg.sha512",
+    "C:\\Users\\gruss\\.nuget\\packages\\system.data.sqlite\\1.0.111\\system.data.sqlite.1.0.111.nupkg.sha512",
+    "C:\\Users\\gruss\\.nuget\\packages\\system.data.sqlite.core\\1.0.111\\system.data.sqlite.core.1.0.111.nupkg.sha512",
+    "C:\\Users\\gruss\\.nuget\\packages\\system.data.sqlite.ef6\\1.0.111\\system.data.sqlite.ef6.1.0.111.nupkg.sha512",
+    "C:\\Users\\gruss\\.nuget\\packages\\system.data.sqlite.linq\\1.0.111\\system.data.sqlite.linq.1.0.111.nupkg.sha512"
+  ],
+  "logs": []
+}
