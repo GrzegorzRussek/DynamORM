@@ -43,6 +43,9 @@ namespace DynamORM.Builders
         /// <summary>Gets table alias.</summary>
         string Alias { get; }
 
+        /// <summary>Gets table no lock status.</summary>
+        bool NoLock { get; }
+
         /// <summary>Gets table schema.</summary>
         Dictionary<string, DynamicSchemaColumn> Schema { get; }
     }

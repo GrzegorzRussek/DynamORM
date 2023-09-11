@@ -86,12 +86,14 @@ namespace DynamORM.Builders.Implementation
             /// <param name="name">The name of table.</param>
             /// <param name="alias">The table alias.</param>
             /// <param name="owner">The table owner.</param>
-            public TableInfo(DynamicDatabase db, string name, string alias = null, string owner = null)
+            /// <param name="nolock">The table should be used with nolock.</param>
+            public TableInfo(DynamicDatabase db, string name, string alias = null, string owner = null, bool nolock = false)
                 : this()
             {
                 Name = name;
                 Alias = alias;
                 Owner = owner;
+                NoLock = nolock;
 
                 if (!name.ContainsAny(StringExtensions.InvalidMemberChars))
                     Schema = db.GetSchema(name, owner: owner);
@@ -104,7 +106,8 @@ namespace DynamORM.Builders.Implementation
             /// <param name="type">The type which can be mapped to database.</param>
             /// <param name="alias">The table alias.</param>
             /// <param name="owner">The table owner.</param>
-            public TableInfo(DynamicDatabase db, Type type, string alias = null, string owner = null)
+            /// <param name="nolock">The table should be used with nolock.</param>
+            public TableInfo(DynamicDatabase db, Type type, string alias = null, string owner = null, bool nolock = false)
                 : this()
             {
                 DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
@@ -114,6 +117,7 @@ namespace DynamORM.Builders.Implementation
 
                 Owner = (mapper.Table != null) ? mapper.Table.Owner : owner;
                 Alias = alias;
+                NoLock = nolock;
 
                 Schema = db.GetSchema(type);
             }
@@ -126,6 +130,9 @@ namespace DynamORM.Builders.Implementation
 
             /// <summary>Gets or sets table alias.</summary>
             public string Alias { get; internal set; }
+
+            /// <summary>Gets or sets table alias.</summary>
+            public bool NoLock { get; internal set; }
 
             /// <summary>Gets or sets table schema.</summary>
             public Dictionary<string, DynamicSchemaColumn> Schema { get; internal set; }
@@ -235,6 +242,7 @@ namespace DynamORM.Builders.Implementation
                 Database.AddToCache(this);
 
             SupportSchema = (db.Options & DynamicDatabaseOptions.SupportSchema) == DynamicDatabaseOptions.SupportSchema;
+            SupportNoLock = (db.Options & DynamicDatabaseOptions.SupportNoLock) == DynamicDatabaseOptions.SupportNoLock;
         }
 
         /// <summary>Initializes a new instance of the <see cref="DynamicQueryBuilder"/> class.</summary>
@@ -282,6 +290,9 @@ namespace DynamORM.Builders.Implementation
 
         /// <summary>Gets a value indicating whether database supports standard schema.</summary>
         public bool SupportSchema { get; private set; }
+
+        /// <summary>Gets a value indicating whether database supports with no lock syntax.</summary>
+        public bool SupportNoLock { get; private set; }
 
         /// <summary>
         /// Generates the text this command will execute against the underlying database.
@@ -724,6 +735,15 @@ namespace DynamORM.Builders.Implementation
                         item = Parse(node.Arguments[0], pars: null, rawstr: true, isMultiPart: false); // pars=null to avoid to parameterize aliases
                         item = item.Validated("Alias"); // Intercepting null and empty aliases
                         return string.Format("{0} AS {1}", parent, item);
+
+                    case "NOLOCK":
+                        if (!SupportNoLock)
+                            return parent;
+
+                        if (node.Arguments != null && node.Arguments.Length > 1)
+                            throw new ArgumentException("NOLOCK method expects no arguments.");
+
+                        return string.Format("{0} {1}", parent, "WITH(NOLOCK)");
 
                     case "COUNT":
                         if (node.Arguments != null && node.Arguments.Length > 1)

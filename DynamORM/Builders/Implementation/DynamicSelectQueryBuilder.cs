@@ -346,6 +346,7 @@ namespace DynamORM.Builders.Implementation
                     string owner = null;
                     string main = null;
                     string alias = null;
+                    bool nolock = false;
                     Type type = null;
 
                     while (true)
@@ -365,6 +366,20 @@ namespace DynamORM.Builders.Implementation
                                 throw new ArgumentException("AS() requires one and only one parameter: " + args.Sketch());
 
                             alias = Parse(args[0], rawstr: true, decorate: false).Validated("Alias");
+
+                            node = node.Host;
+                            continue;
+                        }
+                        
+                        // Support for the NoLock() virtual method...
+                        if (node is DynamicParser.Node.Method && ((DynamicParser.Node.Method)node).Name.ToUpper() == "NOLOCK")
+                        {
+                            object[] args = ((DynamicParser.Node.Method)node).Arguments;
+
+                            if (args != null && args.Length > 0)
+                                throw new ArgumentNullException("arg", "NoLock() doesn't support arguments.");
+
+                            nolock = true;
 
                             node = node.Host;
                             continue;
@@ -439,7 +454,7 @@ namespace DynamORM.Builders.Implementation
                     }
 
                     if (!string.IsNullOrEmpty(main))
-                        tableInfo = type == null ? new TableInfo(Database, main, alias, owner) : new TableInfo(Database, type, alias, owner);
+                        tableInfo = type == null ? new TableInfo(Database, main, alias, owner, nolock) : new TableInfo(Database, type, alias, owner, nolock);
                     else
                         throw new ArgumentException(string.Format("Specification #{0} is invalid: {1}", index, result));
                 }
@@ -460,6 +475,9 @@ namespace DynamORM.Builders.Implementation
 
                 if (!string.IsNullOrEmpty(tableInfo.Alias))
                     sb.AppendFormat(" AS {0}", tableInfo.Alias);
+
+                if (SupportNoLock && tableInfo.NoLock)
+                    sb.AppendFormat(" WITH(NOLOCK)");
 
                 _from = string.IsNullOrEmpty(_from) ? sb.ToString() : string.Format("{0}, {1}", _from, sb.ToString());
             }
@@ -530,6 +548,7 @@ namespace DynamORM.Builders.Implementation
                     string owner = null;
                     string alias = null;
                     string condition = null;
+                    bool nolock = false;
                     Type tableType = null;
 
                     // If the expression resolves to a string...
@@ -602,6 +621,20 @@ namespace DynamORM.Builders.Implementation
                                     throw new ArgumentException("AS() requires one and only one parameter: " + args.Sketch());
 
                                 alias = Parse(args[0], rawstr: true, decorate: false, isMultiPart: false).Validated("Alias");
+
+                                node = node.Host;
+                                continue;
+                            }
+
+                            // Support for the NoLock() virtual method...
+                            if (node is DynamicParser.Node.Method && ((DynamicParser.Node.Method)node).Name.ToUpper() == "NOLOCK")
+                            {
+                                object[] args = ((DynamicParser.Node.Method)node).Arguments;
+
+                                if (args != null && args.Length > 0)
+                                    throw new ArgumentNullException("arg", "NoLock() doesn't support arguments.");
+
+                                nolock = true;
 
                                 node = node.Host;
                                 continue;
@@ -718,7 +751,7 @@ namespace DynamORM.Builders.Implementation
                     if (justAddTables)
                     {
                         if (!string.IsNullOrEmpty(main))
-                            tableInfo = tableType == null ? new TableInfo(Database, main, alias, owner) : new TableInfo(Database, tableType, alias, owner);
+                            tableInfo = tableType == null ? new TableInfo(Database, main, alias, owner, nolock) : new TableInfo(Database, tableType, alias, owner, nolock);
                         else
                             throw new ArgumentException(string.Format("Specification #{0} is invalid: {1}", index, result));
 
@@ -745,6 +778,9 @@ namespace DynamORM.Builders.Implementation
 
                         if (!string.IsNullOrEmpty(tableInfo.Alias))
                             sb.AppendFormat(" AS {0}", tableInfo.Alias);
+
+                        if (SupportNoLock && tableInfo.NoLock)
+                            sb.AppendFormat(" WITH(NOLOCK)");
 
                         if (!string.IsNullOrEmpty(condition))
                             sb.AppendFormat(" ON {0}", condition);

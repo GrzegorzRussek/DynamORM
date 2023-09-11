@@ -47,7 +47,8 @@ namespace DynamORM.Tests.Select
             CreateDynamicDatabase(
                 DynamicDatabaseOptions.SingleConnection |
                 DynamicDatabaseOptions.SingleTransaction |
-                DynamicDatabaseOptions.SupportLimitOffset);
+                DynamicDatabaseOptions.SupportLimitOffset |
+                DynamicDatabaseOptions.SupportNoLock);
         }
 
         /// <summary>Tear down test objects.</summary>
@@ -96,6 +97,18 @@ namespace DynamORM.Tests.Select
 
             cmd.From(u => u.dbo.Users.As("c"));
             Assert.AreEqual("SELECT * FROM \"dbo\".\"Users\" AS c", cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests from method with as expression in text.
+        /// </summary>
+        [TestMethod]
+        public void TestFromGetAsNoLock1()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As("c").NoLock());
+            Assert.AreEqual("SELECT * FROM \"dbo\".\"Users\" AS c WITH(NOLOCK)", cmd.CommandText());
         }
 
         /// <summary>
@@ -209,6 +222,19 @@ namespace DynamORM.Tests.Select
             cmd.SubQuery((b, s) => b.From(y => y(s.From(x => x.dbo.Users)).As("u")));
 
             Assert.AreEqual("SELECT * FROM (SELECT * FROM \"dbo\".\"Users\") AS u", cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests from method using invoke with sub query.
+        /// </summary>
+        [TestMethod]
+        public void TestFromSubQuery4()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u(new DynamicSelectQueryBuilder(Database).From(x => x.dbo.Users.NoLock())).As("u"));
+
+            Assert.AreEqual("SELECT * FROM (SELECT * FROM \"dbo\".\"Users\" WITH(NOLOCK)) AS u", cmd.CommandText());
         }
 
         /// <summary>
@@ -414,6 +440,35 @@ namespace DynamORM.Tests.Select
                 .Select(usr => usr.All(), uc => uc.Users);
 
             Assert.AreEqual(string.Format("SELECT usr.*, uc.\"Users\" FROM \"dbo\".\"Users\" AS usr INNER JOIN (SELECT * FROM \"dbo\".\"UserClients\" WHERE (\"Deleted\" = [${0}])) AS uc ON ((usr.\"Id_User\" = uc.\"User_Id\") AND (uc.\"Users\" IS NOT NULL))", cmd.Parameters.Keys.First()), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests from method using invoke with sub query an no lock.
+        /// </summary>
+        [TestMethod]
+        public void TestInnerJoin5()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.usr).NoLock())
+                .SubQuery((b, s) => b.Join(usr => usr(s.From(x => x.dbo.UserClients.NoLock()).Where(x => x.Deleted == 0)).Inner().As(usr.uc).On(usr.Id_User == usr.uc.User_Id && usr.uc.Users != null)))
+                .Select(usr => usr.All(), uc => uc.Users);
+
+            Assert.AreEqual(string.Format("SELECT usr.*, uc.\"Users\" FROM \"dbo\".\"Users\" AS usr WITH(NOLOCK) INNER JOIN (SELECT * FROM \"dbo\".\"UserClients\" WITH(NOLOCK) WHERE (\"Deleted\" = [${0}])) AS uc ON ((usr.\"Id_User\" = uc.\"User_Id\") AND (uc.\"Users\" IS NOT NULL))", cmd.Parameters.Keys.First()), cmd.CommandText());
+        }
+
+        /// <summary>
+        /// Tests inner join method with no lock.
+        /// </summary>
+        [TestMethod]
+        public void TestInnerJoin6()
+        {
+            IDynamicSelectQueryBuilder cmd = new DynamicSelectQueryBuilder(Database);
+
+            cmd.From(u => u.dbo.Users.As(u.usr).NoLock())
+                .Join(u => u.Inner().dbo.UserClients.AS(u.uc).NoLock().On(u.usr.Id_User == u.uc.User_Id));
+
+            Assert.AreEqual(string.Format("SELECT * FROM \"dbo\".\"Users\" AS usr WITH(NOLOCK) INNER JOIN \"dbo\".\"UserClients\" AS uc WITH(NOLOCK) ON (usr.\"Id_User\" = uc.\"User_Id\")"), cmd.CommandText());
         }
 
         /// <summary>

@@ -33,33 +33,32 @@
  *  * DYNAMORM_OMMIT_TRYPARSE - Remove TryParse helpers (also applies DYNAMORM_OMMIT_GENERICEXECUTION)
 */
 
-using System;
-using System.Collections;
+using DynamORM.Builders.Extensions;
+using DynamORM.Builders.Implementation;
+using DynamORM.Builders;
+using DynamORM.Helpers.Dynamics;
+using DynamORM.Helpers;
+using DynamORM.Mapper;
+using DynamORM.Validation;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Data;
+using System.Collections;
 using System.Data.Common;
+using System.Data;
 using System.Dynamic;
 using System.IO;
-using System.Linq;
 using System.Linq.Expressions;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
-using System.Text;
 using System.Text.RegularExpressions;
-using DynamORM.Builders;
-using DynamORM.Builders.Extensions;
-using DynamORM.Builders.Implementation;
-using DynamORM.Helpers;
-using DynamORM.Helpers.Dynamics;
-using DynamORM.Mapper;
-using DynamORM.Validation;
+using System.Text;
+using System;
 
 [module: System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:FileMayOnlyContainASingleClass", Justification = "This is a generated file which generates all the necessary support classes.")]
 [module: System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1403:FileMayOnlyContainASingleNamespace", Justification = "This is a generated file which generates all the necessary support classes.")]
-
 namespace DynamORM
 {
     /// <summary>Cache data reader in memory.</summary>
@@ -3566,6 +3565,9 @@ namespace DynamORM
         /// <summary>Database support stored procedures (EXEC procedure ...).</summary>
         SupportStoredProcedures = 0x00000100,
 
+        /// <summary>Database support with no lock syntax.</summary>
+        SupportNoLock = 0x00001000,
+
         /// <summary>Debug option allowing to enable command dumps by default.</summary>
         DumpCommands = 0x01000000,
     }
@@ -4531,7 +4533,7 @@ namespace DynamORM
                             param.Scale,
                             param.Precision,
                             param.Scale,
-                            param.Value is byte[] ? ConvertByteArrayToHexString((byte[])param.Value) : param.Value ?? "NULL",
+                            param.Value is byte[]? ConvertByteArrayToHexString((byte[])param.Value) : param.Value ?? "NULL",
                             param.Value != null ? param.Value.GetType().Name : "DBNull");
                     }
 
@@ -7417,6 +7419,9 @@ namespace DynamORM
             /// <summary>Gets table alias.</summary>
             string Alias { get; }
 
+            /// <summary>Gets table no lock status.</summary>
+            bool NoLock { get; }
+
             /// <summary>Gets table schema.</summary>
             Dictionary<string, DynamicSchemaColumn> Schema { get; }
         }
@@ -8318,12 +8323,14 @@ namespace DynamORM
                     /// <param name="name">The name of table.</param>
                     /// <param name="alias">The table alias.</param>
                     /// <param name="owner">The table owner.</param>
-                    public TableInfo(DynamicDatabase db, string name, string alias = null, string owner = null)
+                    /// <param name="nolock">The table should be used with nolock.</param>
+                    public TableInfo(DynamicDatabase db, string name, string alias = null, string owner = null, bool nolock = false)
                         : this()
                     {
                         Name = name;
                         Alias = alias;
                         Owner = owner;
+                        NoLock = nolock;
 
                         if (!name.ContainsAny(StringExtensions.InvalidMemberChars))
                             Schema = db.GetSchema(name, owner: owner);
@@ -8336,7 +8343,8 @@ namespace DynamORM
                     /// <param name="type">The type which can be mapped to database.</param>
                     /// <param name="alias">The table alias.</param>
                     /// <param name="owner">The table owner.</param>
-                    public TableInfo(DynamicDatabase db, Type type, string alias = null, string owner = null)
+                    /// <param name="nolock">The table should be used with nolock.</param>
+                    public TableInfo(DynamicDatabase db, Type type, string alias = null, string owner = null, bool nolock = false)
                         : this()
                     {
                         DynamicTypeMap mapper = DynamicMapperCache.GetMapper(type);
@@ -8346,6 +8354,7 @@ namespace DynamORM
 
                         Owner = (mapper.Table != null) ? mapper.Table.Owner : owner;
                         Alias = alias;
+                        NoLock = nolock;
 
                         Schema = db.GetSchema(type);
                     }
@@ -8358,6 +8367,9 @@ namespace DynamORM
 
                     /// <summary>Gets or sets table alias.</summary>
                     public string Alias { get; internal set; }
+
+                    /// <summary>Gets or sets table alias.</summary>
+                    public bool NoLock { get; internal set; }
 
                     /// <summary>Gets or sets table schema.</summary>
                     public Dictionary<string, DynamicSchemaColumn> Schema { get; internal set; }
@@ -8467,6 +8479,7 @@ namespace DynamORM
                         Database.AddToCache(this);
 
                     SupportSchema = (db.Options & DynamicDatabaseOptions.SupportSchema) == DynamicDatabaseOptions.SupportSchema;
+                    SupportNoLock = (db.Options & DynamicDatabaseOptions.SupportNoLock) == DynamicDatabaseOptions.SupportNoLock;
                 }
 
                 /// <summary>Initializes a new instance of the <see cref="DynamicQueryBuilder"/> class.</summary>
@@ -8514,6 +8527,9 @@ namespace DynamORM
 
                 /// <summary>Gets a value indicating whether database supports standard schema.</summary>
                 public bool SupportSchema { get; private set; }
+
+                /// <summary>Gets a value indicating whether database supports with no lock syntax.</summary>
+                public bool SupportNoLock { get; private set; }
 
                 /// <summary>
                 /// Generates the text this command will execute against the underlying database.
@@ -8956,6 +8972,15 @@ namespace DynamORM
                                 item = Parse(node.Arguments[0], pars: null, rawstr: true, isMultiPart: false); // pars=null to avoid to parameterize aliases
                                 item = item.Validated("Alias"); // Intercepting null and empty aliases
                                 return string.Format("{0} AS {1}", parent, item);
+
+                            case "NOLOCK":
+                                if (!SupportNoLock)
+                                    return parent;
+
+                                if (node.Arguments != null && node.Arguments.Length > 1)
+                                    throw new ArgumentException("NOLOCK method expects no arguments.");
+
+                                return string.Format("{0} {1}", parent, "WITH(NOLOCK)");
 
                             case "COUNT":
                                 if (node.Arguments != null && node.Arguments.Length > 1)
@@ -9512,6 +9537,7 @@ namespace DynamORM
                             string owner = null;
                             string main = null;
                             string alias = null;
+                            bool nolock = false;
                             Type type = null;
 
                             while (true)
@@ -9531,6 +9557,20 @@ namespace DynamORM
                                         throw new ArgumentException("AS() requires one and only one parameter: " + args.Sketch());
 
                                     alias = Parse(args[0], rawstr: true, decorate: false).Validated("Alias");
+
+                                    node = node.Host;
+                                    continue;
+                                }
+
+                                // Support for the NoLock() virtual method...
+                                if (node is DynamicParser.Node.Method && ((DynamicParser.Node.Method)node).Name.ToUpper() == "NOLOCK")
+                                {
+                                    object[] args = ((DynamicParser.Node.Method)node).Arguments;
+
+                                    if (args != null && args.Length > 0)
+                                        throw new ArgumentNullException("arg", "NoLock() doesn't support arguments.");
+
+                                    nolock = true;
 
                                     node = node.Host;
                                     continue;
@@ -9605,7 +9645,7 @@ namespace DynamORM
                             }
 
                             if (!string.IsNullOrEmpty(main))
-                                tableInfo = type == null ? new TableInfo(Database, main, alias, owner) : new TableInfo(Database, type, alias, owner);
+                                tableInfo = type == null ? new TableInfo(Database, main, alias, owner, nolock) : new TableInfo(Database, type, alias, owner, nolock);
                             else
                                 throw new ArgumentException(string.Format("Specification #{0} is invalid: {1}", index, result));
                         }
@@ -9626,6 +9666,9 @@ namespace DynamORM
 
                         if (!string.IsNullOrEmpty(tableInfo.Alias))
                             sb.AppendFormat(" AS {0}", tableInfo.Alias);
+
+                        if (SupportNoLock && tableInfo.NoLock)
+                            sb.AppendFormat(" WITH(NOLOCK)");
 
                         _from = string.IsNullOrEmpty(_from) ? sb.ToString() : string.Format("{0}, {1}", _from, sb.ToString());
                     }
@@ -9696,6 +9739,7 @@ namespace DynamORM
                             string owner = null;
                             string alias = null;
                             string condition = null;
+                            bool nolock = false;
                             Type tableType = null;
 
                             // If the expression resolves to a string...
@@ -9768,6 +9812,20 @@ namespace DynamORM
                                             throw new ArgumentException("AS() requires one and only one parameter: " + args.Sketch());
 
                                         alias = Parse(args[0], rawstr: true, decorate: false, isMultiPart: false).Validated("Alias");
+
+                                        node = node.Host;
+                                        continue;
+                                    }
+
+                                    // Support for the NoLock() virtual method...
+                                    if (node is DynamicParser.Node.Method && ((DynamicParser.Node.Method)node).Name.ToUpper() == "NOLOCK")
+                                    {
+                                        object[] args = ((DynamicParser.Node.Method)node).Arguments;
+
+                                        if (args != null && args.Length > 0)
+                                            throw new ArgumentNullException("arg", "NoLock() doesn't support arguments.");
+
+                                        nolock = true;
 
                                         node = node.Host;
                                         continue;
@@ -9884,7 +9942,7 @@ namespace DynamORM
                             if (justAddTables)
                             {
                                 if (!string.IsNullOrEmpty(main))
-                                    tableInfo = tableType == null ? new TableInfo(Database, main, alias, owner) : new TableInfo(Database, tableType, alias, owner);
+                                    tableInfo = tableType == null ? new TableInfo(Database, main, alias, owner, nolock) : new TableInfo(Database, tableType, alias, owner, nolock);
                                 else
                                     throw new ArgumentException(string.Format("Specification #{0} is invalid: {1}", index, result));
 
@@ -9911,6 +9969,9 @@ namespace DynamORM
 
                                 if (!string.IsNullOrEmpty(tableInfo.Alias))
                                     sb.AppendFormat(" AS {0}", tableInfo.Alias);
+
+                                if (SupportNoLock && tableInfo.NoLock)
+                                    sb.AppendFormat(" WITH(NOLOCK)");
 
                                 if (!string.IsNullOrEmpty(condition))
                                     sb.AppendFormat(" ON {0}", condition);
@@ -14448,7 +14509,7 @@ namespace DynamORM
         public enum DynamicEntityState
         {
             /// <summary>Default state. This state will only permit to refresh data from database.</summary>
-            /// <remarks>In this state repository will be unable to tell if object with this state should be added
+            /// <remarks>In this state repository will be unable to tell if object with this state should be added 
             /// or updated in database, but you can still manually perform update or insert on such object.</remarks>
             Unknown,
 
@@ -14510,7 +14571,8 @@ namespace DynamORM
             /// <returns>Objects enumerator.</returns>
             public virtual IEnumerable<T> GetAll()
             {
-                return EnumerateQuery(_database.From<T>());
+                using (var q = _database.From<T>())
+                    return EnumerateQuery(q);
             }
 
             /// <summary>Get rows from database by custom query.</summary>

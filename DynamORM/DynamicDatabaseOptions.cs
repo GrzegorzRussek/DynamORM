@@ -59,6 +59,9 @@ namespace DynamORM
         /// <summary>Database support stored procedures (EXEC procedure ...).</summary>
         SupportStoredProcedures = 0x00000100,
 
+        /// <summary>Database support with no lock syntax.</summary>
+        SupportNoLock = 0x00001000,
+
         /// <summary>Debug option allowing to enable command dumps by default.</summary>
         DumpCommands = 0x01000000,
     }

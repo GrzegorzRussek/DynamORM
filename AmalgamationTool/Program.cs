@@ -25,7 +25,7 @@ namespace AmalgamationTool
 
                 // Deal with usings
                 foreach (var u in content.Split(new string[] { Environment.NewLine }, StringSplitOptions.None)
-                    .Where(l => l.Trim().StartsWith("using "))
+                    .Where(l => l.Trim().StartsWith("using ") && !l.Trim().StartsWith("using ("))
                     .Select(l => l.Trim()))
                     if (!usings.Contains(u))
                         usings.Add(u);
@@ -95,6 +95,41 @@ namespace AmalgamationTool
 [module: System.Diagnostics.CodeAnalysis.SuppressMessage(""StyleCop.CSharp.MaintainabilityRules"", ""SA1403:FileMayOnlyContainASingleNamespace"", Justification = ""This is a generated file which generates all the necessary support classes."")]");
 
             FillClassesAndNamespacesIddented(classes, sb);
+
+            string amalgamation = sb.ToString();
+
+            sb = new StringBuilder();
+
+            string prevTrimmed = null;
+
+            string[] array = amalgamation.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
+
+            for (int i = 0; i < array.Length; i++)
+            {
+                string l = array[i];
+                var currentTrimmed = l.Trim();
+                var nextTrimmed = (i + 1 == array.Length) ? null : array[i + 1].Trim();
+
+                if (prevTrimmed != null)
+                {
+                    switch (prevTrimmed)
+                    {
+                        case "":
+                            if (currentTrimmed == string.Empty)
+                                continue;
+                            break;
+
+                        case "{":
+                        case "}":
+                            if (currentTrimmed == string.Empty && (nextTrimmed == prevTrimmed || nextTrimmed == string.Empty))
+                                continue;
+                            break;
+                    }
+                }
+
+                sb.AppendLine(l);
+                prevTrimmed = currentTrimmed;
+            }
 
             File.WriteAllText(Path.GetFullPath(args[1].Trim('"', '\'')), sb.ToString());
         }
