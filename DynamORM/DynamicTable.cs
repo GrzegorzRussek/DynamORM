@@ -247,7 +247,7 @@ namespace DynamORM
             IsDisposed = false;
             Database = database;
             TableName = Database.StripName(table);
-            OwnerName = Database.StripName(owner);
+            OwnerName = owner != null ? Database.StripName(owner) : string.Empty;
             TableType = null;
 
             BuildAndCacheSchema(keys);
